@@ -106,6 +106,12 @@ export const SETTINGS_SCHEMA = {
   },
   padInvertPitch: { section: 'Controller', label: 'Invert pitch', type: 'bool', default: false },
   padInvertLook: { section: 'Controller', label: 'Invert camera look', type: 'bool', default: false },
+  atcTraffic: {
+    section: 'Game systems', label: 'ATC traffic', type: 'options',
+    options: [['off', 'None'], ['light', 'Light'], ['moderate', 'Moderate'], ['busy', 'Busy']], default: 'moderate',
+    hint: 'How many AI aircraft use the airport you are at (needs ATC).',
+  },
+  atcVoice: { section: 'Audio', label: 'ATC voice (speech synthesis)', type: 'bool', default: false, hint: 'Reads controller messages aloud when your browser supports it. Text is always shown.' },
   masterVolume: {
     section: 'Audio', label: 'Master volume', type: 'range',
     min: 0, max: 1, step: 0.05, default: 0.8, format: (v) => `${Math.round(v * 100)}%`,

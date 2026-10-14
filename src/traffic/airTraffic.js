@@ -44,7 +44,7 @@ export class AirTraffic {
   }
 
   #spawn(id, n) {
-    const { root, spec } = createTrafficModel(id, n);
+    const { root, spec } = createTrafficModel(id, n, { gearUp: true });
     this.group.add(root);
     const flight = { root, spec, fast: spec.speeds.cruise > 180, speed: spec.speeds.cruise * 0.514 * 0.8, to: null };
     this.#leg(flight);

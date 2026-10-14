@@ -32,12 +32,16 @@ export function addParkedTraffic(group, airport) {
     if (skip) { skip = false; return; }
     if (!rng.chance(fill)) return;
     const id = pickWeighted(rng, POOLS[airport.cls]);
-    const { root, spec } = createTrafficModel(id, rng.int(0, 7));
+    const variant = rng.int(0, 7);
+    const { root, spec } = createTrafficModel(id, variant);
     setHeading(root, stand.heading);
     // Nosewheel/mainwheel contact height plus the struts' static compression.
     root.position.set(stand.x - airport.x, -spec.gear.mainLeft.y - 0.1, stand.z - airport.z);
     root.userData.traffic = id;
+    root.userData.stand = i;
+    root.userData.variant = variant;
     group.add(root);
+    (group.userData.parked ??= []).push({ stand: i, id, root, spec });
     if (WIDE.has(id) && airport.cls === 'hub') skip = true;
     void i;
   });

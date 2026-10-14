@@ -168,7 +168,7 @@ function buildRunways(cls, rng, cfg, ilsCounter, code) {
     heading = ((heading % 360) + 360) % 360;
     const dir = dirOf(heading);
     const side = { x: -dir.z, z: dir.x }; // 90 degrees to the right of the runway heading
-    const offset = def.parallel ? 480 : def.cross ? 0 : 0;
+    const offset = 480; // spacing of a parallel pair; the main runway sits half of it to the left, the parallel half to the right
     const label = (h) => runwayNumber(h);
     // The lower-numbered end names the runway: "09/27".
     const endA = { heading, id: label(heading) };
@@ -182,8 +182,8 @@ function buildRunways(cls, rng, cfg, ilsCounter, code) {
     endB.id += suffixB;
     const rw = {
       length: def.length, width: def.width, surface: def.grass ? 'grass' : 'asphalt', heading,
-      offsetX: side.x * (def.parallel ? offset / 2 : defs.some((d) => d.parallel) ? -offset / 2 : 0),
-      offsetZ: side.z * (def.parallel ? offset / 2 : defs.some((d) => d.parallel) ? -offset / 2 : 0),
+      offsetX: side.x * (def.parallel ? offset / 2 : !def.cross && defs.some((d) => d.parallel) ? -offset / 2 : 0),
+      offsetZ: side.z * (def.parallel ? offset / 2 : !def.cross && defs.some((d) => d.parallel) ? -offset / 2 : 0),
       ends: [endA, endB],
     };
     rw.name = [endA.id, endB.id].sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).join('/');

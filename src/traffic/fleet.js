@@ -61,7 +61,14 @@ function bakeLevel(level, withSprites) {
   return out;
 }
 
-function bakeView(view, maxRange) {
+function bakeView(view, maxRange, gearUp) {
+  if (gearUp) {
+    for (const rig of view.rigs) {
+      if (rig.gear.nose) rig.gear.nose.leg.visible = false;
+      for (const main of rig.gear.mains) main.leg.visible = false;
+      for (const door of rig.gear.doors) door.pivot.visible = false;
+    }
+  }
   const lod = new THREE.LOD();
   view.lod.levels.forEach((level, i) => lod.addLevel(bakeLevel(level.object, i !== 1), level.distance));
   lod.addLevel(new THREE.Group(), maxRange); // beyond this the aircraft is not drawn at all
@@ -77,16 +84,16 @@ function registration(spec, n) {
 }
 
 /** A parked/flying model for `id`, variant `n` (wraps). Returns { root, spec }. */
-export function createTrafficModel(id, n = 0) {
+export function createTrafficModel(id, n = 0, { gearUp = false } = {}) {
   const base = getAircraft(id);
   const variants = VARIANTS[id] ?? [{}];
   const vi = ((n % variants.length) + variants.length) % variants.length;
-  const key = `${id}:${vi}:${n % 5}`;
+  const key = `${id}:${vi}:${n % 5}:${gearUp ? 'u' : 'd'}`;
   let entry = cache.get(key);
   if (!entry) {
     const spec = { ...base, registration: registration(base, n), livery: { ...base.livery, ...variants[vi] } };
     const view = new AircraftView(spec, null);
-    entry = { source: bakeView(view, spec.geometry.length * 160), spec };
+    entry = { source: bakeView(view, spec.geometry.length * 160, gearUp), spec };
     cache.set(key, entry);
   }
   const root = entry.source.clone();

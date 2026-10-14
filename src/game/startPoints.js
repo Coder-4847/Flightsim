@@ -1,5 +1,6 @@
 import { getAircraft } from '../aircraft/index.js';
 import { KT } from '../flight/units.js';
+import { layoutAirport } from '../world/airportLayout.js';
 
 // Where and how a flight begins on a map: at a runway threshold, on a 3-degree final, or in
 // flight above the airport.
@@ -10,6 +11,7 @@ const dirOf = (h) => ({ x: Math.sin(h * DEG), z: -Math.cos(h * DEG) });
 export const START_MODES = [
   { id: 'runway', label: 'On the runway', hint: 'Lined up at the threshold, ready for takeoff.' },
   { id: 'final', label: 'Final approach', hint: 'About 4.5 km out on a 3° glide path, gear and flaps set.' },
+  { id: 'gate', label: 'At the gate', hint: 'Parked on the apron with the brake set. Taxi, take off and fly a full ATC flight.' },
   { id: 'air', label: 'In flight', hint: 'Trimmed and cruising above the airfield.' },
 ];
 
@@ -50,6 +52,11 @@ export function startPoint(map, airport, endId, mode, aircraftId) {
     const ceiling = terrainCeiling(map, airport.x, airport.z, 10000);
     const alt = Math.min(Math.max(airport.elevation + 1500, ceiling + 400), 6500);
     return { x: airport.x, y: alt, z: airport.z, heading: end.heading, reset: { mode: 'air', heading: end.heading, x: airport.x, z: airport.z, altitude: alt, speed: spec.speeds.cruise * KT } };
+  }
+  if (mode === 'gate') {
+    const stands = layoutAirport(airport).stands;
+    const stand = stands[Math.floor(stands.length / 2)];
+    return { x: stand.x, y: airport.elevation + 2, z: stand.z, heading: stand.heading, reset: { mode: 'runway', heading: stand.heading, x: stand.x, z: stand.z }, gate: true };
   }
   const x = t.x + d.x * 60;
   const z = t.z + d.z * 60;

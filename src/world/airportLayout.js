@@ -48,9 +48,10 @@ export function layoutAirport(a) {
     taxiPerp = [terminalSide * perp];
     apronCenter = at(origin, h, 0, terminalSide * (perp + 12 + apronDepth / 2));
   }
+  let taxiLen = 0;
   if (spec.paved) {
     // Parallel taxiways with connectors to the runway(s).
-    const taxiLen = main.length * (hasPair ? 0.5 : 0.35);
+    taxiLen = main.length * (hasPair ? 0.5 : 0.35);
     taxiPerp.forEach((perp) => {
       const c = at(origin, h, 0, perp);
       rects.push(rect(c.x, c.z, taxiLen, 11.5, h, 'taxiway'));
@@ -114,7 +115,8 @@ export function layoutAirport(a) {
     stands.push({ x: p.x, z: p.z, heading: (h + (hasPair ? (i % 2 ? 90 : 270) : terminalSide > 0 ? 270 : 90)) % 360 });
   }
 
-  a.layout = { rects, buildings, stands, taxiLights, heading: h, hasPair, apronCenter };
+  const taxi = spec.paved ? { perp: taxiPerp, len: taxiLen, hasPair, terminalSide } : null;
+  a.layout = { rects, buildings, stands, taxiLights, heading: h, hasPair, apronCenter, taxi };
   return a.layout;
 }
 

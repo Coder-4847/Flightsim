@@ -6,6 +6,8 @@ import { buildMap, getAirport } from '../world/mapBuilder.js';
 import { FlightModel } from '../flight/flightModel.js';
 import { FlightControls } from '../input/flightControls.js';
 import { CameraSystem } from '../scene/cameras.js';
+import { AtcController } from '../atc/controller.js';
+import { AtcVoice } from '../atc/voice.js';
 import { FailureManager } from './failures.js';
 import { REALISM_ASSIST, getSystems } from './modes.js';
 import { startPoint } from './startPoints.js';
@@ -38,6 +40,8 @@ export class FlightSession {
     });
     this.controls.onToast = (text) => this.onToast?.(text);
     this.systems = getSystems(settings);
+    this.voice = new AtcVoice(settings);
+    this.atc = null;
     settings.on('change', ({ key }) => { if (key.startsWith('sys_')) this.applySystems(); });
   }
 
@@ -51,6 +55,7 @@ export class FlightSession {
       this.model.damageEnabled = this.systems.damage;
       this.model.world.setRealism?.(this.systems.fullWeather ? 1 : 0.3);
     }
+    this.atc?.setEnabled(this.systems.atc);
     this.onSystemsChanged?.(this.systems);
   }
 
@@ -87,6 +92,9 @@ export class FlightSession {
     this.flightScene.weather.setSky(opts.sky ?? 'clear');
     this.model = new FlightModel(spec, world);
     this.model.nav = { airports: map.airports, active: airport };
+    this.atc?.dispose();
+    this.atc = new AtcController({ map, settings: this.settings, getFlightScene: () => this.flightScene, getSky: () => this.options?.sky });
+    this.atc.on('message', (msg) => { if (msg.who === 'ATC') this.voice.speak(msg.spoken); });
     this.view = new AircraftView(spec, createCockpit);
     this.flightScene.scene.add(this.view.root);
     this.cameras.setAircraft(this.view);
@@ -111,7 +119,13 @@ export class FlightSession {
     this.cameras.reset();
     this.settings.set('flightAssist', REALISM_ASSIST[this.settings.get('sys_realism')] ?? 'light');
     this.model.assist = this.settings.get('flightAssist');
+    if (spawn.gate) {
+      this.model.controls.flapsStage = 0;
+      this.model.surfaces.flap = 0;
+      this.model.controls.parkingBrake = true;
+    }
     this.applySystems();
+    this.atc.start(this.model, this.airport, this.endId, startMode, this.systems.atc);
   }
 
   restart() {
@@ -142,6 +156,7 @@ export class FlightSession {
     this.view.setNight(this.flightScene.env.night);
     this.cameras.update(frameDt, this.view.root.position, this.view.root.quaternion, this.controls.look);
     this.model.world.wind(this.view.root.position, this.model.time, this.windAtCamera);
+    this.atc?.update(frameDt);
     this.flightScene.update(frameDt, this.flightScene.camera.position, this.windAtCamera, this.model.vel);
     this.flightScene.render();
   }
@@ -155,6 +170,8 @@ export class FlightSession {
   }
 
   dispose() {
+    this.atc?.dispose();
+    this.voice?.cancel();
     if (!this.view) return;
     this.flightScene.scene.remove(this.view.root);
     this.view.root.traverse((o) => {

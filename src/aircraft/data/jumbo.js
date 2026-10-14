@@ -3,7 +3,7 @@ export default {
   id: 'jumbo',
   name: 'Titan 400',
   maker: 'Four-engine jumbo',
-  blurb: 'Four engines, seven fuel tanks and a CG that moves as you burn. The big one.',
+  blurb: 'Four engines, six fuel tanks and a CG that moves as you burn. The big one.',
   class: 'Airliner',
   registration: 'N400FS',
 
@@ -75,5 +75,6 @@ export default {
     eye: { x: 33.0, y: 4.1, z: -0.62 }, panel: 'airliner', seats: 400, yoke: 'yoke', width: 1.15,
   },
 
+  minRunway: 3300, // metres: comfortable takeoff or landing distance at typical weights
   geometry: { wingHeight: -2.2, length: 70.7 },
 };

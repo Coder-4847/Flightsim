@@ -60,5 +60,6 @@ export default {
     eye: { x: 3.0, y: 0.5, z: -0.4 }, panel: 'steam2', seats: 8, yoke: 'yoke',
   },
 
+  minRunway: 1100, // metres: comfortable takeoff or landing distance at typical weights
   geometry: { wingHeight: -0.3, length: 13.3 },
 };

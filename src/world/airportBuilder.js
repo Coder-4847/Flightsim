@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { addParkedTraffic } from '../traffic/parked.js';
 import { makeGrassStripTexture, makeRunwayTexture, makeTaxiTexture } from '../scene/textures.js';
 import { layoutAirport } from './airportLayout.js';
 
@@ -232,6 +233,7 @@ export function buildAirport(a) {
   group.add(pole, sockPivot);
   anim.windsock = { pivot: sockPivot, sock };
 
+  addParkedTraffic(group, a);
   group.userData.anim = anim;
   group.userData.airport = a;
   return group;

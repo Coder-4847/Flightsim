@@ -69,6 +69,7 @@ export class FlightSession {
     this.flightScene.weather.setReference(airport.elevation);
     this.flightScene.weather.setSky(opts.sky ?? 'clear');
     this.model = new FlightModel(spec, world);
+    this.model.nav = { airports: map.airports, active: airport };
     this.view = new AircraftView(spec, createCockpit);
     this.flightScene.scene.add(this.view.root);
     this.cameras.setAircraft(this.view);
@@ -118,6 +119,7 @@ export class FlightSession {
     if (!this.model) return;
     this.clock += frameDt;
     this.view.update(this.model, alpha, frameDt, this.clock);
+    this.view.setNight(this.flightScene.env.night);
     this.cameras.update(frameDt, this.view.root.position, this.view.root.quaternion, this.controls.look);
     this.model.world.wind(this.view.root.position, this.model.time, this.windAtCamera);
     this.flightScene.update(frameDt, this.flightScene.camera.position, this.windAtCamera, this.model.vel);

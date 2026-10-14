@@ -83,6 +83,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu }) {
       `FLAPS ${fmt(t.flaps)}°`,
       extra.fixedGear ? 'GEAR FIXED' : `GEAR ${gear}`,
       t.parkingBrake ? 'PARK BRAKE' : '',
+      t.tanks.length ? `CG ${fmt(t.cg * 100, 1)}% MAC` : '',
       `G ${fmt(t.nz, 1)}`,
       `AoA ${fmt(t.alpha)}°`,
       `ASSIST ${extra.assist.toUpperCase()}`,

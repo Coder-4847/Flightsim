@@ -1,1 +1,1 @@
-export { createCockpit } from './cockpit.js';
+export { createCockpit, setCockpitNight } from './cockpit.js';

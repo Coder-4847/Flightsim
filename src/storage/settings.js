@@ -63,7 +63,7 @@ export const SETTINGS_SCHEMA = {
       ['gusty', 'Gusty'],
     ],
     default: 'calm',
-    hint: 'Applies to the next flight. Full weather arrives with the maps in Phase 3.',
+    hint: 'Applies to the next flight. Sky (rain, storm, fog, snow) is chosen on the flight setup screen.',
   },
   timeScale: {
     section: 'Game',

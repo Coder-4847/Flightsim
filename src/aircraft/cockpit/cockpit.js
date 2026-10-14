@@ -29,6 +29,11 @@ for (const mat of Object.values(interior)) {
   mat.emissive = mat.color.clone();
   mat.emissiveIntensity = mat === interior.black ? 0.05 : 0.32;
 }
+/** Interiors are self-lit so they are readable in daylight; dim that glow after dark. */
+export function setCockpitNight(night) {
+  for (const mat of Object.values(interior)) mat.emissiveIntensity = (mat === interior.black ? 0.05 : 0.32) * (1 - 0.82 * night);
+}
+
 function cabinLight(x, y, z) {
   const light = new THREE.PointLight(0xfff1dc, 1.4, 5, 1.6);
   light.position.set(x, y, z);

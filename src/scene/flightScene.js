@@ -7,6 +7,7 @@ import { Terrain } from '../world/terrainTiles.js';
 import { createTerrainMaterial } from '../world/terrainMaterial.js';
 import { buildZoneTexture, createZones } from '../world/zones.js';
 import { Environment } from './environment.js';
+import { AirTraffic } from '../traffic/airTraffic.js';
 import { Weather } from './weather.js';
 
 // The 3D world: renderer, camera, environment, and the currently loaded map (terrain and
@@ -57,6 +58,7 @@ export class FlightScene {
     this.terrain = new Terrain(map, this.terrainMaterial, this.scene);
     this.airports = new AirportManager(this.scene, map, this.env);
     this.scenery = new Scenery(this.scene, map, zones, this.terrain, this.env);
+    this.airTraffic = new AirTraffic(this.scene, map, 8);
     const cam = spawn ?? { x: 0, y: 500, z: 0 };
     await this.terrain.prepare(cam, (f) => onProgress(0.35 + f * 0.4, 'Building terrain'));
     // Trees, roads and buildings around the start point.
@@ -79,6 +81,8 @@ export class FlightScene {
     this.airports = null;
     this.scenery?.dispose();
     this.scenery = null;
+    this.airTraffic?.dispose();
+    this.airTraffic = null;
     this.terrain.group.removeFromParent();
     this.terrain.tiles.forEach((t) => t.mesh.geometry.dispose());
     this.terrainMaterial.dispose();
@@ -113,6 +117,7 @@ export class FlightScene {
     this.terrain?.update(cameraPosition);
     this.airports?.update(cameraPosition, wind ?? ZERO_WIND);
     this.scenery?.update(dt, cameraPosition, wind ?? ZERO_WIND);
+    this.airTraffic?.update(dt);
     if (this.terrainMaterial) this.terrainMaterial.userData.uniforms.uNight.value = this.env.night;
   }
 

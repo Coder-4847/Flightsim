@@ -280,28 +280,58 @@ export function pfd(ctx, w, h, t, spec) {
 /** Multi-function display: a north-up map with the runway, a range ring and the aircraft symbol. */
 export function mfdMap(ctx, w, h, t, model) {
   ctx.fillStyle = '#04101a'; ctx.fillRect(0, 0, w, h);
-  const cx = w / 2; const cy = h * 0.62; const range = 6000; const pxPerM = (h * 0.55) / range;
+  const cx = w / 2; const cy = h * 0.66;
+  // Range: the smallest step that covers about 90 s of flight.
+  const reach = Math.max(1, t.groundSpeed * 0.514) * 90;
+  const range = [3000, 6000, 12000, 25000, 50000, 100000].find((r) => r >= reach) ?? 100000;
+  const pxPerM = (h * 0.58) / range;
+  const px = model.pos.x; const pz = model.pos.z;
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(-t.heading * DEG); // track-up
-  ctx.strokeStyle = '#124a66'; ctx.lineWidth = 1; ctx.font = '12px Arial'; ctx.fillStyle = '#4cc2ff'; ctx.textAlign = 'center';
-  for (const rr of [1500, 3000, 4500, 6000]) {
-    ctx.beginPath(); ctx.arc(0, 0, rr * pxPerM, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = '#124a66'; ctx.lineWidth = 1;
+  for (const f of [0.25, 0.5, 0.75, 1]) { ctx.beginPath(); ctx.arc(0, 0, range * f * pxPerM, 0, Math.PI * 2); ctx.stroke(); }
+  const nav = model.nav;
+  const label = [];
+  for (const ap of nav?.airports ?? []) {
+    const dx = ap.x - px; const dz = ap.z - pz;
+    if (Math.hypot(dx, dz) > range * 1.6) continue;
+    const active = ap === nav.active;
+    ctx.fillStyle = active ? '#d6e9f5' : '#7f95a6';
+    for (const rw of ap.runways) {
+      ctx.save();
+      ctx.translate((rw.cx - px) * pxPerM, (rw.cz - pz) * pxPerM);
+      ctx.rotate(rw.heading * DEG);
+      const rwW = Math.max(2.5, rw.width * pxPerM * 2.5);
+      ctx.fillRect(-rwW / 2, -(rw.length * pxPerM) / 2, rwW, Math.max(3, rw.length * pxPerM));
+      ctx.restore();
+    }
+    label.push({ x: dx * pxPerM, y: dz * pxPerM, text: ap.code, active });
   }
-  // Runway 18/36 centred at the origin, 2400 x 45 m.
-  const px = (model.pos.x) * pxPerM; const pz = (model.pos.z) * pxPerM;
-  ctx.fillStyle = '#9fb0bd';
-  ctx.fillRect(-px - 45 * pxPerM * 1.5, -pz - 1200 * pxPerM, 45 * pxPerM * 3, 2400 * pxPerM);
-  ctx.fillStyle = '#4cc2ff'; ctx.fillText('RWY 18/36', -px, -pz - 1200 * pxPerM - 8);
-  // Control tower marker.
-  ctx.fillStyle = COLORS.amber; ctx.fillRect(205 * pxPerM - px - 3, 15 * pxPerM - pz - 3, 6, 6);
   ctx.restore();
+  // Labels stay upright: rotate each anchor into screen space.
+  const cs = Math.cos(t.heading * DEG); const sn = Math.sin(t.heading * DEG);
+  ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center';
+  for (const l of label) {
+    const sx = cx + l.x * cs + l.y * sn; const sy = cy - l.x * sn + l.y * cs;
+    if (sx < 10 || sx > w - 10 || sy < 30 || sy > h - 20) continue;
+    ctx.fillStyle = l.active ? COLORS.cyan : '#9fb0bd';
+    ctx.fillText(l.text, sx, sy - 12);
+  }
+  // Own-ship symbol.
   ctx.fillStyle = COLORS.white;
   ctx.beginPath(); ctx.moveTo(cx, cy - 14); ctx.lineTo(cx - 9, cy + 10); ctx.lineTo(cx, cy + 5); ctx.lineTo(cx + 9, cy + 10); ctx.fill();
   ctx.fillStyle = COLORS.cyan; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'left';
   ctx.fillText(`HDG ${String(Math.round(t.heading)).padStart(3, '0')}°`, 14, 24);
   ctx.textAlign = 'right'; ctx.fillText(`GS ${Math.round(t.groundSpeed)} kt`, w - 14, 24);
-  ctx.textAlign = 'center'; ctx.fillStyle = COLORS.dim; ctx.font = '12px Arial'; ctx.fillText('TRACK UP  ·  RANGE 6 km', cx, h - 12);
+  if (nav?.active) {
+    const dx = nav.active.x - px; const dz = nav.active.z - pz;
+    const brg = (Math.atan2(dx, -dz) / DEG + 360) % 360;
+    ctx.textAlign = 'left'; ctx.fillStyle = COLORS.white; ctx.font = '14px Arial';
+    ctx.fillText(`${nav.active.code}  ${String(Math.round(brg)).padStart(3, '0')}°  ${(Math.hypot(dx, dz) / 1852).toFixed(1)} nm`, 14, h - 12);
+  }
+  ctx.textAlign = 'right'; ctx.fillStyle = COLORS.dim; ctx.font = '12px Arial';
+  ctx.fillText(`TRACK UP  ·  ${(range / 1000).toFixed(0)} km`, w - 14, h - 12);
 }
 
 /** Engine display for glass cockpits: N1 bars per engine, fuel flow, fuel quantity. */

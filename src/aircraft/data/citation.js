@@ -59,5 +59,6 @@ export default {
     eye: { x: 3.9, y: 0.42, z: -0.42 }, panel: 'glass', seats: 6, yoke: 'yoke',
   },
 
+  minRunway: 1000, // metres: comfortable takeoff or landing distance at typical weights
   geometry: { wingHeight: -0.3, length: 15.5 },
 };

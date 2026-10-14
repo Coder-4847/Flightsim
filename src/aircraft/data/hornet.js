@@ -61,5 +61,6 @@ export default {
     eye: { x: 3.4, y: 0.85, z: 0 }, panel: 'fighter', seats: 1, yoke: 'stick',
   },
 
+  minRunway: 800, // metres: comfortable takeoff or landing distance at typical weights
   geometry: { wingHeight: -0.1, length: 17.1 },
 };

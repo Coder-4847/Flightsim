@@ -10,6 +10,7 @@ import {
 import { buildCaravan, buildTurboprop72 } from './models/highwing.js';
 import { buildHeavyFighter, buildHornet } from './models/twinfighter.js';
 import { buildTrainer } from './models/trainer.js';
+import { setCockpitNight } from './cockpit/index.js';
 import { clamp, DEG, smoothstep } from '../flight/units.js';
 
 // Builds the visual aircraft (three LOD levels sharing materials), animates it from the
@@ -76,6 +77,15 @@ export class AircraftView {
     // From inside, hide the exterior fuselage skin so only the cockpit shell frames the view.
     for (const rig of this.rigs) if (rig.fuselage) rig.fuselage.visible = !active;
     for (const glass of this.glassMeshes) glass.visible = !active;
+  }
+
+  /** Cabin windows glow warm after dark (0 = day .. 1 = night). */
+  setNight(night) {
+    const level = Math.round(night * 20) / 20;
+    if (level === this._night) return;
+    this._night = level;
+    this.mats.window.emissiveIntensity = 0.9 * level;
+    setCockpitNight(level);
   }
 
   update(model, alpha, dt, time) {

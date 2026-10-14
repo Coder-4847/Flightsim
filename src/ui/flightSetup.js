@@ -4,6 +4,7 @@ import { START_MODES } from '../game/startPoints.js';
 import { loadJSON, saveJSON } from '../storage/store.js';
 import { buildMap } from '../world/mapBuilder.js';
 import { MAPS } from '../world/maps.js';
+import { createAircraftPreview } from './aircraftPreview.js';
 import { h } from './dom.js';
 
 // The hangar and flight setup screen: aircraft, airport and runway, start position, time of
@@ -48,9 +49,34 @@ export function createFlightSetup({ onFly, onBack }) {
   const mapTitle = h('span.setup-map');
 
   const persist = () => saveJSON('flightsetup', state);
+  const preview = createAircraftPreview();
+  const specSheet = h('dl.spec-sheet');
+  const specName = h('div.preview-name');
+  const specBlurb = h('p.help');
+
+  const fmt = (n) => Math.round(n).toLocaleString('en-US');
+  function paintPreview() {
+    const spec = AIRCRAFT.find((a) => a.id === state.aircraftId) ?? AIRCRAFT[0];
+    if (hasModel(spec.id)) preview.set(spec);
+    specName.replaceChildren(h('strong', spec.name), h('span', ` ${spec.maker}`));
+    specBlurb.textContent = spec.blurb;
+    const mtow = spec.mass.empty + spec.mass.payload + spec.mass.fuelCapacity;
+    const rows = [
+      ['Engines', `${spec.engines.positions.length} × ${spec.engines.spec.type}${spec.tanks ? ` · ${spec.tanks.length} fuel tanks` : ''}`],
+      ['Max weight', `${fmt(mtow)} kg`],
+      ['Wingspan', `${spec.wing.span.toFixed(1)} m`],
+      ['Length', `${spec.geometry.length.toFixed(1)} m`],
+      ['Cruise', `${spec.speeds.cruise} kt${spec.limits.mmo ? ` · Mach ${spec.limits.mmo.toFixed(2)} max` : ''}`],
+      ['Stall (landing)', `${spec.flaps.stages.at(-1).vs} kt`],
+      ['Runway', `${fmt(spec.minRunway)} m or more`],
+      ['Seats', `${spec.cockpit.seats}`],
+    ];
+    specSheet.replaceChildren(...rows.flatMap(([k, v]) => [h('dt', k), h('dd', v)]));
+  }
 
   function paintAircraft() {
     aircraftGrid.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === state.aircraftId));
+    paintPreview();
   }
   function paintAirports() {
     airportList.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.code === state.airportCode));
@@ -72,8 +98,13 @@ export function createFlightSetup({ onFly, onBack }) {
       for (const rw of airport.runways) for (const e of rw.ends) if (e.id === state.endId) return { runway: rw, end: e };
       return { runway: airport.runways[0], end: airport.runways[0].ends[0] };
     })();
+    const spec = AIRCRAFT.find((a) => a.id === state.aircraftId);
+    const tooShort = spec && runway.length < spec.minRunway;
+    runwayInfo.classList.toggle('warn', !!tooShort);
+    runwayInfo.dataset.warning = tooShort ? `Short for this aircraft (needs about ${spec.minRunway} m).` : '';
     runwayInfo.textContent = `Runway ${runway.name}: ${runway.length} × ${runway.width} m ${runway.surface}, heading ${String(Math.round(end.heading)).padStart(3, '0')}°`
-      + `${end.ils ? ` · ILS ${end.ils.frequency.toFixed(2)} (${end.ils.ident})` : ''} · Elevation ${Math.round(airport.elevation * 3.281)} ft`;
+      + `${end.ils ? ` · ILS ${end.ils.frequency.toFixed(2)} (${end.ils.ident})` : ''} · Elevation ${Math.round(airport.elevation * 3.281)} ft`
+      + `${tooShort ? ` · ⚠ ${runwayInfo.dataset.warning}` : ''}`;
   }
   function paintTime() {
     timeRow.querySelectorAll('button').forEach((b) => b.classList.toggle('on', Math.abs(TIME_PRESETS.find((t) => t.id === b.dataset.id).hour - state.hour) < 0.05));
@@ -117,7 +148,7 @@ export function createFlightSetup({ onFly, onBack }) {
       const enabled = hasModel(spec.id);
       aircraftGrid.append(h('button.aircraft-card', {
         type: 'button', dataset: { id: spec.id }, disabled: !enabled,
-        onclick: () => { state.aircraftId = spec.id; persist(); paintAircraft(); },
+        onclick: () => { state.aircraftId = spec.id; persist(); paintAircraft(); paintRunways(); },
         ondblclick: () => enabled && fly(),
       },
       h('span.ac-name', spec.name),
@@ -153,6 +184,7 @@ export function createFlightSetup({ onFly, onBack }) {
       h('div.setup-body',
         h('section.setup-col', h('h3', 'Aircraft'), aircraftGrid),
         h('section.setup-col',
+          h('div.preview-card', preview.canvas, h('div.preview-info', specName, specBlurb, specSheet)),
           h('h3', 'Airport'), airportList,
           row('Runway', runwayRow), runwayInfo,
           row('Start', startRow), startHint,
@@ -171,6 +203,7 @@ export function createFlightSetup({ onFly, onBack }) {
     paintAircraft(); paintStart(); paintTime(); paintSky();
   };
   el.state = state;
+  preview.start();
   paintAircraft(); paintStart(); paintTime(); paintSky();
   return el;
 }

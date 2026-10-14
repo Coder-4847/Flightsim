@@ -5,7 +5,7 @@ import { button, tip } from './panels.js';
 // all clickable. Buttons that are automatic in the current mode say so in their tooltip.
 
 export function createControlsPanel(hud) {
-  const panel = hud.panels.create({ id: 'controls', title: 'Flight controls', x: 352, y: 380, width: 300, hint: '4' });
+  const panel = hud.panels.create({ id: 'controls', title: 'Flight controls', x: 352, y: 380, width: 300, hint: 'F4' });
   const flapRow = h('div.ctl-row.flaps');
   const rows = h('div.ctl-grid');
   const trimBar = h('div.trim-bar', h('div.trim-mark'));

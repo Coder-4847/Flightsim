@@ -6,7 +6,7 @@ import { bar, button, tip } from './panels.js';
 // bottle). Fuel switches need the "Fuel management and APU" system.
 
 export function createSystemsPanel(hud) {
-  const panel = hud.panels.create({ id: 'systems', title: 'Fuel and systems', x: 692, y: 64, width: 300, hint: '5' });
+  const panel = hud.panels.create({ id: 'systems', title: 'Fuel and systems', x: 692, y: 64, width: 300, hint: 'F7' });
   const tanks = h('div.sys-tanks');
   const switches = h('div.ctl-grid');
   const status = h('div.sys-status');

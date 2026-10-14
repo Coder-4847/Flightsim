@@ -48,7 +48,7 @@ function mesh(geo, mat, x = 0, y = 0, z = 0) {
 const bx = (w, h, d, mat, x, y, z) => mesh(new THREE.BoxGeometry(w, h, d), mat, x, y, z);
 
 /** A canvas-textured plane facing the pilot (-X), leaning back by `tilt` radians. */
-function screen({ w, h, px, py, x, y, z, tilt = 0.25, basic = true, transparent = false, additive = false }, draw) {
+function screen({ w, h, px, py, x, y, z, tilt = 0.25, basic = true, transparent = false, additive = false, glass = false }, draw) {
   const canvas = document.createElement('canvas');
   canvas.width = px;
   canvas.height = py;
@@ -65,7 +65,14 @@ function screen({ w, h, px, py, x, y, z, tilt = 0.25, basic = true, transparent 
   group.position.set(x, y, z);
   group.rotation.z = tilt;
   group.add(plane);
-  return { group, draw: (t, model) => { draw(ctx, px, py, t, model); texture.needsUpdate = true; } };
+  return {
+    group,
+    draw: (t, model) => {
+      // Glass displays go dark without electrical power.
+      if (glass && t.powered === false) { ctx.clearRect(0, 0, px, py); ctx.fillStyle = transparent ? 'rgba(0,0,0,0)' : '#020304'; ctx.fillRect(0, 0, px, py); } else draw(ctx, px, py, t, model);
+      texture.needsUpdate = true;
+    },
+  };
 }
 
 // ---- hardware: yoke / stick / throttle levers --------------------------------------------------
@@ -288,13 +295,13 @@ function buildJetCockpit(spec) {
   for (const z of [-0.5, 0.5]) group.add(seat(f - 1.9, eye.y - 0.5, z, interior.leather));
 
   const screens = [
-    screen({ w: 0.36, h: 0.36, px: 512, py: 512, x: f + 0.68, y: eye.y - 0.17, z: eye.z, tilt: 0.25 }, (ctx, w, h, t) => pfd(ctx, w, h, t, spec)),
-    screen({ w: 0.36, h: 0.36, px: 512, py: 512, x: f + 0.68, y: eye.y - 0.17, z: 0.0, tilt: 0.25 }, (ctx, w, h, t, model) => mfdMap(ctx, w, h, t, model)),
-    screen({ w: 0.28, h: 0.36, px: 400, py: 512, x: f + 0.68, y: eye.y - 0.17, z: 0.4, tilt: 0.25 }, (ctx, w, h, t) => engineDisplay(ctx, w, h, t, spec)),
+    screen({ glass: true, w: 0.36, h: 0.36, px: 512, py: 512, x: f + 0.68, y: eye.y - 0.17, z: eye.z, tilt: 0.25 }, (ctx, w, h, t) => pfd(ctx, w, h, t, spec)),
+    screen({ glass: true, w: 0.36, h: 0.36, px: 512, py: 512, x: f + 0.68, y: eye.y - 0.17, z: 0.0, tilt: 0.25 }, (ctx, w, h, t, model) => mfdMap(ctx, w, h, t, model)),
+    screen({ glass: true, w: 0.28, h: 0.36, px: 400, py: 512, x: f + 0.68, y: eye.y - 0.17, z: 0.4, tilt: 0.25 }, (ctx, w, h, t) => engineDisplay(ctx, w, h, t, spec)),
   ];
   screens.forEach((s) => group.add(s.group));
   // Standby instrument cluster between screens and glare shield.
-  const standby = screen({ w: 0.2, h: 0.1, px: 512, py: 256, x: f + 0.68, y: eye.y + 0.07, z: 0.2, tilt: 0.25 }, (ctx, w, h, t) => {
+  const standby = screen({ glass: true, w: 0.2, h: 0.1, px: 512, py: 256, x: f + 0.68, y: eye.y + 0.07, z: 0.2, tilt: 0.25 }, (ctx, w, h, t) => {
     ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, w, h);
     led(ctx, 12, 12, 230, 70, `${Math.round(t.ias)} KT`, COLORS.cyan);
     led(ctx, 270, 12, 230, 70, `${Math.round(t.altitudeFt)} FT`, COLORS.cyan);
@@ -359,15 +366,15 @@ function buildFighterCockpit(spec) {
   combiner.rotation.y = -Math.PI / 2;
   combiner.rotation.z = 0;
   group.add(combiner);
-  const hudScreen = screen({ w: 0.3, h: 0.22, px: 768, py: 560, x: f + 0.621, y: eye.y + 0.03, z: 0, tilt: 0, transparent: true, additive: true }, (ctx, w, h, t) => drawHud(ctx, w, h, t));
+  const hudScreen = screen({ glass: true, w: 0.3, h: 0.22, px: 768, py: 560, x: f + 0.621, y: eye.y + 0.03, z: 0, tilt: 0, transparent: true, additive: true }, (ctx, w, h, t) => drawHud(ctx, w, h, t));
   group.add(hudScreen.group);
   group.add(bx(0.1, 0.06, 0.34, interior.black, f + 0.58, eye.y - 0.12, 0)); // HUD projector
 
-  const mfds = [-0.14, 0.14].map((z) => screen({ w: 0.21, h: 0.21, px: 512, py: 512, x: f + 0.74, y: eye.y - 0.34, z, tilt: 0.7 }, (ctx, w, h, t, model) => {
+  const mfds = [-0.14, 0.14].map((z) => screen({ glass: true, w: 0.21, h: 0.21, px: 512, py: 512, x: f + 0.74, y: eye.y - 0.34, z, tilt: 0.7 }, (ctx, w, h, t, model) => {
     if (z < 0) { pfd(ctx, w, h, t, spec); } else { mfdMap(ctx, w, h, t, model); }
   }));
   mfds.forEach((m) => group.add(m.group));
-  const engine = screen({ w: 0.14, h: 0.18, px: 300, py: 400, x: f + 0.72, y: eye.y - 0.38, z: -0.34, tilt: 0.7 }, (ctx, w, h, t) => engineDisplay(ctx, w, h, t, spec));
+  const engine = screen({ glass: true, w: 0.14, h: 0.18, px: 300, py: 400, x: f + 0.72, y: eye.y - 0.38, z: -0.34, tilt: 0.7 }, (ctx, w, h, t) => engineDisplay(ctx, w, h, t, spec));
   group.add(engine.group);
 
   const stick = makeStick(f + 0.15, eye.y - 0.5, 0.0);
@@ -434,7 +441,7 @@ function buildAirlinerCockpit(spec) {
   group.add(seat(f - 1.5, eye.y - 0.62, half - 0.3, interior.seat));
 
   const sy = eye.y - 0.32; const sx = f + 0.82; const sz = Math.abs(eye.z);
-  const mk = (w, h, px, py, z, tilt, draw) => screen({ w, h, px, py, x: sx, y: sy + (draw.dy ?? 0), z, tilt }, draw.fn);
+  const mk = (w, h, px, py, z, tilt, draw) => screen({ glass: true, w, h, px, py, x: sx, y: sy + (draw.dy ?? 0), z, tilt }, draw.fn);
   const pfdFn = (ctx, w, h, t) => pfd(ctx, w, h, t, spec);
   const mapFn = (ctx, w, h, t, model) => mfdMap(ctx, w, h, t, model);
   const screens = [
@@ -447,7 +454,7 @@ function buildAirlinerCockpit(spec) {
   ];
   screens.forEach(({ s }) => group.add(s.group));
   // Mode control panel strip above the screens.
-  const fcu = screen({ w: 0.9, h: 0.1, px: 900, py: 100, x: f + 0.92, y: eye.y - 0.1, z: 0, tilt: 0.35 }, (ctx, w, h, t) => {
+  const fcu = screen({ glass: true, w: 0.9, h: 0.1, px: 900, py: 100, x: f + 0.92, y: eye.y - 0.1, z: 0, tilt: 0.35 }, (ctx, w, h, t) => {
     ctx.fillStyle = '#0a0c0f'; ctx.fillRect(0, 0, w, h);
     led(ctx, 20, 20, 150, 60, `SPD ${Math.round(t.ias)}`, COLORS.cyan);
     led(ctx, 200, 20, 150, 60, `HDG ${String(Math.round(t.heading)).padStart(3, '0')}`, COLORS.cyan);

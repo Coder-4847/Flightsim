@@ -6,7 +6,7 @@ import { bar, button, tip, vSlider } from './panels.js';
 // piston and turboprop aircraft when the systems are on.
 
 export function createEnginePanel(hud) {
-  const panel = hud.panels.create({ id: 'engines', title: 'Engines', x: 352, y: 64, width: 280, hint: '3' });
+  const panel = hud.panels.create({ id: 'engines', title: 'Engines', x: 352, y: 64, width: 280, hint: 'F3' });
   const columns = h('div.eng-cols');
   const extra = h('div.eng-extra');
   const selectRow = h('div.eng-select');

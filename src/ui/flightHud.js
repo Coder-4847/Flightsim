@@ -87,11 +87,11 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     ['radio', 'Radio', 'R', 'Radio and ATC (R)'],
     ['checklist', 'Checklist', 'K', 'Checklists (K)'],
     ['nav', 'Map', 'M', 'Navigation map (M)'],
-    ['pfd', 'Display', '2', 'Flight display (2)'],
-    ['engines', 'Engines', '3', 'Engines and throttle levers (3)'],
-    ['controls', 'Controls', '4', 'Flaps, gear, trim and more (4)'],
-    ['systems', 'Systems', '5', 'Fuel, electrics and emergency actions (5)'],
-    ['approach', 'Approach', '6', 'Approach guide and landing score (6)'],
+    ['pfd', 'Display', 'F2', 'Flight display (F2)'],
+    ['engines', 'Engines', 'F3', 'Engines and throttle levers (F3)'],
+    ['controls', 'Controls', 'F4', 'Flaps, gear, trim and more (F4)'],
+    ['systems', 'Systems', 'F7', 'Fuel, electrics and emergency actions (F7)'],
+    ['approach', 'Approach', 'F8', 'Approach guide and landing score (F8)'],
   ];
   const toolButtons = {};
   for (const [id, label, key, tooltip] of TOOLBAR) {

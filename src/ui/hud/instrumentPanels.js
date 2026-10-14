@@ -11,7 +11,7 @@ function makeCanvas(w, hgt) {
 }
 
 export function createPfdPanel(hud) {
-  const panel = hud.panels.create({ id: 'pfd', title: 'Flight display', x: Math.max(12, window.innerWidth - 440), y: Math.max(64, window.innerHeight - 380), width: 290, hint: '2' });
+  const panel = hud.panels.create({ id: 'pfd', title: 'Flight display', x: Math.max(12, window.innerWidth - 440), y: Math.max(64, window.innerHeight - 380), width: 290, hint: 'F2' });
   const { canvas, ctx } = makeCanvas(512, 512);
   panel.body.append(canvas);
   return {
@@ -48,7 +48,7 @@ export function createNavPanel(hud) {
 }
 
 export function createApproachPanel(hud) {
-  const panel = hud.panels.create({ id: 'approach', title: 'Approach guide', x: 692, y: 400, width: 250, hint: '6' });
+  const panel = hud.panels.create({ id: 'approach', title: 'Approach guide', x: 692, y: 400, width: 250, hint: 'F8' });
   const { canvas, ctx } = makeCanvas(300, 300);
   const info = h('div.app-info');
   const score = h('div.app-score');

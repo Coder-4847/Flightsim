@@ -1,7 +1,7 @@
 # Flight Sim: memory
 
 ## Current status
-- Phase: 4 (Modes, ATC and HUD) — code complete and verified headless; playtest deploy pending the user's check.
+- Phase: 4 (Modes, ATC and HUD) — code complete, verified headless, Pages deploy succeeded; waiting for the user's playtest.
 - Last completed: Phase 3 deployed (live). Phase 4 built in four commits: game modes and system toggles, systems and failures, ATC with AI airport traffic, full HUD with panels.
 - Next step: user playtests Phase 4 on the live URL. Do NOT start Phase 5 (game modes: Free Flight, Career, Emergency, VIP, economy, saves) until this deploy is live and the checklist below passes.
 - Live playtest URL: https://coder-4847.github.io/Flightsim/
@@ -94,7 +94,7 @@ Phase 3 content (maps, 14 aircraft, hangar, weather, traffic) still applies; see
 - Browser (headless Chromium): setup screen mode controls, radio keys, dragging an engine lever, flap and gear buttons, failure warnings and emergency checklist, pad menu, H to hide, with no console errors.
 
 ## Session log (newest first)
-- 2026-10-14 Phase 4 finished: modes and toggles, systems and failures, ATC and AI traffic, HUD panels, controller menu, alerts; hub runway pair fix. Pushed; Pages deploy to be confirmed.
+- 2026-10-14 Phase 4 finished: modes and toggles, systems and failures, ATC and AI traffic, HUD panels, controller menu, alerts; hub runway pair fix. Pushed; Pages run #15 (commit 39cfb54) deployed successfully.
 - 2026-10-14 Phase 3 finished: ten aircraft, jumbo fuel/CG model, hangar preview and spec sheet, runway-length warnings, baked AI traffic, nav-map airports, night cockpit/windows. Pushed to the branch; Pages run #10 (commit 30ebbe0) built and deployed successfully (runs #7/#8 failed only because Pages had a previous deployment still in progress; re-run or push again if that recurs).
 - 2026-10-14 Phase 3 parts 1-2: maps, terrain, airports, scenery, weather.
 - 2026-10-14 Phase 2 deployed and verified headless; Phase 1 deployed (Pages enabled by the user).

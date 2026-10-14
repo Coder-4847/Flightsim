@@ -118,6 +118,7 @@ section('career missions');
     ok(r.base >= 500, `${def.id} pays`);
     const burnNeeded = (await import('../src/modes/missions.js')).CRUISE_BURN[def.aircraft] * (r.estMinutes / 60) * 1.2;
     ok(r.fuelKg >= burnNeeded, `${def.id} fuel ${r.fuelKg} kg covers ${Math.round(burnNeeded)} kg`);
+    if (r.deadline) ok(r.deadline > r.estMinutes * 1.4, `${def.id} deadline ${r.deadline} min is fair for a ${Math.round(r.estMinutes)} min flight`);
     ok(r.fuelKg <= r.spec.mass.fuelCapacity, `${def.id} fuel fits the tanks`);
     ok(r.goals.length <= 2, `${def.id} has at most two bonus goals`);
     ok(def.start === 'final' || r.routeKm >= 5, `${def.id} flies a real distance`);
@@ -149,7 +150,7 @@ section('VIP contracts');
   ok(c.value < 20, `violent flying ruins comfort (${c.value.toFixed(0)})`);
   const calm = new ComfortMeter(0.75);
   const rough = new ComfortMeter(1);
-  for (let i = 0; i < 100; i++) for (const m of [calm, rough]) m.update(0.1, { onGround: false, groundSpeed: 100, nz: 1.6, bank: 35, pitchRate: 3, rollRate: 5, vsFpm: 0, stalled: false, stallWarning: false, overspeed: false });
+  for (let i = 0; i < 100; i++) for (const m of [calm, rough]) m.update(0.1, { onGround: false, groundSpeed: 100, nz: 1.3, bank: 35, pitchRate: 3, rollRate: 5, vsFpm: 0, stalled: false, stallWarning: false, overspeed: false });
   ok(calm.value > rough.value, 'cabin pack protects comfort');
 }
 
@@ -257,6 +258,82 @@ function makeSession(map, opts) {
 
 const settings = { get: (k) => (k === 'preset' ? 'arcade' : null) };
 
+/** A scripted pilot for a whole leg: take off, climb, fly to the extended centreline and land (calm air). */
+function flyLeg(session, runner, destAirport, destEndId, { maxT = 1500 } = {}) {
+  const m = session.model;
+  const spec = m.spec;
+  const end = destAirport.runways.flatMap((r) => r.ends).find((e) => e.id === destEndId);
+  const rad = Math.PI / 180;
+  const d = { x: Math.sin(end.heading * rad), z: -Math.cos(end.heading * rad) };
+  const right = { x: -d.z, z: d.x };
+  const th = end.threshold;
+  const iaf = { x: th.x - d.x * 7000, z: th.z - d.z * 7000 };
+  const cruiseAlt = destAirport.elevation + 600; // metres MSL
+  const rwHdg0 = m.telemetry.heading;
+  const angle = (a) => ((a % 360) + 540) % 360 - 180;
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  let phase = 'takeoff';
+  let flarePitch = 0; let approachPitch = 3; let t = 0;
+  m.controls.parkingBrake = false;
+  while (t < maxT && !runner.result) {
+    const tel = m.telemetry; const c = m.controls;
+    const along = (m.pos.x - th.x) * d.x + (m.pos.z - th.z) * d.z; // negative before the threshold
+    const cross = (m.pos.x - th.x) * right.x + (m.pos.z - th.z) * right.z;
+    const agl = tel.aglFt;
+    let hdgT; let vsT = 0;
+    if (phase === 'takeoff') {
+      c.throttle.fill(1);
+      c.steer = c.yaw = clamp(-angle(tel.heading - rwHdg0) * 0.15, -1, 1);
+      c.pitch = tel.ias >= spec.speeds.vr ? clamp((10 - tel.pitch) * 0.12 - tel.pitchRate * 0.1, -1, 1) : 0;
+      if (!tel.onGround && agl > 300) phase = 'climb';
+    } else {
+      c.steer = c.yaw = 0;
+      if (phase === 'climb' || phase === 'cruise') {
+        hdgT = (Math.atan2(iaf.x - m.pos.x, -(iaf.z - m.pos.z)) / rad + 360) % 360;
+        const toIaf = Math.hypot(iaf.x - m.pos.x, iaf.z - m.pos.z);
+        vsT = clamp((cruiseAlt - m.pos.y) * 3, -1500, 1000);
+        if (phase === 'climb' && m.pos.y < cruiseAlt - 60) vsT = 99999; // climb at a fixed attitude
+        c.throttle.fill(clamp(c.throttle[0] + ((vsT < -200 ? spec.speeds.cruise * 0.8 : spec.speeds.vy * 1.05) - tel.ias) * 0.003, 0.05, 1));
+        if (m.pos.y > cruiseAlt - 60) phase = 'cruise';
+        if (spec.gear.retractable && tel.aglFt > 150 && c.gearDown) c.gearDown = false;
+        if (toIaf < 1500) { phase = 'final'; c.flapsStage = Math.min(spec.flaps.landingStage, 1); }
+      } else if (phase === 'final' || phase === 'flare') {
+        hdgT = end.heading - clamp(cross * 0.012, -25, 25);
+        const wantAlt = destAirport.elevation + 8 + Math.max(0, -along) * Math.tan(3 * rad);
+        const gsFpm = -tel.groundSpeed * 0.514444 * 0.0524 / 0.00508;
+        vsT = clamp(gsFpm + (wantAlt - m.pos.y) * 0.8 * 196.85 / 3, -900, 400);
+        if (!tel.onGround && -along < 5500 && c.flapsStage < spec.flaps.landingStage && tel.ias < spec.speeds.vfe) c.flapsStage = spec.flaps.landingStage;
+        if (spec.gear.retractable && -along < 6000) c.gearDown = true;
+        c.throttle.fill(clamp(c.throttle[0] + (spec.speeds.vapp - tel.ias) * 0.0012 + 0.0000005 * (vsT - tel.vsFpm), 0.03, 1));
+        if (phase === 'final') approachPitch = tel.pitch;
+        if (agl < (spec.id === 'cessna172' ? 30 : 45)) { phase = 'flare'; c.throttle.fill(0); flarePitch = tel.pitch; }
+        if (phase === 'flare') {
+          flarePitch = Math.min(flarePitch + 1.8 * dt, approachPitch + 4);
+          c.pitch = clamp((flarePitch - tel.pitch) * 0.2 - tel.pitchRate * 0.6, -1, 1);
+        }
+      }
+      // Lateral and vertical loops (not in the flare).
+      const bank = clamp(angle(hdgT - tel.heading) * 0.7, -25, 25);
+      c.roll = clamp((bank - tel.bank) * 0.05, -0.4, 0.4);
+      if (phase !== 'flare') {
+        const pT = clamp(tel.pitch + (vsT - tel.vsFpm) * 0.002, -8, 14);
+        c.pitch = clamp((pT - tel.pitch) * 0.2 - tel.pitchRate * 0.5, -0.6, 0.6);
+      }
+      if (tel.onGround && phase === 'flare') {
+        c.pitch = 0; c.throttle.fill(0); c.brakeLeft = c.brakeRight = 0.8;
+        c.steer = c.yaw = clamp(-angle(tel.heading - end.heading) * 0.2, -1, 1);
+      }
+    }
+    m.step(dt); t += dt;
+    const evs = m.events.splice(0);
+    runner.handleEvents(evs);
+    runner.update(dt);
+    if (m.crashed) { runner.handleEvents(m.events.splice(0)); break; }
+  }
+  if (!runner.result && process.env.DEBUG) console.log('  [debug] leg ended without a result', phase, t.toFixed(0), m.telemetry.altitudeFt.toFixed(0), m.telemetry.groundSpeed.toFixed(1), m.crashed?.reason);
+  return { t, phase };
+}
+
 // -- Free Flight: land on final at VPAS, get paid.
 {
   mem.clear();
@@ -279,6 +356,35 @@ const settings = { get: (k) => (k === 'preset' ? 'arcade' : null) };
     ok(saves.active.stats.landings === 1 && saves.active.stats.flights === 1 && saves.active.stats.distanceKm > 3, 'stats updated');
     const again = new SaveManager();
     ok(again.active.money === saves.money, 'banked money survives a reload');
+  }
+}
+
+// -- A whole Free Flight leg: take off from VPAS, fly to VPLA, land there; distance, load and landing pay.
+{
+  mem.clear();
+  const saves = new SaveManager();
+  saves.create(1, 'Leg');
+  const map = buildMap('grasslands');
+  const from = map.airports.find((a) => a.code === 'VPAS');
+  const to = map.airports.find((a) => a.code === 'VPLA');
+  const session = makeSession(map, { aircraftId: 'cessna172', mapId: 'grasslands', airportCode: 'VPAS', endId: from.runways[0].ends[0].id, startMode: 'runway' });
+  const runner = new ModeRunner({ session, saves, settings });
+  runner.prepare({ mode: 'free', aircraftId: 'cessna172', mapId: 'grasslands', airportCode: 'VPAS', startMode: 'runway', hour: 12, sky: 'clear' });
+  runner.attach();
+  const taken = [];
+  runner.on('takeoff', (p) => taken.push(p.airport?.code));
+  const money0 = saves.money;
+  // Choose the landing runway end facing the approach from VPAS.
+  const approachEnd = to.runways[0].ends.reduce((b, e) => (Math.hypot(e.threshold.x - from.x, e.threshold.z - from.z) < Math.hypot(b.threshold.x - from.x, b.threshold.z - from.z) ? e : b));
+  flyLeg(session, runner, to, approachEnd.id);
+  const res = runner.result;
+  ok(res?.success, `full leg produced a landing report (${res?.title ?? 'none'}: ${res?.subtitle ?? session.model.crashed?.reason ?? ''})`);
+  if (res) {
+    console.log(`  leg VPAS -> VPLA: ${res.subtitle}; ${res.notes.join(' | ')}; total ${res.total}`);
+    ok(taken[0] === 'VPAS', `takeoff detected at VPAS (${taken.join()})`);
+    ok(/VPAS|Ashbourne/.test(res.subtitle) && /Larkfield/.test(res.subtitle), 'report names origin and destination');
+    ok(saves.money - money0 === res.total && res.total > 300, `leg paid ${res.total}`);
+    ok(saves.active.stats.distanceKm > 15, `distance recorded: ${saves.active.stats.distanceKm.toFixed(1)} km`);
   }
 }
 
@@ -310,6 +416,27 @@ const settings = { get: (k) => (k === 'preset' ? 'arcade' : null) };
       ok(res.total > 0, 'mission paid');
     }
   }
+}
+
+// -- Hard deadline: c06 fails when the clock runs out.
+{
+  mem.clear();
+  const saves = new SaveManager();
+  saves.create(1, 'Late');
+  const def = MISSIONS.find((m) => m.id === 'c06');
+  const r0 = resolveMission(def);
+  ok(r0.deadline > 0, 'c06 has a hard deadline');
+  const map = r0.mapData;
+  const probe = new ModeRunner({ session: { flightScene: { map }, model: null }, saves, settings });
+  const opts = probe.prepare({ mode: 'career', id: 'c06' });
+  const session = makeSession(map, opts);
+  const runner = new ModeRunner({ session, saves, settings });
+  runner.prepare({ mode: 'career', id: 'c06' });
+  runner.attach();
+  const tel = session.model.telemetry;
+  for (let i = 0; i < (r0.deadline * 60 + 5) * 10 && !runner.result; i++) runner.mode.tick(0.1, tel);
+  ok(runner.result && !runner.result.success && /deadline/.test(runner.result.subtitle), `deadline fails the mission (${runner.result?.subtitle})`);
+  ok(saves.active.career.completed.c06 === undefined, 'a failed mission is not recorded as complete');
 }
 
 // -- Emergency: a flap failure on final, seeded; landing is scored; best score is stored.
@@ -359,6 +486,28 @@ const settings = { get: (k) => (k === 'preset' ? 'arcade' : null) };
   const res = runner.result;
   ok(res?.success, `VIP landing completes (${res?.title}: ${res?.subtitle})`);
   if (res) console.log(`  VIP ${def.id}: ${res.lines.map((l) => `${l.label} ${l.amount}`).join('; ')} → ${res.total}`);
+}
+
+// -- Sightseeing: flying over a town counts once.
+{
+  const map = buildMap('grasslands');
+  const town = map.cities.find((c) => c.kind === 'town');
+  const spec = getAircraft('cessna172');
+  const world = new SimWorld({ groundHeight: (x, z) => map.hf.height(x, z) });
+  const m = new FlightModel(spec, world);
+  m.assist = 'light';
+  const gh = map.hf.height(town.x, town.z);
+  m.reset({ mode: 'air', heading: 90, x: town.x - 3000, z: town.z, altitude: gh + 600, speed: 55 });
+  const { FlightTracker } = await import('../src/modes/tracker.js');
+  const tracker = new FlightTracker(map, m, null);
+  const seen = [];
+  tracker.on('poi', (p) => seen.push(p.name));
+  for (let i = 0; i < 120 * 60 && seen.length < 1; i++) { m.controls.throttle.fill(0.7); m.step(dt); tracker.update(dt); }
+  ok(seen[0] === town.name, `flew over ${town.name}: ${seen.join()}`);
+  const n = seen.length;
+  for (let i = 0; i < 120 * 30; i++) { m.step(dt); tracker.update(dt); }
+  ok(seen.filter((x) => x === town.name).length === 1, 'each sight counts once per flight');
+  void n;
 }
 
 // -- Geometry helpers.

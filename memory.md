@@ -1,21 +1,21 @@
 # Flight Sim: memory
 
 ## Current status
-- Phase: 4 (Modes, ATC and HUD) — code complete, verified headless, Pages deploy succeeded; waiting for the user's playtest.
-- Last completed: Phase 3 deployed (live). Phase 4 built in four commits: game modes and system toggles, systems and failures, ATC with AI airport traffic, full HUD with panels.
-- Next step: user playtests Phase 4 on the live URL. Do NOT start Phase 5 (game modes: Free Flight, Career, Emergency, VIP, economy, saves) until this deploy is live and the checklist below passes.
+- Phase: 5 (Game modes and progression) — code complete, verified headless and in the browser; Pages deploy pending confirmation (see the session log).
+- Last completed: Phase 4 deployed (live). Phase 5 adds Free Flight, Career (37 missions), Emergency Landing (seeded), VIP Escort, economy/shop, three save slots with export/import and autosave.
+- Next step: user playtests Phase 5 on the live URL. Do NOT start Phase 6 (polish and publish) until this deploy is live and the checklist below passes.
 - Live playtest URL: https://coder-4847.github.io/Flightsim/
 
-## What to test in this build (Phase 4)
-Phase 3 content (maps, 14 aircraft, hangar, weather, traffic) still applies; see the Phase 3 notes in git history if needed.
-1. Setup screen: the Mode row (Arcade / Simulation / Custom) and "Customize systems": every toggle is independent; touching one switches the mode to Custom. Settings > Game systems has the same switches. "At the gate" is a new start mode for a full ATC flight.
-2. Arcade: single throttle, flaps and gear automatic (a toast explains if you press F/V/G), no ATC or checklists, the approach guide opens itself within 20 nm of a runway (needles, distance, speed vs target, landing score preview).
-3. Simulation: per-engine throttle (`[` `]` cycle the selected engine, `\` selects all; drag the levers in the Engines panel), manual flaps with detents (Controls panel), manual gear, mixture and propeller levers on piston and turboprop aircraft (`-`/`=`, `8`/`9`), fuel pumps, crossfeed, fuel dump (Atlas 300, Titan 400), APU (U), pitot heat (I).
-4. ATC (R opens the radio panel; keys 1-9 pick entries, Backspace goes back): start "At the gate" at a hub. Flow: ATIS, clearance, taxi (taxi to the hold-short point yourself), tower: ready for departure / takeoff clearance, takeoff, "contact departure", altitude/heading/direct requests, "request approach" (pick an airport), vectors, "report established", contact tower, landing clearance, landing, contact ground, taxi to parking (a new flight cycle starts at the gate). Other things to try: Mayday, go-around call, line up and wait with traffic on final, radio failure (squawk 7600), uncontrolled airfields (no clearances, CTAF calls). ATC voice is optional in Settings > Audio; subtitles always show.
-5. AI traffic at the airport you are at: departures taxi out from parked aircraft and take off, arrivals land and taxi in. Density in setup/settings (None/Light/Moderate/Busy). They hold for you and you must hold for them.
-6. Failures (Simulation or "Random failures"): engine failure and fire, hydraulics, electrics (use the APU), flap jam, gear fault (emergency extension Y), pitot icing (airspeed reads wrong, pitot heat clears it), control jam, fuel leak, radio failure. Each opens its emergency checklist; glass displays go dark without power.
-7. HUD: toolbar on the right (R radio, K checklist, M map, F2 flight display, F3 engines, F4 controls, F7 systems, F8 approach). Panels drag by the header, positions are remembered, hover tooltips on everything, H hides the HUD, scale/opacity are in Settings > Display. Warnings are prioritised (red above amber) with a master chime, caution beep, stall horn and ground-proximity call-outs.
-8. Controller: Back opens the controller menu (D-pad, A select, B back); triggers throttle, A cycles engines.
+## What to test in this build (Phase 5)
+Phases 1-4 content (maps, 14 aircraft, ATC, HUD) still applies. New: Start flying opens the mode hub.
+1. Pilots: the pilot chip (top right of every mode screen) or "Pilots and saves" opens three save slots. Create a pilot (10,000 cr, only the Skyhawk 172 owned). Rename, Export (downloads a .json), Import into any slot, Delete (asks twice). Reload the page: the pilot, money and unlocks are still there. Autosave happens after every landing/mission, when you pause, on purchases and when you leave to the menu.
+2. Quick Flight is the old sandbox: everything unlocked, nothing earned, any paint scheme (Paint row in the hangar).
+3. Free Flight: needs a pilot and an aircraft you own (locked ones show their price). Take off, fly to another airport and land and stop: the Landing report pays for distance (the straight line between airports counts, circling does not), passengers or cargo, touchdown quality, landing fee and sights flown over (towns and lakes; each once per flight). Simulation preset pays 1.3x, Custom 1.1x. "Continue flying" starts a new leg. Crashing costs a repair bill and the leg's earnings.
+4. Career: 37 missions in five tiers (Flight school, Bush and turboprop, Jet age, Military, Airline) across all three maps and all 14 aircraft, each unlocking the next. The briefing shows route, conditions, fuel, bonus objectives (landing quality, time, fuel burn, sights, stop on runway) and, for some missions, a hard deadline or tight fuel. Stars: 1 for completing, +1 per met bonus (max 3); each bonus adds 15 percent. Replays pay half. Aircraft are loaned in Career, Emergency and VIP.
+5. Emergency Landing: pick a seed (type one, "Today's challenge", Random) and a difficulty (by seed / easy / hard / extreme). Failures start 6-18 s in and are staggered; the Mission panel (F9) lists suitable airports with bearing and distance. The same seed always gives the same aircraft, place, weather and failures at the same times. Score 0-100 (landing at a suitable airport, touchdown quality, stopping on the runway, airframe intact, quick decision) becomes grade S-F and hazard pay; your best per seed is kept.
+6. VIP Escort: 10 contracts. The comfort meter (Mission panel) drops with turbulence, hard pulls, steep banks, abrupt pitch/roll, steep descents and stalls and slowly recovers. The touchdown sets the share of the fare: Smooth 100, Good 80, Firm 55, Hard 25, Very hard 0 percent. Comfort at zero ends the flight. Some contracts want you down within a time or the fare drops 15 percent.
+7. Shop: Aircraft (prices 18,000 to 1,200,000 cr), Liveries (5 civil or 3 military fictional paint schemes per aircraft), Upgrades: Moving-map GPS (the M map), Approach assist (F8 approach guide), Terrain awareness (terrain and sink-rate warnings), Cabin pack (+20 percent passenger/VIP pay, VIPs tolerate more), Cargo pack (+20 percent cargo pay), Hull insurance (repair bills -75 percent). Without GPS or Approach assist those panels stay locked in the save-based modes and a toast says why.
+8. F9 (or the toolbar) opens the Mission panel: objectives, route, timer, comfort or suitable airports. After a result the Debrief shows each payout line and offers Next mission / Retry / Continue.
 9. Console should be clean.
 
 ## Decisions
@@ -44,6 +44,15 @@ Phase 3 content (maps, 14 aircraft, hangar, weather, traffic) still applies; see
 - 2026-10-14 Hub runway pairs: the main runway now sits 240 m left of the airport centre and the parallel 240 m right (it used to be centred on the terminal by mistake).
 - 2026-10-14 HUD (`ui/flightHud.js`, `ui/hud/*`): draggable panels (`PanelManager`), shared tooltips, canvas panels reuse the cockpit painters. Panel hotkeys are on function keys because digits belong to the radio menu while it is open. `approachGuide.js` finds the runway you are lined up for and works without an ILS. `warnings.js` lists conditions; the HUD adds hold times, audio and the "red hides info" rule.
 
+- 2026-10-14 Phase 5 structure: `src/progress/` (saves, catalog) and `src/modes/` (economy, tracker, missions, vip, emergency, freeflight, contract, runner). `ModeRunner` attaches a `FlightTracker` to a running session, forwards physics events and 10 Hz telemetry to the active mode, and `bank()` applies money and statistics to the active save then autosaves. Modes: `FreeFlightMode`, `ContractMode` (Career and VIP), `EmergencyMode`. UI lives in `ui/modeSelect, savesScreen, shopScreen, contractScreen, emergencyScreen, debrief, pilotBar, hud/missionPanel`.
+- 2026-10-14 Quick Flight stays ungated and unsaved; gating (owned aircraft, upgrades) only applies in the save-based modes. Career, Emergency and VIP aircraft are loaned (no ownership needed). HUD gating is `PanelManager.lock(id, reason)`; the Terrain upgrade gates warnings via `evaluate(..., {gpws})`.
+- 2026-10-14 Economy (credits, cr): start 10,000. Free Flight = paid km (min(track, 1.5 x straight + 15 km)) x rate + load revenue (pax x km x rate, or kg x km x rate) scaled by touchdown grade + landing fee x grade share + sights x (200 + 6 x rate), then the realism multiplier (arcade 1.0, custom 1.1, simulation 1.3). Contracts pay about twice the free-flight rate plus a tier bonus. Crash = no pay plus a repair bill (2 percent of the aircraft price, 250-25,000 cr; contracts 60 percent of that); insurance cuts it by 75 percent. Money never goes below zero.
+- 2026-10-14 Landing grades (physics): Smooth under 150 ft/min, Good under 300, Firm under 500, Hard, Very hard. The tracker takes the worst touchdown within one landing (bounces count). A landing is complete when the aircraft is on the ground, under 5 kt for 2 s; a gear-up belly slide counts as a Hard landing. A flight leg starts at lift-off (or at the start if airborne).
+- 2026-10-14 Missions are data in `missions.js`; airports are named by code (fixed-seed maps, validated by `modetest`). Time goal = about 1.35 x the estimated duration; hard deadline about 1.7 x; frugal goal = about 1.2 x the estimated burn (cruise burn table measured on the flight model); start fuel is the aircraft's usual load or 1.5 x the estimate plus a reserve (tight-fuel missions get 1.25 x plus 15 minutes).
+- 2026-10-14 Emergency scenarios come from `generateScenario(seed)`: `Rng(seed)` picks difficulty (1-3), aircraft (mostly the tier's own pool), map, a suitable target airport (longest runway >= 1.05 x `minRunway`), failures (count 1/1-2/2-3, staggered 20-50 s) and the spawn: engine-out singles are placed within about 0.28-0.5 x glide range, others 12-38 km out; weather and time from the seed. Random failures are off in scripted flights (`options.scripted`). Failures are triggered by the mode with explicit engine/axis so the same seed repeats exactly.
+- 2026-10-14 VIP comfort: loss per second from turbulence (|nz - 1| above 0.2 g), hard pulls (above 0.5 g, steeper), bank over 28 degrees, pitch rate over 5 deg/s, roll rate over 12 deg/s, descent faster than 2,200 fpm, climbs over 4,500 fpm, stall warning/stall, overspeed; recovery 0.35/s; touchdown knocks Firm 12, Hard 30, Very hard 60. Weather alone costs almost nothing (checked at 4 minutes in every sky). The cabin pack scales losses by 0.75.
+- 2026-10-14 Saves: localStorage keys `flightsim:save:1..3` and `flightsim:activeSlot`, version 1, `sanitizeSave` repairs or rejects anything imported. Export files contain `{game:'flightsim', ...save}`.
+
 ## Known bugs / limits
 - Not verified on a real GPU: all browser testing uses software rendering (about 5-15 fps). A hub view is about 700 draw calls and 0.5M triangles; the frame rate on target hardware needs the user's check.
 - AI traffic is decorative: no landing/takeoff circuits, no collision with the player (Phase 4 ATC will replace it).
@@ -54,7 +63,9 @@ Phase 3 content (maps, 14 aircraft, hangar, weather, traffic) still applies; see
 - Cross runways have no taxiway connectors; AI and the hold-short point fall back to a straight line there.
 - No autopilot or FMS; vectors are given by heading and altitude only.
 - Free camera still not implemented. Tower view uses each airport's tower. Gamepad cannot navigate menus yet (Phase 6).
-- HUD is the compact strip; the full HUD arrives in Phase 4.
+- Free Flight payloads are only for pay: passengers and cargo do not change the aircraft's weight.
+- Emergency scenarios are not guaranteed survivable at the highest difficulty (it is the player's job); only engine-out singles are placed within glide range.
+- Locking a panel (map, approach) closes it and the closed state is remembered for later Quick Flights.
 
 ## File map
 - index.html, vite.config.js, models.html (dev only), .github/workflows/pages.yml
@@ -72,14 +83,17 @@ Phase 3 content (maps, 14 aircraft, hangar, weather, traffic) still applies; see
 - src/atc/: controller (player ATC), aiTraffic (AI departures and arrivals), geometry (runways, taxi routes), phraseology (spoken numbers and callsigns), voice (speech synthesis)
 - src/game/: session, startPoints (incl. gate), modes (presets and toggles), failures, checklists, warnings, approachGuide
 - src/audio/alerts.js: master chime, caution, stall horn, call-outs
+- src/progress/: saves (slots, export/import, purchases), catalog (prices, economy table, liveries, upgrades)
+- src/modes/: economy (pure pay arithmetic), tracker (takeoff/touchdown/landed/sights), missions (37 career contracts), vip (contracts, comfort meter), emergency (seeded scenarios, scoring), freeflight, contract (career + VIP), runner
 - src/flight/systems.js: electrics, APU, hydraulics, pitot, jam, leak, fire, dump
 - src/game/: session (one flight), startPoints (runway / final / air spawns)
-- src/ui/: menus, settings, mapSelect, flightSetup (hangar and game mode), aircraftPreview, flightHud, hud/ (panels, radio, engines, controls, systems, checklist, instrument panels, pad menu)
+- src/ui/: menus, settings, mapSelect, flightSetup (hangar, paint, ownership), aircraftPreview, flightHud, hud/ (panels, radio, engines, controls, systems, checklist, instrument panels, pad menu, mission panel), modeSelect, savesScreen, shopScreen, contractScreen, emergencyScreen, debrief, pilotBar
 - src/util/: noise (Perlin), random (seeded)
-- scripts/: simtest (headless flight checks), authority (pitch authority at approach), kbtest (keyboard pilot), bench-terrain, inspect-maps
+- scripts/: simtest (headless flight checks), authority (pitch authority at approach), kbtest (keyboard pilot), modetest (Phase 5), bench-terrain, inspect-maps
 
 ## How to run, test, deploy
 - Install: `npm ci` (Node 22). Dev: `npm run dev`. Build: `npm run build`. Preview: `npm run preview`.
+- Phase 5: `node scripts/modetest.mjs` (catalogue, saves, economy, all 37 missions and 10 VIP contracts resolve, 300 emergency seeds repeat, scripted landings through Free Flight, Career, Emergency, VIP and a full takeoff-to-landing leg). `DEBUG=1` prints a trace.
 - Physics: `node scripts/simtest.mjs [id]` (takeoff, cruise per assist level, stalls, landing, hard landing), `node scripts/kbtest.mjs [id]`, `node scripts/authority.mjs [id]`.
 - Browser tests: Playwright + system Chromium with `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`; `window.__flightsim` exposes state/session/settings. `startFlight({aircraftId, mapId, airportCode, endId, startMode, hour, sky})` runs a flight.
 - Deploy: push to the branch; the workflow builds and publishes to Pages.
@@ -93,7 +107,12 @@ Phase 3 content (maps, 14 aircraft, hangar, weather, traffic) still applies; see
 - Headless: mode presets and toggles, auto flaps and gear through a takeoff and approach, failure effects for all ten failure types, a full ATC flight (gate, clearance, taxi, takeoff, departure handoff, approach vectors, landing clearance, landing, taxi to parking), mayday, radio failure, uncontrolled approach, AI departures and arrivals at a hub, regional and airfield, keyboard takeoffs in arcade and simulation.
 - Browser (headless Chromium): setup screen mode controls, radio keys, dragging an engine lever, flap and gear buttons, failure warnings and emergency checklist, pad menu, H to hide, with no console errors.
 
+## Verification record (Phase 5)
+- Headless (`scripts/modetest.mjs`): catalogue/liveries, save slots (create, reload, purchases persist, export/import, repair of bad data), economy ordering (smooth beats hard, circling does not pay, VIP tiers fall 100/80/55/25/0), 37 missions resolve with valid airports, runway lengths, fuel and fair deadlines, 10 VIP contracts, 300 seeds deterministic with spawns above terrain and engine-out singles within glide, sightseeing, deadline failure, and scripted landings paid through each mode including a whole VPAS to VPLA leg with takeoff detection.
+- Browser (headless Chromium, scripted pilot driving the real UI): create a pilot, Free Flight with locked aircraft, full leg and Debrief, "Continue flying", upgrade gating toast, pause autosave, Quick Flight unlocked, Career c01 (3 stars, 780 cr, next mission unlocked and preselected), crash in a mission (repair bill on the crash card), Emergency seed repeat (same failures at the same times after Retry), Emergency success debrief (grade A, best score stored), VIP comfort bar and escort payout, shop purchases (upgrade, livery), export/import, reload persistence; no console errors.
+
 ## Session log (newest first)
+- 2026-10-14 Phase 5 built: saves, catalogue, economy, tracker, missions, VIP, emergency, mode runner and all screens. Pages deploy to be confirmed.
 - 2026-10-14 Phase 4 finished: modes and toggles, systems and failures, ATC and AI traffic, HUD panels, controller menu, alerts; hub runway pair fix. Pushed; Pages run #15 (commit 39cfb54) deployed successfully.
 - 2026-10-14 Phase 3 finished: ten aircraft, jumbo fuel/CG model, hangar preview and spec sheet, runway-length warnings, baked AI traffic, nav-map airports, night cockpit/windows. Pushed to the branch; Pages run #10 (commit 30ebbe0) built and deployed successfully (runs #7/#8 failed only because Pages had a previous deployment still in progress; re-run or push again if that recurs).
 - 2026-10-14 Phase 3 parts 1-2: maps, terrain, airports, scenery, weather.

@@ -164,7 +164,7 @@ export class EmergencyMode {
     const sc = this.sc;
     return {
       aircraftId: sc.aircraftId, mapId: sc.mapId, airportCode: sc.target.code, endId: sc.target.runways[0].ends[0].id, startMode: 'custom', spawn: sc.spawn,
-      hour: sc.hour, sky: sc.sky, weather: sc.weather, seed: sc.seed, liveryId: 'factory',
+      hour: sc.hour, sky: sc.sky, weather: sc.weather, seed: sc.seed, liveryId: 'factory', scripted: true,
     };
   }
 

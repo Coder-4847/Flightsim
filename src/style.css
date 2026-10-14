@@ -563,3 +563,6 @@ h1, h2, h3, h4, p { margin: 0; }
 .ms-list-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
 .ms-item { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; padding: 2px 0; }
 .ms-item span { color: var(--muted); }
+input[type=text], input[type=number] { color: var(--text); background: #0a0e13; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+input[type=text]:focus-visible, input[type=number]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.setup-controls .segmented.wrap { flex-shrink: 1; min-width: 0; }

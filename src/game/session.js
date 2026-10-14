@@ -161,7 +161,8 @@ export class FlightSession {
     if (!this.model) return;
     this.controls.update(dt);
     this.model.step(dt);
-    this.failures?.update(dt, this.systems.failures);
+    // Emergency scenarios schedule their own failures, so the random ones stay off to keep seeds repeatable.
+    this.failures?.update(dt, this.systems.failures && !this.options?.scripted);
   }
 
   /** Per-frame: animate the aircraft, move the camera, draw. */

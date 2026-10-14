@@ -81,7 +81,8 @@ export class ComfortMeter {
     let loss = 0;
     let why = null;
     const note = (amount, text) => { if (amount > 0) { loss += amount; if (!why || amount > why.amount) why = { amount, text }; } };
-    note((Math.abs(t.nz - 1) - 0.3) * 30, 'rough air or hard pull');
+    const dn = Math.abs(t.nz - 1);
+    note((dn - 0.2) * 20 + Math.max(0, dn - 0.5) * 60, dn > 0.5 ? 'hard pull' : 'turbulence');
     note((Math.abs(t.bank) - 28) * 0.25, 'steep bank');
     note((Math.abs(t.pitchRate) - 5) * 0.4, 'abrupt pitch change');
     note((Math.abs(t.rollRate) - 12) * 0.25, 'abrupt roll');

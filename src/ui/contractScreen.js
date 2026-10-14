@@ -72,7 +72,8 @@ export function createContractScreen({ kind, saves, onStart, onBack, onPilots })
       ['Map', MAPS[r.map].name],
       ['Conditions', `${hourText(r.hour)} · ${SKY_TEXT[r.sky]} · ${WEATHER_TEXT[r.weatherPreset]}`],
       ['Start', r.startMode === 'final' ? 'On final approach' : 'On the runway (or at the gate)'],
-      ['Fuel', `${r.fuelKg} kg loaded`],
+      ['Fuel', `${r.fuelKg} kg loaded${def.tightFuel ? ' (tight: no big reserve)' : ''}`],
+      ...(r.deadline ? [['Deadline', `Down within ${r.deadline} min or the mission fails`]] : []),
       isVip ? ['Passenger', `${def.vip} + ${def.pax} on board`] : r.pax ? ['Passengers', String(r.pax)] : r.cargoKg ? ['Cargo', `${r.cargoKg} kg`] : ['Payload', 'None'],
       [isVip ? 'Fare' : 'Contract', `${credits(r.base)}${rec ? ` (best ${credits(rec.payout)})` : ''}`],
     ];

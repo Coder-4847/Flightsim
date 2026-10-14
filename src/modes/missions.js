@@ -12,7 +12,8 @@ import { loadFactor } from './economy.js';
 // start    'runway' (default), 'final' or 'air'
 // goals    bonus objectives, one extra star each (two bonus goals => three stars):
 //          grade {value}, time {minutes?}, frugal {}, pois {n}, runway {}
-// deadline hard time limit in minutes: the mission fails if you are not down by then
+// deadline true = hard time limit (the mission fails if you are not down in time)
+// tightFuel true = fuel load is just enough, so economy matters
 
 export const TIERS = [
   { id: 1, name: 'Flight school', blurb: 'Light single-engine props. Learn to take off, navigate and land.' },
@@ -40,17 +41,17 @@ export const MISSIONS = [
     pax: 2, hour: 17.5, brief: 'Two sightseers want to see the countryside. Fly over at least two towns on the way to Harrowgate.',
     goals: [{ type: 'pois', n: 2 }, { type: 'grade', value: 'Good' }] }),
   M('c06', 1, 'Night mail', 'cessna172', 'grasslands', 'VPLA', 'VPME', 'cargo', {
-    cargoKg: 150, hour: 22, brief: 'The post must reach Meridian tonight. Lights on, watch the altitude, and look for the runway.',
+    cargoKg: 150, hour: 22, deadline: true, brief: 'The post must reach Meridian tonight. Lights on, watch the altitude, and look for the runway.',
     goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
   M('c07', 1, 'Crosswind practice', 'cessna172', 'grasslands', 'VPKI', 'VPKI', 'precision', {
     start: 'final', weather: 'crosswind', sky: 'scattered', brief: 'A stiff crosswind at Kingsmere. Crab in, straighten up and land on the centreline.',
     goals: [{ type: 'grade', value: 'Good' }, { type: 'runway' }] }),
   M('c08', 1, 'Hill-country hop', 'cessna172', 'grasslands', 'VPHA', 'VPKI', 'pax', {
-    pax: 3, sky: 'overcast', brief: 'Low cloud over the hills. Keep clear of the terrain and land at Kingsmere.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
+    pax: 3, sky: 'overcast', tightFuel: true, brief: 'Low cloud over the hills. Keep clear of the terrain and land at Kingsmere.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
 
   // ---- tier 2: bush and turboprop ----
   M('c09', 2, 'Supply drop', 'caravan', 'desert', 'DSWA', 'DSRA', 'cargo', {
-    cargoKg: 800, brief: 'Water and medical supplies for Ramla. The Caravan is built for this.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
+    cargoKg: 800, deadline: true, brief: 'Water and medical supplies for Ramla, and the clinic is waiting: you must be down in time. The Caravan is built for this.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
   M('c10', 2, 'Strip to strip', 'caravan', 'desert', 'DSDA', 'DSJE', 'cargo', {
     cargoKg: 700, brief: 'Both ends are short sand strips. Fly the numbers.', goals: [{ type: 'grade', value: 'Good' }, { type: 'runway' }] }),
   M('c11', 2, 'Ski-lift parts', 'caravan', 'snow', 'FRVA', 'FRAL', 'cargo', {
@@ -60,11 +61,11 @@ export const MISSIONS = [
   M('c13', 2, 'Commuter run', 'kingair', 'grasslands', 'VPME', 'VPHA', 'pax', {
     pax: 7, brief: 'Seven commuters for Harrowgate. Retract the gear, trim and enjoy the ride.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
   M('c14', 2, 'Desert shuttle', 'kingair', 'desert', 'DSAL', 'DSTA', 'pax', {
-    pax: 6, hour: 14, brief: 'Mid-afternoon heat and thermals on the way to Tarfa.', goals: [{ type: 'grade', value: 'Good' }, { type: 'frugal' }] }),
+    pax: 6, hour: 14, tightFuel: true, brief: 'Mid-afternoon heat and thermals on the way to Tarfa. The tanks are only part full, so fly an efficient profile.', goals: [{ type: 'grade', value: 'Good' }, { type: 'frugal' }] }),
   M('c15', 2, 'Northern link', 'kingair', 'snow', 'FRNO', 'FRSK', 'pax', {
     pax: 7, sky: 'overcast', brief: 'Join the two northern towns. Ice is possible on the way down.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
   M('c16', 2, 'Regional turboprop', 'turboprop72', 'grasslands', 'VPHA', 'VPFA', 'pax', {
-    pax: 52, brief: 'A full 72-seat turboprop. Smooth handling keeps the cabin happy.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
+    pax: 52, deadline: true, brief: 'A full 72-seat turboprop on a tight schedule: the connecting flights will not wait.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
 
   // ---- tier 3: jet age ----
   M('c17', 3, 'Jet conversion', 'trainer', 'desert', 'DSWA', 'DSWA', 'precision', {
@@ -72,7 +73,7 @@ export const MISSIONS = [
   M('c18', 3, 'Executive shuttle', 'citation', 'desert', 'DSAL', 'DSQA', 'pax', {
     pax: 5, brief: 'Five executives to Qasr Noor, briefcases and all.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
   M('c19', 3, 'Mountain charter', 'citation', 'snow', 'FRSK', 'FRFR', 'pax', {
-    pax: 4, sky: 'overcast', brief: 'Over the range to Frostholm. Mind the freezing level.', goals: [{ type: 'grade', value: 'Good' }, { type: 'frugal' }] }),
+    pax: 4, sky: 'overcast', deadline: true, brief: 'Over the range to Frostholm for a connecting flight that will not wait. Mind the freezing level.', goals: [{ type: 'grade', value: 'Good' }, { type: 'frugal' }] }),
   M('c20', 3, 'Board meeting', 'bizjet', 'grasslands', 'VPME', 'VPST', 'pax', {
     pax: 10, hour: 8, brief: 'A board meeting at Stonebridge starts in an hour.', goals: [{ type: 'grade', value: 'Smooth' }, { type: 'time' }] }),
   M('c21', 3, 'Long hop', 'bizjet', 'desert', 'DSTA', 'DSSI', 'pax', {
@@ -84,7 +85,7 @@ export const MISSIONS = [
   M('c23', 4, 'Ferry flight', 'fighter', 'grasslands', 'VPLA', 'VPWE', 'ferry', {
     brief: 'Move the jet to Wexcombe. Fast and light on the controls: be gentle on the throttle.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
   M('c24', 4, 'Rapid redeploy', 'hornet', 'desert', 'DSRA', 'DSQA', 'ferry', {
-    hour: 6.5, brief: 'The squadron is moving. Get there quickly.', goals: [{ type: 'time' }, { type: 'grade', value: 'Good' }] }),
+    hour: 6.5, deadline: true, brief: 'The squadron is moving and the deadline is hard. Get there quickly.', goals: [{ type: 'time' }, { type: 'grade', value: 'Good' }] }),
   M('c25', 4, 'Northern redeploy', 'heavyfighter', 'snow', 'FRNO', 'FRHV', 'ferry', {
     brief: 'The big twin-engine interceptor heads to Hvitfjell.', goals: [{ type: 'time' }, { type: 'grade', value: 'Good' }] }),
   M('c26', 4, 'Canyon sightseer', 'hornet', 'desert', 'DSMI', 'DSRA', 'tour', {
@@ -100,7 +101,7 @@ export const MISSIONS = [
   M('c30', 5, 'Narrow-body shuttle', 'narrowbody', 'grasslands', 'VPME', 'VPHA', 'pax', {
     pax: 130, brief: 'A full 150-seat jet. Configure early and fly a stable approach.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
   M('c31', 5, 'Return to Al Sahra', 'narrowbody', 'desert', 'DSTA', 'DSAL', 'pax', {
-    pax: 140, hour: 19, brief: 'Evening flight home to the desert hub.', goals: [{ type: 'grade', value: 'Good' }, { type: 'frugal' }] }),
+    pax: 140, hour: 19, tightFuel: true, brief: 'Evening flight home to the desert hub, on a tight fuel plan.', goals: [{ type: 'grade', value: 'Good' }, { type: 'frugal' }] }),
   M('c32', 5, 'Mountain airline', 'narrowbody', 'snow', 'FRNO', 'FRFR', 'pax', {
     pax: 120, sky: 'rain', brief: 'Rain on the range. Intercept the ILS and use the autoflaps as a guide.', goals: [{ type: 'grade', value: 'Good' }, { type: 'time' }] }),
   M('c33', 5, 'Heavy approach', 'widebody', 'grasslands', 'VPME', 'VPME', 'precision', {
@@ -153,7 +154,9 @@ export function resolveMission(def) {
   // Starting fuel: the aircraft's usual load, or more if the route needs it (up to the tanks).
   const burn = CRUISE_BURN[def.aircraft] ?? 500;
   const needKg = burn * (estMinutes / 60) * 1.5 + burn * 0.3;
-  const fuelKg = Math.round(Math.min(spec.mass.fuelCapacity, Math.max(spec.mass.fuelStart, needKg)));
+  const tightKg = Math.max(10, Math.ceil((burn * (estMinutes / 60) * 1.25 + burn * 0.15) / 5) * 5);
+  const fuelKg = def.tightFuel ? Math.min(spec.mass.fuelCapacity, tightKg) : Math.round(Math.min(spec.mass.fuelCapacity, Math.max(spec.mass.fuelStart, needKg)));
+  const deadline = def.deadline === true ? Math.ceil((estMinutes * 1.7) / 5) * 5 : def.deadline ?? null;
   const frugalKg = Math.round(burn * (estMinutes / 60) * 1.2 / 5) * 5 + 2;
   // Load and base pay: the contract pays about twice the free-flight rate for the same flight.
   const load = def.pax ?? 0;
@@ -168,7 +171,7 @@ export function resolveMission(def) {
   }));
   return {
     ...def, map: def.map, mapData: map, fromAirport: from, toAirport: to, via, spec, routeKm, estMinutes, timeLimit,
-    fuelKg, frugalKg, base, goals, startMode: def.start ?? 'runway', hour: def.hour ?? 12, sky: def.sky ?? 'clear', weatherPreset: def.weather ?? (def.tier === 1 ? 'calm' : 'breeze'),
+    fuelKg, frugalKg, deadline, base, goals, startMode: def.start ?? 'runway', hour: def.hour ?? 12, sky: def.sky ?? 'clear', weatherPreset: def.weather ?? (def.tier === 1 ? 'calm' : 'breeze'),
     pax: load, cargoKg: cargo,
   };
 }

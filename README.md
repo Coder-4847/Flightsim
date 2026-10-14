@@ -6,7 +6,7 @@ Live build: https://coder-4847.github.io/Flightsim/
 
 Project status, decisions and the file map live in [`memory.md`](memory.md).
 
-Current build (Phase 3): three generated 120 km maps (grasslands, desert, snow) with 11-13 airports each, 14 flyable aircraft with cockpits, weather and day/night, parked and airborne traffic.
+Current build (Phase 4): three generated 120 km maps (grasslands, desert, snow) with 11-13 airports each, 14 flyable aircraft with cockpits, weather and day/night, arcade / simulation / custom modes, ATC with AI airport traffic, failures and checklists, and a full mouse- and controller-operable HUD.
 
 ```
 npm ci

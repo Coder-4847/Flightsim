@@ -26,7 +26,7 @@ export const DENSITY = {
   off: { arrivals: Infinity, departures: Infinity, max: 0 },
   light: { arrivals: 330, departures: 300, max: 3 },
   moderate: { arrivals: 190, departures: 170, max: 5 },
-  busy: { arrivals: 110, departures: 100, max: 8 },
+  busy: { arrivals: 135, departures: 100, max: 8 },
 };
 
 /** Moves along a polyline at a given speed; reports position and heading. */
@@ -425,7 +425,7 @@ export class AirportOps {
     const waiting = this.waitingDeparture();
     if (waiting && !this.holdAll) {
       const playerBlocking = player?.onRunway || player?.cleared;
-      const arrivalSoon = this.nextArrivalEta() < 105 || (player?.etaToThreshold ?? Infinity) < 95;
+      const arrivalSoon = this.nextArrivalEta() < 70 || (player?.etaToThreshold ?? Infinity) < 90;
       if (!this.runwayBusy() && !arrivalSoon && !playerBlocking) this.releaseDeparture(waiting);
     }
     // Arrivals go around if the runway is blocked when they are about to land.

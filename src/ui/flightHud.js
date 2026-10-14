@@ -166,11 +166,17 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
       const open = sim ? ['pfd', 'engines', 'radio'] : [];
       for (const id of open) hud.panels.get(id).open();
     }
-    if (session.systems.atc) hud.panels.get('radio').open();
     el.refreshSystems();
+    if (session.systems.atc) hud.panels.get('radio').open();
   };
 
   el.refreshSystems = () => {
+    const sys = hud.systems;
+    // Panels for systems that are switched off disappear (and their keys say why).
+    toolButtons.checklist.hidden = !sys.checklists;
+    toolButtons.radio.hidden = !sys.atc;
+    if (!sys.checklists) hud.panels.get('checklist').close();
+    if (!sys.atc) hud.panels.get('radio').close();
     engines.rebuild();
     systemsPanel.rebuild();
     radio.refresh();
@@ -191,6 +197,8 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     panel_controls: 'controls', panel_systems: 'systems', panel_approach: 'approach',
   };
   el.handleAction = (action) => {
+    if (action === 'radio_menu' && !hud.systems.atc) return el.showToast('ATC is off (turn it on in Settings or the setup screen)');
+    if (action === 'checklist_toggle' && !hud.systems.checklists) return el.showToast('Checklists are off (turn them on in Settings or the setup screen)');
     if (action === 'hud_toggle') hud.toggleHud();
     else if (action === 'hud_menu') padMenu.toggle();
     else if (ACTION_PANEL[action]) hud.panels.get(ACTION_PANEL[action]).toggle();

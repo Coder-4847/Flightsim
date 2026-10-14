@@ -333,7 +333,7 @@ export class AtcController extends Emitter {
     const rw = ap ? runwayWords(ap.end.id) : '';
     const eta = Math.min(ops ? ops.nextArrivalEta() : Infinity, Infinity);
     const busy = ops ? ops.runwayBusy() : false;
-    const clearNow = !busy && eta > 100 && !this.ctx.emergencyBlock;
+    const clearNow = !busy && eta > 80 && !this.ctx.emergencyBlock;
     if (clearNow) {
       this.pendingTakeoff = false;
       this.clr.takeoff = true; this.clr.lineup = true;
@@ -342,7 +342,7 @@ export class AtcController extends Emitter {
     } else if (first || !this.ctx.heldMsgAt || this.me.t - this.ctx.heldMsgAt > 40) {
       this.ctx.heldMsgAt = this.me.t;
       const why = busy ? 'traffic on the runway' : 'traffic on final';
-      if (this.phase === 'hold' && eta < 240 && !busy && !this.clr.lineup && eta > 100) {
+      if (this.phase === 'hold' && eta < 240 && !busy && !this.clr.lineup && eta > 80) {
         this.clr.lineup = true;
         this.#atc(`${this.csShort}, runway ${ap.end.id}, line up and wait, ${why}.`, `${this.csShort}, runway ${rw}, line up and wait, ${why}.`);
       } else if (first) {
@@ -947,6 +947,6 @@ export class AtcController extends Emitter {
       this.#bump();
     };
     const dist = Math.round(this.#distNm(a.x, a.z));
-    this.#reply(`${this.csShort}, roger, ${dist} miles from ${a.name}.`, speak, 1.6);
+    this.#reply(`${this.csShort}, roger, ${dist} mile${dist === 1 ? '' : 's'} from ${a.name}.`, speak, 1.6);
   }
 }

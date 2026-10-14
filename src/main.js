@@ -181,6 +181,7 @@ function boot() {
     hud.classList.toggle('active', inFlight || to === GameState.MENU);
     flightHud.setVisible(inFlight);
     flightHud.setPaused(to === GameState.PAUSED);
+    session.paused = to === GameState.PAUSED;
     if (to !== GameState.FLYING) input.releaseAll();
     if (to !== GameState.FLYING && document.pointerLockElement) document.exitPointerLock();
 

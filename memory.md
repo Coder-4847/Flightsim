@@ -1,22 +1,22 @@
 # Flight Sim: memory
 
 ## Current status
-- Phase: 3 (Maps, terrain, all aircraft, weather, day/night, traffic) — code complete, verified headless, Pages deploy succeeded; waiting for the user's playtest.
-- Last completed: Phase 2 deployed. Phase 3 built in three commits: world (3 generated 120 km maps, LOD terrain, airports, scenery, weather, day/night), then the remaining 10 aircraft, multi-tank fuel/CG model, hangar preview, traffic.
-- Next step: user playtests Phase 3 on the live URL. Do NOT start Phase 4 (modes, ATC, full HUD) until this deploy is live and the checklist below passes.
+- Phase: 4 (Modes, ATC and HUD) — code complete and verified headless; playtest deploy pending the user's check.
+- Last completed: Phase 3 deployed (live). Phase 4 built in four commits: game modes and system toggles, systems and failures, ATC with AI airport traffic, full HUD with panels.
+- Next step: user playtests Phase 4 on the live URL. Do NOT start Phase 5 (game modes: Free Flight, Career, Emergency, VIP, economy, saves) until this deploy is live and the checklist below passes.
 - Live playtest URL: https://coder-4847.github.io/Flightsim/
 
-## What to test in this build (Phase 3)
-1. Main menu > Start flying > map select shows three maps (Verdant Plains, Sunbaked Basin, Frostline Range) with a rendered overview each.
-2. Hangar screen: 14 aircraft grouped by class; picking one turns the preview (own WebGL canvas) and shows a spec sheet. Airports are listed per map (11-13 each; hub, regional, airfield, airstrip). A warning shows when the chosen runway is shorter than the aircraft's `minRunway`.
-3. Fly: choose start (runway / final approach / in flight), time (dawn/day/dusk/night or slider) and sky (clear, scattered, overcast, rain, storm, fog, snow). Loading takes a few seconds per map (about 5 s in headless software rendering).
-4. All 14 aircraft should fly from the hangar: Skyhawk 172, Trekker 208, Tutor T-39, Regal 200, Cirrus 72, Zenith CJ, Stratos G6, Regional 175, Meridian 320, Atlas 300, Titan 400, Falcon F-16, Corsair F/18, Warden S-27. Cockpit camera (C) works on each; airliners have a six-screen flight deck, sidestick/yoke, a throttle per engine, flap/gear levers.
-5. Titan 400 (jumbo): six fuel tanks (centre, trim, four mains), the CG moves as fuel burns (shown as CG % MAC in the HUD status line and on the fuel page of the cockpit). Fuel loads mains first; centre and trim tanks burn first.
-6. Terrain and scenery: farmland patchwork, rivers/lakes and bridges, forests, towns and a big city with towers (night lights), desert dunes/mesas/canyons, snow mountains above the snow line. Fly low over each to check pop-in and frame rate (Settings > FPS counter).
-7. Airports: runway markings, lights (night), PAPI, windsock, tower, terminal, jet bridges, parked aircraft on the aprons (chosen by airport size), scripted airliners/GA flying between airports (they are not collision-checked yet).
-8. Weather: sky presets change clouds, light, fog and wind; rain/snow streaks; storms add turbulence and gusts; wet runways reduce braking. Wind from Settings > Game > Wind still applies on top.
-9. Navigation display: the MFD map (jet cockpits) shows airports and runways within range and a bearing/distance to the starting airport.
-10. Console should be clean.
+## What to test in this build (Phase 4)
+Phase 3 content (maps, 14 aircraft, hangar, weather, traffic) still applies; see the Phase 3 notes in git history if needed.
+1. Setup screen: the Mode row (Arcade / Simulation / Custom) and "Customize systems": every toggle is independent; touching one switches the mode to Custom. Settings > Game systems has the same switches. "At the gate" is a new start mode for a full ATC flight.
+2. Arcade: single throttle, flaps and gear automatic (a toast explains if you press F/V/G), no ATC or checklists, the approach guide opens itself within 20 nm of a runway (needles, distance, speed vs target, landing score preview).
+3. Simulation: per-engine throttle (`[` `]` cycle the selected engine, `\` selects all; drag the levers in the Engines panel), manual flaps with detents (Controls panel), manual gear, mixture and propeller levers on piston and turboprop aircraft (`-`/`=`, `8`/`9`), fuel pumps, crossfeed, fuel dump (Atlas 300, Titan 400), APU (U), pitot heat (I).
+4. ATC (R opens the radio panel; keys 1-9 pick entries, Backspace goes back): start "At the gate" at a hub. Flow: ATIS, clearance, taxi (taxi to the hold-short point yourself), tower: ready for departure / takeoff clearance, takeoff, "contact departure", altitude/heading/direct requests, "request approach" (pick an airport), vectors, "report established", contact tower, landing clearance, landing, contact ground, taxi to parking (a new flight cycle starts at the gate). Other things to try: Mayday, go-around call, line up and wait with traffic on final, radio failure (squawk 7600), uncontrolled airfields (no clearances, CTAF calls). ATC voice is optional in Settings > Audio; subtitles always show.
+5. AI traffic at the airport you are at: departures taxi out from parked aircraft and take off, arrivals land and taxi in. Density in setup/settings (None/Light/Moderate/Busy). They hold for you and you must hold for them.
+6. Failures (Simulation or "Random failures"): engine failure and fire, hydraulics, electrics (use the APU), flap jam, gear fault (emergency extension Y), pitot icing (airspeed reads wrong, pitot heat clears it), control jam, fuel leak, radio failure. Each opens its emergency checklist; glass displays go dark without power.
+7. HUD: toolbar on the right (R radio, K checklist, M map, F2 flight display, F3 engines, F4 controls, F7 systems, F8 approach). Panels drag by the header, positions are remembered, hover tooltips on everything, H hides the HUD, scale/opacity are in Settings > Display. Warnings are prioritised (red above amber) with a master chime, caution beep, stall horn and ground-proximity call-outs.
+8. Controller: Back opens the controller menu (D-pad, A select, B back); triggers throttle, A cycles engines.
+9. Console should be clean.
 
 ## Decisions
 - 2026-10-14 Plain JavaScript (ES modules), no TypeScript. Three.js WebGL2 only. Vite `base: './'`.
@@ -36,14 +36,25 @@
 - 2026-10-14 AI traffic uses baked models (`traffic/fleet.js`): each LOD level is merged to one mesh per material, so a plane costs about 25 draw calls close and almost none far away; beyond 160 x its length it is not drawn. Parked aircraft are added when an airport is built; airborne traffic is scripted along straight legs between airports (8 aircraft per map).
 - 2026-10-14 `models.html` + `src/dev/modelViewer.js` is a developer-only model/cockpit viewer (not part of the build): `/models.html?id=jumbo&yaw=35&dist=0.5&cockpit=1&lookUp=-0.45`.
 
+- 2026-10-14 Modes: a mode is a set of `sys_*` settings (`game/modes.js`). Presets write all of them; changing one by hand sets the preset to Custom. `sys_realism` picks the flight assist at flight start (arcade full, standard light, full sim off). `damage` off disables overspeed, over-g, hard-landing and scrape destruction but not terrain impact. `fullWeather` off scales turbulence, shear and wetness down (`SimWorld.setRealism`).
+- 2026-10-14 FlightControls owns throttle levers (master or per engine), automatic flaps (speed schedule with a latch so a level base leg does not flap) and automatic gear (up after takeoff, down on approach). The HUD levers and buttons call `setEngine`, `setMaster`, `setFlaps` and `perform(action)`.
+- 2026-10-14 Systems (`flight/systems.js`): generators, APU, battery, hydraulics, pitot ice, control jam, fuel leak, fire timers. Failures come from `game/failures.js` (seeded random scheduler or `trigger`). Hydraulic loss: heavy controls, no gear or flap movement, weak brakes, no nosewheel steering; emergency gear extension still works. Telemetry `ias` is the displayed airspeed (affected by pitot ice); `iasTrue` is the real one and is what automation uses.
+- 2026-10-14 Fuel handling: tanks have pumps; crossfeed lets any tank feed any engine; dump drains the fullest tanks down to landing weight (`spec.fuelDump`, kg/s). Piston mixture and propeller lever change power, thrust and fuel flow (`Engine.bestMixture`).
+- 2026-10-14 ATC (`src/atc/`): `controller.js` is the player's state machine (phases parked, taxi, hold, lineup, rolling, departure, enroute, approach, final, rollout, taxi_in); requests come from a context menu of standard phrases, replies are built from the phraseology helpers with a short delay, and time follows model time (pausing stops it). The active runway is the best headwind end of the main runway (or the one you start on). Towered airports (hub, regional) give clearances; airfields and strips are uncontrolled (CTAF style). Approach vectors: heading to the initial approach fix, an intercept heading, "cleared approach, report established", then tower. Traffic advisories use scripted and AI aircraft. `aiTraffic.js` runs AI departures and arrivals with taxi paths from `geometry.js`, a runway occupancy check and go-arounds.
+- 2026-10-14 Hub runway pairs: the main runway now sits 240 m left of the airport centre and the parallel 240 m right (it used to be centred on the terminal by mistake).
+- 2026-10-14 HUD (`ui/flightHud.js`, `ui/hud/*`): draggable panels (`PanelManager`), shared tooltips, canvas panels reuse the cockpit painters. Panel hotkeys are on function keys because digits belong to the radio menu while it is open. `approachGuide.js` finds the runway you are lined up for and works without an ILS. `warnings.js` lists conditions; the HUD adds hold times, audio and the "red hides info" rule.
+
 ## Known bugs / limits
 - Not verified on a real GPU: all browser testing uses software rendering (about 5-15 fps). A hub view is about 700 draw calls and 0.5M triangles; the frame rate on target hardware needs the user's check.
 - AI traffic is decorative: no landing/takeoff circuits, no collision with the player (Phase 4 ATC will replace it).
 - The simple test autopilot lands the fighters hard. A human should check approaches (F-16 at ~150 kt, AoA ~13 degrees; Corsair at ~140 kt, AoA ~8-10).
 - Heavy aircraft need long runways (`minRunway`: 172 500 m up to Titan 3,300 m); only hubs have runways long enough for the jumbo.
+- Headless software rendering runs the hub scene at about 1 fps (0.5M triangles), so all automated checks drive the simulation directly instead of relying on frame timing.
+- ATC taxi guidance is text only: the player picks their own taxi route, the tower detects the hold-short point. AI aircraft do not use taxiways beyond the generated path and do not give way to the player on the ground.
+- Cross runways have no taxiway connectors; AI and the hold-short point fall back to a straight line there.
+- No autopilot or FMS; vectors are given by heading and altitude only.
 - Free camera still not implemented. Tower view uses each airport's tower. Gamepad cannot navigate menus yet (Phase 6).
 - HUD is the compact strip; the full HUD arrives in Phase 4.
-- Airliner flight decks have no autopilot or FMS (Phase 4+).
 
 ## File map
 - index.html, vite.config.js, models.html (dev only), .github/workflows/pages.yml
@@ -57,9 +68,13 @@
 - src/aircraft/aircraftView.js: 3 LODs, rig animation, night windows; src/aircraft/cockpit/: instruments (canvas painters incl. nav map and fuel page), cockpit (steam, steam2, glass, fighter, airliner, trainer)
 - src/world/: maps, mapBuilder (cities, airports, rivers, lakes), heightfield, noise-based terrain, terrainTiles (LOD quadtree), terrainMaterial, zones, airportLayout/airportBuilder, scenery (streaming), vegetation, buildings, roads, water, landmarks, mapWorld (physics view of the map), polyline
 - src/scene/: flightScene (renderer, map load, update), environment (sun/sky/night), weather (clouds, rain, snow, fog, storms), cameras, textures
-- src/traffic/: fleet (shared baked models), parked, airTraffic
+- src/traffic/: fleet (shared baked models, gear-up variants), parked, airTraffic
+- src/atc/: controller (player ATC), aiTraffic (AI departures and arrivals), geometry (runways, taxi routes), phraseology (spoken numbers and callsigns), voice (speech synthesis)
+- src/game/: session, startPoints (incl. gate), modes (presets and toggles), failures, checklists, warnings, approachGuide
+- src/audio/alerts.js: master chime, caution, stall horn, call-outs
+- src/flight/systems.js: electrics, APU, hydraulics, pitot, jam, leak, fire, dump
 - src/game/: session (one flight), startPoints (runway / final / air spawns)
-- src/ui/: menus, settings, mapSelect, flightSetup (hangar), aircraftPreview, flight HUD
+- src/ui/: menus, settings, mapSelect, flightSetup (hangar and game mode), aircraftPreview, flightHud, hud/ (panels, radio, engines, controls, systems, checklist, instrument panels, pad menu)
 - src/util/: noise (Perlin), random (seeded)
 - scripts/: simtest (headless flight checks), authority (pitch authority at approach), kbtest (keyboard pilot), bench-terrain, inspect-maps
 
@@ -74,7 +89,12 @@
 - Browser (headless Chromium): every aircraft starts on a runway on the Verdant Plains and in the air/final on the other maps with no console errors; hangar, cockpit cameras and night rendering checked by screenshot.
 - Numbers: map load about 5-9 s in software rendering; hub draw calls about 700 with parked traffic; build about 850 kB JS (235 kB gzip).
 
+## Verification record (Phase 4)
+- Headless: mode presets and toggles, auto flaps and gear through a takeoff and approach, failure effects for all ten failure types, a full ATC flight (gate, clearance, taxi, takeoff, departure handoff, approach vectors, landing clearance, landing, taxi to parking), mayday, radio failure, uncontrolled approach, AI departures and arrivals at a hub, regional and airfield, keyboard takeoffs in arcade and simulation.
+- Browser (headless Chromium): setup screen mode controls, radio keys, dragging an engine lever, flap and gear buttons, failure warnings and emergency checklist, pad menu, H to hide, with no console errors.
+
 ## Session log (newest first)
+- 2026-10-14 Phase 4 finished: modes and toggles, systems and failures, ATC and AI traffic, HUD panels, controller menu, alerts; hub runway pair fix. Pushed; Pages deploy to be confirmed.
 - 2026-10-14 Phase 3 finished: ten aircraft, jumbo fuel/CG model, hangar preview and spec sheet, runway-length warnings, baked AI traffic, nav-map airports, night cockpit/windows. Pushed to the branch; Pages run #10 (commit 30ebbe0) built and deployed successfully (runs #7/#8 failed only because Pages had a previous deployment still in progress; re-run or push again if that recurs).
 - 2026-10-14 Phase 3 parts 1-2: maps, terrain, airports, scenery, weather.
 - 2026-10-14 Phase 2 deployed and verified headless; Phase 1 deployed (Pages enabled by the user).

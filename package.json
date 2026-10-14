@@ -1,0 +1,18 @@
+{
+  "name": "flight-sim",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser-based 3D flight simulator (Three.js + Vite), deployed to GitHub Pages.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.4"
+  }
+}

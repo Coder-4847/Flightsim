@@ -1,7 +1,7 @@
 # Flight Sim: memory
 
 ## Current status
-- Phase: 3 (Maps, terrain, all aircraft, weather, day/night, traffic) — code complete, verification done headless; playtest deploy pending the user's check.
+- Phase: 3 (Maps, terrain, all aircraft, weather, day/night, traffic) — code complete, verified headless, Pages deploy succeeded; waiting for the user's playtest.
 - Last completed: Phase 2 deployed. Phase 3 built in three commits: world (3 generated 120 km maps, LOD terrain, airports, scenery, weather, day/night), then the remaining 10 aircraft, multi-tank fuel/CG model, hangar preview, traffic.
 - Next step: user playtests Phase 3 on the live URL. Do NOT start Phase 4 (modes, ATC, full HUD) until this deploy is live and the checklist below passes.
 - Live playtest URL: https://coder-4847.github.io/Flightsim/
@@ -75,6 +75,6 @@
 - Numbers: map load about 5-9 s in software rendering; hub draw calls about 700 with parked traffic; build about 850 kB JS (235 kB gzip).
 
 ## Session log (newest first)
-- 2026-10-14 Phase 3 finished: ten aircraft, jumbo fuel/CG model, hangar preview and spec sheet, runway-length warnings, baked AI traffic, nav-map airports, night cockpit/windows. Pushed to the branch; Pages deploy to be confirmed.
+- 2026-10-14 Phase 3 finished: ten aircraft, jumbo fuel/CG model, hangar preview and spec sheet, runway-length warnings, baked AI traffic, nav-map airports, night cockpit/windows. Pushed to the branch; Pages run #10 (commit 30ebbe0) built and deployed successfully (runs #7/#8 failed only because Pages had a previous deployment still in progress; re-run or push again if that recurs).
 - 2026-10-14 Phase 3 parts 1-2: maps, terrain, airports, scenery, weather.
 - 2026-10-14 Phase 2 deployed and verified headless; Phase 1 deployed (Pages enabled by the user).

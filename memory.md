@@ -1,7 +1,7 @@
 # Flight Sim: memory
 
 ## Current status
-- Phase: 5 (Game modes and progression) — code complete, verified headless and in the browser; Pages deploy pending confirmation (see the session log).
+- Phase: 5 (Game modes and progression) — code complete, verified headless and in the browser, Pages deploy succeeded; waiting for the user's playtest.
 - Last completed: Phase 4 deployed (live). Phase 5 adds Free Flight, Career (37 missions), Emergency Landing (seeded), VIP Escort, economy/shop, three save slots with export/import and autosave.
 - Next step: user playtests Phase 5 on the live URL. Do NOT start Phase 6 (polish and publish) until this deploy is live and the checklist below passes.
 - Live playtest URL: https://coder-4847.github.io/Flightsim/
@@ -112,7 +112,7 @@ Phases 1-4 content (maps, 14 aircraft, ATC, HUD) still applies. New: Start flyin
 - Browser (headless Chromium, scripted pilot driving the real UI): create a pilot, Free Flight with locked aircraft, full leg and Debrief, "Continue flying", upgrade gating toast, pause autosave, Quick Flight unlocked, Career c01 (3 stars, 780 cr, next mission unlocked and preselected), crash in a mission (repair bill on the crash card), Emergency seed repeat (same failures at the same times after Retry), Emergency success debrief (grade A, best score stored), VIP comfort bar and escort payout, shop purchases (upgrade, livery), export/import, reload persistence; no console errors.
 
 ## Session log (newest first)
-- 2026-10-14 Phase 5 built: saves, catalogue, economy, tracker, missions, VIP, emergency, mode runner and all screens. Pages deploy to be confirmed.
+- 2026-10-14 Phase 5 finished: saves, catalogue, economy, tracker, missions, VIP, emergency, mode runner and all screens. Pushed; Pages run #17 (commit ec928a8) deployed successfully.
 - 2026-10-14 Phase 4 finished: modes and toggles, systems and failures, ATC and AI traffic, HUD panels, controller menu, alerts; hub runway pair fix. Pushed; Pages run #15 (commit 39cfb54) deployed successfully.
 - 2026-10-14 Phase 3 finished: ten aircraft, jumbo fuel/CG model, hangar preview and spec sheet, runway-length warnings, baked AI traffic, nav-map airports, night cockpit/windows. Pushed to the branch; Pages run #10 (commit 30ebbe0) built and deployed successfully (runs #7/#8 failed only because Pages had a previous deployment still in progress; re-run or push again if that recurs).
 - 2026-10-14 Phase 3 parts 1-2: maps, terrain, airports, scenery, weather.

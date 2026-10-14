@@ -31,6 +31,8 @@ export class Environment {
     this.night = 0; // 0 day .. 1 full night (drives lights-on behaviour)
     this.visibility = 60000; // metres
     this.cloudDim = 0; // 0 clear .. 1 heavy overcast (dims the sun)
+    this.flash = 0; // lightning flash level 0..1
+    this.hemiBase = 1;
     this.fogTint = new THREE.Color('#9aa5b3');
     this.zenith = new THREE.Color();
     this.horizon = new THREE.Color();
@@ -142,7 +144,8 @@ export class Environment {
     }
     this.hemi.color.copy(this.zenith).lerp(WHITE, 0.35);
     this.hemi.groundColor.copy(GROUND_TINT).multiplyScalar(0.25 + 0.75 * dayAmt);
-    this.hemi.intensity = 0.1 + dayAmt * (1.0 - 0.45 * this.cloudDim) + this.night * 0.06;
+    this.hemiBase = 0.1 + dayAmt * (1.0 - 0.45 * this.cloudDim) + this.night * 0.06;
+    this.hemi.intensity = this.hemiBase;
 
     // Fog follows the horizon colour, dimmed at night and tinted grey in bad weather.
     this.fogTint.copy(this.horizon).lerp(OVERCAST_FOG, this.cloudDim * 0.6);
@@ -176,5 +179,6 @@ export class Environment {
       if (Math.abs(this.hour - before) > 0.0005 || this.timeScale > 1) this.setHour(this.hour);
     }
     this.sky.position.copy(cameraPosition);
+    this.hemi.intensity = this.hemiBase + this.flash * 2.4;
   }
 }

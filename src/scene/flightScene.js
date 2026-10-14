@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import { AirportManager } from '../world/airportBuilder.js';
 import { buildMap } from '../world/mapBuilder.js';
 import { createMapWorld } from '../world/mapWorld.js';
+import { Scenery } from '../world/scenery.js';
 import { Terrain } from '../world/terrainTiles.js';
 import { createTerrainMaterial } from '../world/terrainMaterial.js';
 import { buildZoneTexture, createZones } from '../world/zones.js';
 import { Environment } from './environment.js';
+import { Weather } from './weather.js';
 
 // The 3D world: renderer, camera, environment, and the currently loaded map (terrain and
 // everything placed on it). The flight session owns the aircraft and cameras.
@@ -26,6 +28,7 @@ export class FlightScene {
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.5, 160000);
     this.camera.position.set(0, 60, 400);
     this.env = new Environment(this.scene);
+    this.weather = new Weather(this.scene, this.env);
     this.map = null;
     this.mapId = null;
     this.terrain = null;
@@ -53,8 +56,17 @@ export class FlightScene {
     this.terrainMaterial = createTerrainMaterial(texture, map.cfg.biome, map.cfg.snowLine);
     this.terrain = new Terrain(map, this.terrainMaterial, this.scene);
     this.airports = new AirportManager(this.scene, map, this.env);
+    this.scenery = new Scenery(this.scene, map, zones, this.terrain, this.env);
     const cam = spawn ?? { x: 0, y: 500, z: 0 };
-    await this.terrain.prepare(cam, (f) => onProgress(0.35 + f * 0.55, 'Building terrain'));
+    await this.terrain.prepare(cam, (f) => onProgress(0.35 + f * 0.4, 'Building terrain'));
+    // Trees, roads and buildings around the start point.
+    let left = this.scenery.flush(0, cam);
+    const total = Math.max(1, left);
+    while (left > 0) {
+      left = this.scenery.flush(2, cam);
+      onProgress(0.75 + (1 - left / total) * 0.2, 'Placing towns and forests');
+      await new Promise((r) => setTimeout(r, 0));
+    }
     this.airports.update(new THREE.Vector3(cam.x, cam.y, cam.z), new THREE.Vector3());
     this.env.setHour(this.env.hour);
     onProgress(1, 'Ready');
@@ -65,6 +77,8 @@ export class FlightScene {
     if (!this.terrain) return;
     this.airports?.dispose();
     this.airports = null;
+    this.scenery?.dispose();
+    this.scenery = null;
     this.terrain.group.removeFromParent();
     this.terrain.tiles.forEach((t) => t.mesh.geometry.dispose());
     this.terrainMaterial.dispose();
@@ -93,10 +107,13 @@ export class FlightScene {
   }
 
   /** Per-frame world update: terrain streaming, environment clock. */
-  update(dt, cameraPosition, wind = null) {
+  update(dt, cameraPosition, wind = null, velocity = null) {
     this.env.update(dt, cameraPosition);
+    this.weather.update(dt, this.camera, velocity ?? ZERO_WIND, wind ?? ZERO_WIND);
     this.terrain?.update(cameraPosition);
     this.airports?.update(cameraPosition, wind ?? ZERO_WIND);
+    this.scenery?.update(dt, cameraPosition, wind ?? ZERO_WIND);
+    if (this.terrainMaterial) this.terrainMaterial.userData.uniforms.uNight.value = this.env.night;
   }
 
   render() {

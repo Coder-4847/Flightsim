@@ -65,6 +65,9 @@ export class FlightSession {
     await new Promise((r) => requestAnimationFrame(() => r()));
 
     const world = this.flightScene.createPhysicsWorld(this.settings.get('weather'));
+    world.setSky(opts.sky ?? 'clear');
+    this.flightScene.weather.setReference(airport.elevation);
+    this.flightScene.weather.setSky(opts.sky ?? 'clear');
     this.model = new FlightModel(spec, world);
     this.view = new AircraftView(spec, createCockpit);
     this.flightScene.scene.add(this.view.root);
@@ -82,6 +85,7 @@ export class FlightSession {
   place(startMode = this.startMode) {
     const map = this.flightScene.map;
     this.model.world.setWeather(this.settings.get('weather'));
+    this.model.world.setSky(this.options?.sky ?? 'clear');
     const spawn = startPoint(map, this.airport, this.endId, startMode, this.model.spec.id);
     this.model.reset(spawn.reset);
     this.controls.attach(this.model);
@@ -116,7 +120,7 @@ export class FlightSession {
     this.view.update(this.model, alpha, frameDt, this.clock);
     this.cameras.update(frameDt, this.view.root.position, this.view.root.quaternion, this.controls.look);
     this.model.world.wind(this.view.root.position, this.model.time, this.windAtCamera);
-    this.flightScene.update(frameDt, this.flightScene.camera.position, this.windAtCamera);
+    this.flightScene.update(frameDt, this.flightScene.camera.position, this.windAtCamera, this.model.vel);
     this.flightScene.render();
   }
 

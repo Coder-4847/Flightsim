@@ -26,6 +26,7 @@ const _aeroForceB = new THREE.Vector3();
 const _tmp = new THREE.Vector3();
 const _wind = new THREE.Vector3();
 const _dq = new THREE.Quaternion();
+const _gust = new THREE.Vector3();
 const _flap = {};
 const _cl = {};
 
@@ -400,6 +401,15 @@ export class FlightModel {
     this.gear.update(dt, { pos: this.pos, vel: this.vel, q: this.q, w: this.w, mass, time: this.time }, gearCtl, this.world, _gearForce, _gearTorque);
     _force.add(_gearForce);
     _torque.add(_gearTorque);
+
+    // Turbulence kicks the aircraft in all three axes; light aircraft feel it more than heavy ones.
+    if (this.world.gustAccel) {
+      this.world.gustAccel(this.pos, this.time, _gust);
+      const k = clamp(Math.sqrt(1500 / mass), 0.25, 1.2) * clamp(air.tas / 60, 0, 1.5) * (this.gear.weightOnWheels ? 0 : 1);
+      this.w.x += _gust.x * k * dt;
+      this.w.y += _gust.y * k * dt;
+      this.w.z += _gust.z * k * dt;
+    }
 
     // Integrate translation (semi-implicit Euler).
     this.vel.addScaledVector(_force, dt / mass);

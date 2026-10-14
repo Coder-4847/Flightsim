@@ -5,10 +5,11 @@ import { MAP_HALF } from './maps.js';
 // any size has the same triangle count: LOD level L covers 2^L times the area at 2^L times the
 // vertex spacing. Tiles are built on demand from the height function and cached.
 
-const SEGMENTS = 48;
-const BASE_SIZE = 2048; // level 0 tile edge, metres (vertex spacing ~43 m)
+const SEGMENTS = 32;
+const BASE_SIZE = 1536; // level 0 tile edge, metres (vertex spacing 48 m)
 const MAX_LEVEL = 5; // 64 km tiles at the top
 const SPLIT_FACTOR = 2.2; // split a tile when the camera is closer than size * factor
+const NORMAL_EPS = BASE_SIZE / SEGMENTS; // metres: normals are always taken over +/- this distance
 const LIMIT = 90000; // no tiles beyond this distance from the map centre
 
 function buildIndex(n) {
@@ -103,6 +104,22 @@ export class Terrain {
     return leaves;
   }
 
+  /** Height at (x, z) from a tile's own sample grid (matches its mesh; no function evaluation). */
+  static heightIn(tile, x, z) {
+    const fx = (x - tile.x0) / tile.step + 1;
+    const fz = (z - tile.z0) / tile.step + 1;
+    const i = Math.max(0, Math.min(tile.border - 2, Math.floor(fx)));
+    const j = Math.max(0, Math.min(tile.border - 2, Math.floor(fz)));
+    const tx = Math.max(0, Math.min(1, fx - i));
+    const tz = Math.max(0, Math.min(1, fz - j));
+    const b = tile.border;
+    const h00 = tile.heights[j * b + i];
+    const h10 = tile.heights[j * b + i + 1];
+    const h01 = tile.heights[(j + 1) * b + i];
+    const h11 = tile.heights[(j + 1) * b + i + 1];
+    return h00 * (1 - tx) * (1 - tz) + h10 * tx * (1 - tz) + h01 * (1 - tx) * tz + h11 * tx * tz;
+  }
+
   /** Build a tile mesh from the height function. Returns the tile record. */
   build(n) {
     const size = BASE_SIZE * 2 ** n.level;
@@ -131,11 +148,24 @@ export class Terrain {
         positions[k] = x0 + i * step - cx;
         positions[k + 1] = h;
         positions[k + 2] = z0 + j * step - cz;
-        const hx = heights[(j + 1) * border + (i + 2)] - heights[(j + 1) * border + i];
-        const hz = heights[(j + 2) * border + (i + 1)] - heights[j * border + (i + 1)];
-        const inv = 1 / Math.hypot(hx, 2 * step, hz);
+        // Normals use forward differences over a fixed 48 m baseline at every LOD, so neighbouring
+        // tiles of different resolution shade identically along their shared edge.
+        let hx;
+        let hz;
+        const run = NORMAL_EPS;
+        if (step <= NORMAL_EPS * 1.01) {
+          const h0 = heights[(j + 1) * border + (i + 1)];
+          hx = heights[(j + 1) * border + (i + 2)] - h0;
+          hz = heights[(j + 2) * border + (i + 1)] - h0;
+        } else {
+          const wx = x0 + i * step;
+          const wz = z0 + j * step;
+          hx = this.hf.height(wx + NORMAL_EPS, wz) - h;
+          hz = this.hf.height(wx, wz + NORMAL_EPS) - h;
+        }
+        const inv = 1 / Math.hypot(hx, run, hz);
         normals[k] = -hx * inv;
-        normals[k + 1] = 2 * step * inv;
+        normals[k + 1] = run * inv;
         normals[k + 2] = -hz * inv;
         if (h < minY) minY = h;
         if (h > maxY) maxY = h;
@@ -165,7 +195,10 @@ export class Terrain {
     mesh.position.set(cx, 0, cz);
     mesh.matrixAutoUpdate = false;
     mesh.updateMatrix();
-    const tile = { ...n, key: Terrain.key(n.level, n.ix, n.iz), mesh, size, cx, cz, minY, maxY, lastUsed: this.frame, decor: null, built: true };
+    const tile = {
+      ...n, key: Terrain.key(n.level, n.ix, n.iz), mesh, size, cx, cz, minY, maxY, lastUsed: this.frame, decor: null, built: true,
+      heights, step, x0, z0, border,
+    };
     this.tiles.set(tile.key, tile);
     this.onTileBuilt?.(tile);
     return tile;

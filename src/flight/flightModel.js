@@ -59,7 +59,7 @@ export class FlightModel {
       pitch: 0, roll: 0, yaw: 0, trim: 0,
       throttle: this.engines.map(() => 0),
       brakeLeft: 0, brakeRight: 0, parkingBrake: false,
-      flapsStage: 0, gearDown: true, speedbrake: false, steer: 0, lights: true,
+      flapsStage: 0, gearDown: true, speedbrake: false, steer: 0, lights: true, mixture: 1, prop: 1,
     };
     this.surfaces = { elevator: 0, aileron: 0, rudder: 0, flap: 0, speedbrake: 0 };
     // Optional multi-tank layout (spec.tanks): each tank has its own arm for the CG calculation and
@@ -170,6 +170,8 @@ export class FlightModel {
     this.surfaces.elevator = this.surfaces.aileron = this.surfaces.rudder = this.surfaces.speedbrake = 0;
     this.sys.reset();
     this.crossfeed = false;
+    this.controls.mixture = 1;
+    this.controls.prop = 1;
     this.tanks.forEach((t) => { t.pump = true; });
     this.engines.forEach((e) => { e.failed = false; e.fire = false; e.spool = spec.engines.spec.idle ?? 0.1; });
 
@@ -393,6 +395,8 @@ export class FlightModel {
     let fuelFlow = 0;
     for (let i = 0; i < this.engines.length; i++) {
       const e = this.engines[i];
+      e.mixture = c.mixture ?? 1;
+      e.propLever = c.prop ?? 1;
       e.step(dt, c.throttle[i], env, this.#hasFuelFor(i));
       thrustTotal += e.thrust;
       fuelFlow += e.fuelFlow;
@@ -600,7 +604,7 @@ export class FlightModel {
       flaps: this.surfaces.flap, gear: this.gear.extension, gearLever: this.controls.gearDown,
       fuel: this.fuel, fuelCapacity: this.spec.mass.fuelCapacity, mass: this.mass, cg: this.#cgFraction(),
       tanks: this.tanks,
-      throttle: this.controls.throttle, engines: this.engines.map((e) => e.gauges),
+      throttle: this.controls.throttle, mixture: this.controls.mixture, prop: this.controls.prop, engines: this.engines.map((e) => e.gauges),
       onGround: this.gear.weightOnWheels,
       groundSpeed: Math.hypot(this.vel.x, this.vel.z) / KT,
       stallWarning: this.stallWarning, stalled: !!this.stalled,

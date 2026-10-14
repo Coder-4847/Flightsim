@@ -161,6 +161,14 @@ export class FlightSession {
     this.flightScene.render();
   }
 
+  /** Positions of other aircraft near the player, for the map. */
+  collectTraffic() {
+    const out = [];
+    for (const f of this.flightScene.airTraffic?.flights ?? []) out.push({ x: f.root.position.x, z: f.root.position.z, y: f.root.position.y });
+    for (const p of this.atc?.ops?.planes ?? []) if (p.root) out.push({ x: p.pos.x, z: p.pos.z, y: p.pos.y });
+    return out;
+  }
+
   /** Drain physics events (touchdown, stall, crash). */
   takeEvents() {
     if (!this.model || this.model.events.length === 0) return [];

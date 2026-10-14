@@ -18,6 +18,7 @@ export class Input extends Emitter {
     this.#padButtonToActions = new Map();
     this.enabled = false; // only true while flying/paused
     this.suspended = false; // true while the UI is capturing a key for rebinding
+    this.menuCapture = false; // true while the controller menu is open: buttons go to the menu, not the aircraft
     this.#rebuild();
     bindings.on('change', () => this.#rebuild());
 
@@ -40,6 +41,10 @@ export class Input extends Emitter {
     if (this.suspended) return; // the settings screen reads the pad directly while rebinding
     for (const { name, down } of this.pad.poll()) {
       if (!this.enabled || this.suspended) continue;
+      if (this.menuCapture) {
+        if (down) this.emit('padbutton', name);
+        continue;
+      }
       for (const action of this.#padButtonToActions.get(name) ?? []) {
         if (down) {
           this.#down.add(action);

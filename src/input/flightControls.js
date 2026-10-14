@@ -1,3 +1,4 @@
+import { Engine } from '../flight/engine.js';
 import { approach, clamp } from '../flight/units.js';
 
 // Turns input actions (keyboard, gamepad) into flight-model controls every frame.
@@ -73,6 +74,15 @@ export class FlightControls {
   /** Run an action as if its key had been pressed (the HUD buttons use this). */
   perform(action) {
     this.#onPress(action);
+  }
+
+  /** Set a flap detent directly (the HUD flap lever uses this). */
+  setFlaps(stage) {
+    const m = this.model;
+    if (!m || m.crashed) return;
+    if (!this.systems.manualFlaps) return this.#toast('Flaps are automatic (turn on Manual flaps in Settings)');
+    m.controls.flapsStage = clamp(stage, 0, m.spec.flaps.stages.length - 1);
+    this.#toast(`Flaps ${m.spec.flaps.stages[m.controls.flapsStage].deg}°`);
   }
 
   #onPress(action) {
@@ -274,6 +284,14 @@ export class FlightControls {
       c.throttle.fill(this.master);
     }
 
+    // Mixture and propeller levers: manual with the systems on, automatic otherwise.
+    if (this.systems.fuel) {
+      c.mixture = clamp(c.mixture + input.axis('mixture_lean', 'mixture_rich') * 0.4 * dt, 0, 1);
+      c.prop = clamp(c.prop + input.axis('prop_down', 'prop_up') * 0.4 * dt, 0, 1);
+    } else {
+      c.mixture = Math.min(1, Engine.bestMixture(m.air.sigma) + 0.04);
+      c.prop = 1;
+    }
     const tel = m.telemetry;
     tel.ias = tel.iasTrue; // automation uses the real airspeed even when the display is wrong
     if (!this.systems.manualFlaps) this.#autoFlaps(m, tel, dt);

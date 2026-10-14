@@ -17,6 +17,8 @@ export class Engine {
     this.failed = false;
     this.fire = false;
     this.running = true;
+    this.mixture = 1; // piston mixture lever 0 (lean) .. 1 (rich)
+    this.propLever = 1; // propeller speed lever 0 (low rpm) .. 1 (high rpm)
   }
 
   /** Spool fraction the engine settles at for a given throttle. */
@@ -36,11 +38,26 @@ export class Engine {
       return Math.max(0, dry * (1 + abBoost) * lapse * Math.max(0.15, 1 + mach));
     }
     // Propeller engines: power lapses with density; static thrust sets Vc.
-    const power = s.power * clamp((env.sigma - 0.12) / 0.88, 0.05, 1) * spool ** 1.35;
-    const vc = (s.propEfficiency * s.power) / s.staticThrust;
-    const prop = (s.propEfficiency * power) / Math.sqrt(env.tas * env.tas + vc * vc);
+    const mixFactor = s.type === 'piston' ? Engine.mixturePower(env.sigma, this.mixture) : 1;
+    const power = s.power * clamp((env.sigma - 0.12) / 0.88, 0.05, 1) * spool ** 1.35 * mixFactor;
+    // Fine pitch (high rpm) gives more static thrust; coarse pitch is a little more efficient at speed.
+    const pitchStatic = 0.84 + 0.16 * this.propLever;
+    const pitchCruise = 1 + 0.07 * (1 - this.propLever) * clamp((env.tas - 40) / 40, 0, 1);
+    const vc = (s.propEfficiency * s.power) / (s.staticThrust * pitchStatic);
+    const prop = (s.propEfficiency * pitchCruise * power) / Math.sqrt(env.tas * env.tas + vc * vc);
     // Turboprops also have a small residual jet thrust.
     return prop + (s.type === 'turboprop' ? 0.06 * prop : 0);
+  }
+
+  /** The mixture that gives best power at this air density (thin air needs a leaner mixture). */
+  static bestMixture(sigma) {
+    return clamp(0.3 + 0.7 * sigma ** 1.4, 0.3, 1);
+  }
+
+  /** Power multiplier for a mixture setting: rich wastes power a little, lean loses it quickly. */
+  static mixturePower(sigma, mixture) {
+    const d = mixture - Engine.bestMixture(sigma);
+    return clamp(1 - 0.32 * Math.max(0, d) - 1.6 * Math.max(0, -d), 0.15, 1);
   }
 
   get afterburnerAmount() {
@@ -71,8 +88,8 @@ export class Engine {
 
     const fuelLevel = (this.spool - (s.idle ?? 0.1)) / (1 - (s.idle ?? 0.1));
     this.fuelFlow = this.spool > 0.02
-      ? s.fuelFlowIdle + (s.fuelFlowMax - s.fuelFlowIdle) * clamp(fuelLevel, 0, 1)
-        + (s.afterburner ? (s.fuelFlowAb - s.fuelFlowMax) * this.afterburner : 0)
+      ? (s.fuelFlowIdle + (s.fuelFlowMax - s.fuelFlowIdle) * clamp(fuelLevel, 0, 1)
+        + (s.afterburner ? (s.fuelFlowAb - s.fuelFlowMax) * this.afterburner : 0)) * (s.type === 'piston' ? 0.45 + 0.55 * this.mixture : 1)
       : 0;
   }
 

@@ -1,11 +1,25 @@
+import { AlertAudio } from '../audio/alerts.js';
+import { computeApproach } from '../game/approachGuide.js';
+import { evaluate as evaluateWarnings } from '../game/warnings.js';
 import { h } from './dom.js';
+import { createChecklistPanel } from './hud/checklistPanel.js';
+import { createControlsPanel } from './hud/controlsPanel.js';
+import { createEnginePanel } from './hud/enginePanel.js';
+import { createApproachPanel, createNavPanel, createPfdPanel } from './hud/instrumentPanels.js';
+import { createPadMenu } from './hud/padMenu.js';
+import { PanelManager, button } from './hud/panels.js';
+import { createRadioPanel } from './hud/radioPanel.js';
+import { createSystemsPanel } from './hud/systemsPanel.js';
 
-// Phase 2 flight HUD: a compact data strip, warnings, toasts, touchdown report and the
-// crash screen. The full instrument HUD with panels and ATC arrives in Phase 4.
+// The flight HUD: data strip, prioritised warnings (with audio), toasts, touchdown report, crash
+// card, ATC subtitles, plus the mouse-operable panels (radio, checklist, engines, controls, fuel and
+// systems, flight display, map, approach guide) and the controller menu. Everything can be hidden
+// with H; scale and opacity come from the settings.
 
 const fmt = (v, d = 0) => (Number.isFinite(v) ? v.toFixed(d) : '--');
+const HOLD_SECONDS = 2.5;
 
-export function createFlightHud({ onRestart, onSelect, onMenu }) {
+export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }) {
   const cell = (label, unit = '') => {
     const value = h('span.v', '--');
     const el = h('div.cell', h('span.l', label), value, unit && h('span.u', unit));
@@ -22,6 +36,9 @@ export function createFlightHud({ onRestart, onSelect, onMenu }) {
   const info = h('div.cam-info');
   const hint = h('div.flight-hint');
   const touchdown = h('div.touchdown');
+  const subtitle = h('div.subtitle', { 'aria-live': 'polite' });
+  const panelRoot = h('div.hud-panels');
+  const toolbar = h('div.hud-toolbar');
 
   const crashTitle = h('h2', 'Crashed');
   const crashReason = h('p.crash-reason');
@@ -34,11 +51,66 @@ export function createFlightHud({ onRestart, onSelect, onMenu }) {
     ),
   );
 
-  const el = h('div.flight-hud', warnings, info, toast, touchdown, hint, strip, status, crash);
+  const el = h('div.flight-hud', warnings, info, toast, touchdown, subtitle, hint, strip, status, panelRoot, toolbar, crash);
 
+  // ---- shared context for the panels ----------------------------------------------------------------------------
+  const audio = new AlertAudio(settings);
+  const hud = {
+    panels: new PanelManager(panelRoot),
+    audio,
+    settings,
+    session: null,
+    guide: null,
+    autoOpenRadio: false,
+    get model() { return this.session?.model ?? null; },
+    get controls() { return this.session?.controls; },
+    get atc() { return this.session?.atc ?? null; },
+    get systems() { return this.session?.systems ?? { perEngine: false, manualFlaps: false, manualGear: false, atc: false, fuel: false, checklists: false }; },
+    toast: (text) => el.showToast(text),
+    flying: () => el.classList.contains('active') && !el.dataset.paused,
+    showSubtitle: (msg) => showSubtitle(msg),
+    toggleHud: () => setHudHidden(!hud.panels.hidden),
+  };
+
+  const radio = createRadioPanel(hud);
+  const checklist = createChecklistPanel(hud);
+  const engines = createEnginePanel(hud);
+  const controlsPanel = createControlsPanel(hud);
+  const systemsPanel = createSystemsPanel(hud);
+  const pfd = createPfdPanel(hud);
+  const nav = createNavPanel(hud);
+  const approach = createApproachPanel(hud);
+  const padMenu = createPadMenu(hud, input);
+  el.append(padMenu.el);
+
+  const TOOLBAR = [
+    ['radio', 'Radio', 'R', 'Radio and ATC (R)'],
+    ['checklist', 'Checklist', 'K', 'Checklists (K)'],
+    ['nav', 'Map', 'M', 'Navigation map (M)'],
+    ['pfd', 'Display', '2', 'Flight display (2)'],
+    ['engines', 'Engines', '3', 'Engines and throttle levers (3)'],
+    ['controls', 'Controls', '4', 'Flaps, gear, trim and more (4)'],
+    ['systems', 'Systems', '5', 'Fuel, electrics and emergency actions (5)'],
+    ['approach', 'Approach', '6', 'Approach guide and landing score (6)'],
+  ];
+  const toolButtons = {};
+  for (const [id, label, key, tooltip] of TOOLBAR) {
+    toolButtons[id] = button(h('span', h('span.tb-key', key), label), { onClick: () => hud.panels.get(id).toggle(), tooltip, className: 'tool' });
+    toolbar.append(toolButtons[id]);
+  }
+  hud.panels.onToggle = (id, open) => toolButtons[id]?.classList.toggle('on', open);
+
+  function setHudHidden(hidden) {
+    hud.panels.setHidden(hidden);
+    el.classList.toggle('hud-off', hidden);
+    if (hidden) el.showToast('HUD hidden (H to show)');
+  }
+
+  // ---- toasts, hints, subtitles ---------------------------------------------------------------------------------------
   let toastTimer = 0;
   let touchdownTimer = 0;
   let hintTimer = 0;
+  let subTimer = 0;
 
   el.showToast = (text) => {
     toast.textContent = text;
@@ -46,6 +118,14 @@ export function createFlightHud({ onRestart, onSelect, onMenu }) {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
   };
+
+  function showSubtitle(msg) {
+    // Subtitles for the controller voice: always shown when the transcript panel is closed.
+    subtitle.replaceChildren(h('b', `${msg.station ?? 'ATC'}: `), msg.text);
+    subtitle.classList.add('show');
+    clearTimeout(subTimer);
+    subTimer = setTimeout(() => subtitle.classList.remove('show'), Math.min(9000, 3500 + msg.text.length * 55));
+  }
 
   el.showTouchdown = (event) => {
     touchdown.replaceChildren(
@@ -66,11 +146,84 @@ export function createFlightHud({ onRestart, onSelect, onMenu }) {
 
   el.setCrash = (reason) => {
     crash.hidden = !reason;
-    if (reason) crashReason.textContent = reason;
+    if (reason) { crashReason.textContent = reason; audio.stall(false); }
   };
 
-  // Called every few frames with the model telemetry.
+  // ---- binding to a flight ----------------------------------------------------------------------------------------------
+  /** Call when a flight starts (or restarts) so the panels pick up the new aircraft and ATC. */
+  el.bind = (session) => {
+    hud.session = session;
+    radio.bind(session.atc);
+    checklist.reset();
+    engines.rebuild();
+    systemsPanel.rebuild();
+    activeWarnings.clear();
+    audio.stall(false);
+    session.atc?.on('violation', (v) => el.showToast(`ATC: ${v.text}`));
+    // First time on this device: open a sensible set of panels for the chosen mode.
+    if (!localStorage.getItem('hudpanels')) {
+      const sim = settings.get('preset') !== 'arcade';
+      const open = sim ? ['pfd', 'engines', 'radio'] : [];
+      for (const id of open) hud.panels.get(id).open();
+    }
+    if (session.systems.atc) hud.panels.get('radio').open();
+    el.refreshSystems();
+  };
+
+  el.refreshSystems = () => {
+    engines.rebuild();
+    systemsPanel.rebuild();
+    radio.refresh();
+  };
+
+  // Failures open their emergency checklist.
+  el.onFailure = (event) => {
+    checklist.onFailure(event.failure);
+    el.showToast(event.text);
+    audio.master();
+  };
+
+  el.setPaused = (paused) => { if (paused) el.dataset.paused = '1'; else delete el.dataset.paused; };
+
+  // ---- panel and key actions --------------------------------------------------------------------------------------------------
+  const ACTION_PANEL = {
+    radio_menu: 'radio', checklist_toggle: 'checklist', map_toggle: 'nav', panel_pfd: 'pfd', panel_engines: 'engines',
+    panel_controls: 'controls', panel_systems: 'systems', panel_approach: 'approach',
+  };
+  el.handleAction = (action) => {
+    if (action === 'hud_toggle') hud.toggleHud();
+    else if (action === 'hud_menu') padMenu.toggle();
+    else if (ACTION_PANEL[action]) hud.panels.get(ACTION_PANEL[action]).toggle();
+  };
+
+  // ---- warnings ----------------------------------------------------------------------------------------------------------------------
+  const activeWarnings = new Map();
+  function refreshWarnings(t, model, now) {
+    const list = evaluateWarnings(t, model, { runwayIncursion: hud.atc?.phase === 'taxi' && hud.atc.me?.onRunway && !hud.atc.clr?.lineup && !hud.atc.clr?.takeoff });
+    for (const w of list) {
+      const known = activeWarnings.get(w.id);
+      activeWarnings.set(w.id, { ...w, until: now + HOLD_SECONDS, fresh: !known });
+      if (!known) {
+        if (w.sound === 'master') audio.master();
+        else if (w.sound === 'caution') audio.caution();
+        else if (w.sound?.startsWith('gpws:')) audio.speak(w.sound.slice(5));
+      } else if (w.sound?.startsWith('gpws:')) audio.speak(w.sound.slice(5));
+    }
+    for (const [id, w] of activeWarnings) if (w.until < now && !list.some((x) => x.id === id)) activeWarnings.delete(id);
+    const shown = [...activeWarnings.values()].sort((a, b) => ({ red: 0, amber: 1, info: 2 }[a.level] - { red: 0, amber: 1, info: 2 }[b.level]));
+    audio.stall(activeWarnings.has('stall'));
+    const lead = shown.slice(0, 5);
+    warnings.replaceChildren(...lead.map((w) => h('span.warn', { dataset: { tone: w.level } }, w.text)));
+    el.classList.toggle('master-red', shown.some((w) => w.level === 'red'));
+    // Priority rule: a red warning hides the info chips so the screen stays readable.
+    if (shown.some((w) => w.level === 'red')) warnings.querySelectorAll('.warn[data-tone="info"]').forEach((n) => n.remove());
+  }
+
+  // ---- per-frame update ----------------------------------------------------------------------------------------------------------
+  let navTick = 0;
   el.update = (t, extra) => {
+    const model = hud.model;
+    const now = performance.now() / 1000;
     cells.ias.value.textContent = fmt(t.ias);
     cells.alt.value.textContent = fmt(t.altitudeFt);
     cells.hdg.value.textContent = fmt(t.heading).padStart(3, '0');
@@ -90,19 +243,26 @@ export function createFlightHud({ onRestart, onSelect, onMenu }) {
       extra.windText,
     ].filter(Boolean);
     status.textContent = flags.join('   ·   ');
-
-    const w = [];
-    if (t.stallWarning || t.stalled) w.push(['STALL', 'red']);
-    if (t.overspeed) w.push(['OVERSPEED', 'red']);
-    if (!extra.fixedGear && t.gear < 0.98 && t.aglFt < 600 && t.ias < extra.gearSpeed && !t.onGround) w.push(['GEAR', 'amber']);
-    if (t.fuel < t.fuelCapacity * 0.08) w.push(['LOW FUEL', 'amber']);
-    if (t.fuel <= 0) w.push(['FUEL EXHAUSTED', 'red']);
-    if (t.speedbrake > 0.5) w.push(['SPEEDBRAKE', 'info']);
-    if (t.afterburner > 0.5) w.push(['AFTERBURNER', 'info']);
-    warnings.replaceChildren(...w.map(([text, tone]) => h('span.warn', { dataset: { tone } }, text)));
     info.textContent = extra.cameraLabel;
+    if (!model) return;
+    refreshWarnings(t, model, now);
+
+    // Navigation data shared by the map and the approach guide.
+    const session = hud.session;
+    const atc = session.atc;
+    const assigned = atc?.enabled && atc.ctx?.approachAirport ? { airport: atc.ctx.approachAirport, endId: atc.ctx.approachEnd } : null;
+    hud.guide = computeApproach(model, model.nav.airports, assigned, t);
+    if (++navTick % 2 === 0) {
+      const course = hud.guide ? { x: hud.guide.end.threshold.x, z: hud.guide.end.threshold.z, heading: hud.guide.end.heading } : null;
+      model.nav.course = course;
+      model.nav.hdgBug = atc?.enabled ? atc.ctx?.hdg ?? null : null;
+      model.nav.traffic = session.collectTraffic();
+    }
+    for (const p of [pfd, nav, approach, engines, controlsPanel, systemsPanel, checklist]) p.update(t);
   };
 
   el.setVisible = (visible) => { el.classList.toggle('active', visible); };
+  window.addEventListener('resize', () => hud.panels.clamp());
+  el.hud = hud;
   return el;
 }

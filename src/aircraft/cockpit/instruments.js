@@ -283,7 +283,7 @@ export function mfdMap(ctx, w, h, t, model) {
   const cx = w / 2; const cy = h * 0.66;
   // Range: the smallest step that covers about 90 s of flight.
   const reach = Math.max(1, t.groundSpeed * 0.514) * 90;
-  const range = [3000, 6000, 12000, 25000, 50000, 100000].find((r) => r >= reach) ?? 100000;
+  const range = model.nav?.range ?? ([3000, 6000, 12000, 25000, 50000, 100000].find((r) => r >= reach) ?? 100000);
   const pxPerM = (h * 0.58) / range;
   const px = model.pos.x; const pz = model.pos.z;
   ctx.save();
@@ -307,6 +307,32 @@ export function mfdMap(ctx, w, h, t, model) {
       ctx.restore();
     }
     label.push({ x: dx * pxPerM, y: dz * pxPerM, text: ap.code, active });
+  }
+  // Approach course and traffic.
+  const course = nav?.course;
+  if (course) {
+    ctx.save();
+    ctx.strokeStyle = '#4cc2ff'; ctx.lineWidth = 1.5; ctx.setLineDash([8, 6]);
+    const d = { x: Math.sin(course.heading * DEG), z: -Math.cos(course.heading * DEG) };
+    ctx.beginPath();
+    ctx.moveTo((course.x - px) * pxPerM, (course.z - pz) * pxPerM);
+    ctx.lineTo((course.x - d.x * 24000 - px) * pxPerM, (course.z - d.z * 24000 - pz) * pxPerM);
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.fillStyle = '#ffe27a';
+  for (const tr of nav?.traffic ?? []) {
+    const tx = (tr.x - px) * pxPerM; const tz = (tr.z - pz) * pxPerM;
+    if (Math.hypot(tx, tz) > h) continue;
+    ctx.beginPath(); ctx.arc(tx, tz, 3.5, 0, Math.PI * 2); ctx.fill();
+  }
+  if (nav?.hdgBug != null) {
+    ctx.save();
+    ctx.rotate((nav.hdgBug) * DEG);
+    ctx.strokeStyle = COLORS.amber; ctx.lineWidth = 3;
+    const r = range * pxPerM;
+    ctx.beginPath(); ctx.moveTo(-8, -r); ctx.lineTo(8, -r); ctx.stroke();
+    ctx.restore();
   }
   ctx.restore();
   // Labels stay upright: rotate each anchor into screen space.

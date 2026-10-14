@@ -49,6 +49,7 @@ function boot() {
   const screens = new ScreenManager(uiRoot);
   const hud = createHud();
   const flightHud = createFlightHud({
+    settings, input,
     onRestart: () => restartFlight(),
     onSelect: () => { state.go(GameState.MENU); screens.show('setup'); },
     onMenu: () => state.go(GameState.MENU),
@@ -71,11 +72,13 @@ function boot() {
   const restartFlight = () => {
     session.restart();
     flightHud.setCrash(null);
+    flightHud.bind(session);
     announceStart();
     if (state.is(GameState.PAUSED)) state.go(GameState.FLYING);
   };
   const announceStart = () => {
-    flightHud.showHint('W/S pitch · A/D roll · Q/E rudder · Shift/Ctrl throttle · Space brakes · B parking brake · G gear · F/V flaps · C camera · J assist');
+    const sim = session.systems.atc;
+    flightHud.showHint(`W/S pitch · A/D roll · Q/E rudder · Shift/Ctrl throttle · Space brakes · B parking brake · G gear · F/V flaps · C camera${sim ? ' · R radio · K checklist' : ''} · H hide HUD`);
   };
 
   const settingsScreen = createSettingsScreen({
@@ -103,6 +106,7 @@ function boot() {
   screens.show('main');
 
   session.onToast = (text) => flightHud.showToast(text);
+  session.onSystemsChanged = () => flightHud.refreshSystems();
 
   // ---- settings -> live effects -----------------------------------------
   const applySetting = (key) => {
@@ -166,6 +170,7 @@ function boot() {
       if (e.type === 'touchdown') flightHud.showTouchdown(e);
       else if (e.type === 'strike') flightHud.showToast('Airframe strike! Check your pitch attitude');
       else if (e.type === 'crash') { flightHud.setCrash(e.reason); input.releaseAll(); }
+      else if (e.type === 'failure') flightHud.onFailure(e);
     }
   }
 
@@ -175,6 +180,7 @@ function boot() {
     const inFlight = to === GameState.FLYING || to === GameState.PAUSED;
     hud.classList.toggle('active', inFlight || to === GameState.MENU);
     flightHud.setVisible(inFlight);
+    flightHud.setPaused(to === GameState.PAUSED);
     if (to !== GameState.FLYING) input.releaseAll();
     if (to !== GameState.FLYING && document.pointerLockElement) document.exitPointerLock();
 
@@ -198,6 +204,7 @@ function boot() {
           break;
         }
         flightHud.setCrash(null);
+        flightHud.bind(session);
         announceStart();
         if (state.is(GameState.LOADING)) state.go(GameState.FLYING);
         break;
@@ -213,6 +220,7 @@ function boot() {
   });
 
   input.on('press', (action) => {
+    if (state.is(GameState.FLYING)) flightHud.handleAction(action);
     if (action === 'pause') {
       if (state.is(GameState.FLYING)) state.go(GameState.PAUSED);
       else if (state.is(GameState.PAUSED) && screens.current === 'pause') state.go(GameState.FLYING);
@@ -260,5 +268,5 @@ function boot() {
   loop.start();
 
   // Handle for debugging and automated playtests.
-  window.__flightsim = { state, settings, bindings, input, scene: flightScene, session, setupScreen, startFlight };
+  window.__flightsim = { state, settings, bindings, input, scene: flightScene, session, setupScreen, startFlight, hud: flightHud };
 }

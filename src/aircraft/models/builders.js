@@ -77,17 +77,18 @@ export function makeLiveryTexture(livery, reg) {
   }
   // Registration on both sides near the tail, readable from outside.
   g.fillStyle = livery.regColor ?? '#1a2230';
-  g.font = 'bold 34px Arial, sans-serif';
+  const size = livery.regSize ?? 34;
+  g.font = `bold ${size}px Arial, sans-serif`;
   g.textBaseline = 'middle';
   // Right side reads left-to-right as drawn; on the left side (v = 0.5) the surface runs the
   // other way, so that copy is turned 180 degrees.
   g.save();
-  g.translate(W * 0.2, H * 0.97);
+  g.translate(W * 0.2, H * 0.985);
   g.scale(1.5, 1);
   g.fillText(reg, 0, 0);
   g.restore();
   g.save();
-  g.translate(W * 0.2 + 34 * 1.5 * reg.length * 0.62, H * 0.47);
+  g.translate(W * 0.2 + size * 1.5 * reg.length * 0.62, H * 0.47);
   g.rotate(Math.PI);
   g.scale(1.5, 1);
   g.fillText(reg, 0, 0);
@@ -134,6 +135,8 @@ export function makeMaterials(spec) {
       color: 0x28435c, roughness: 0.05, metalness: 0.7, transparent: true, opacity: 0.55,
       envMapIntensity: 1.2,
     }),
+    // Cabin windows: dark glass by day, warm light at night (see AircraftView.setNight).
+    window: new THREE.MeshStandardMaterial({ color: 0x1a2531, roughness: 0.1, metalness: 0.6, emissive: 0xffd9a0, emissiveIntensity: 0 }),
     intake: new THREE.MeshStandardMaterial({ color: 0x0b0d10, roughness: 0.8, metalness: 0.5, side: THREE.DoubleSide }),
     prop: new THREE.MeshStandardMaterial({ color: 0x23272d, roughness: 0.5, metalness: 0.4, side: THREE.DoubleSide }),
     propTip: new THREE.MeshStandardMaterial({ color: livery.tip ?? 0xf2c230, roughness: 0.5 }),
@@ -168,6 +171,8 @@ export function fuselageGeometry(stations, detail = HIGH) {
   const rings = (stations.length - 1) * perStation + 1;
   const pos = [];
   const uv = [];
+  const xMin = stations[0].x;
+  const xSpan = (stations[stations.length - 1].x - xMin) || 1;
   for (let r = 0; r < rings; r++) {
     const f = (r / (rings - 1)) * (stations.length - 1);
     const x = sampleStations(stations, 'x', f);
@@ -183,7 +188,7 @@ export function fuselageGeometry(stations, detail = HIGH) {
       const z = w * sgnPow(ca, 2 / n);
       const y = yc + (sa >= 0 ? top : bottom) * sgnPow(sa, 2 / n);
       pos.push(x, y, z);
-      uv.push(r / (rings - 1), s / segs); // u: tail -> nose, v: around the body
+      uv.push((x - xMin) / xSpan, s / segs); // u: tail -> nose by distance, v: around the body
     }
   }
   const idx = [];
@@ -362,6 +367,27 @@ export function revolveX(profile, segments = 24) {
   return geo;
 }
 
+const _ray = new THREE.Raycaster();
+
+/**
+ * A thin panel laid on a mesh's surface where a ray from outside (at angle `ang` degrees around the
+ * X axis, 0 = right side, 90 = top, 180 = left) hits it at station x. Used for windscreens.
+ */
+export function surfacePanel(mesh, { x, ang, yc = 0, w, h, material, lift = 0.012 }) {
+  const a = (ang * Math.PI) / 180;
+  const dir = new THREE.Vector3(0, -Math.sin(a), -Math.cos(a));
+  const origin = new THREE.Vector3(x, yc, 0).addScaledVector(dir, -30);
+  _ray.set(origin, dir);
+  const hit = _ray.intersectObject(mesh, false)[0];
+  if (!hit) return null;
+  const normal = hit.face.normal.clone();
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
+  panel.position.copy(hit.point).addScaledVector(normal, lift);
+  panel.up.set(0, 1, 0);
+  panel.lookAt(hit.point.clone().add(normal));
+  return panel;
+}
+
 export function box(w, h, d, material) {
   return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
 }
@@ -447,7 +473,9 @@ export function makeFan(radius, mats, detail = HIGH) {
  * One gear leg. `pivot` is placed at the attachment point; the leg hangs down -Y by `length`.
  * `lower` (piston + wheels) slides up by the strut compression.
  */
-export function makeGearLeg({ length, wheelRadius, wheelWidth, wheels = 1, track = 0.2, strutRadius = 0.035 }, mats, detail = HIGH) {
+export function makeGearLeg({
+  length, wheelRadius, wheelWidth, wheels = 1, track = 0.2, strutRadius = 0.035, axles = 1, axleSpacing = 1.2,
+}, mats, detail = HIGH) {
   const pivot = new THREE.Group();
   const upper = new THREE.Mesh(new THREE.CylinderGeometry(strutRadius * 1.5, strutRadius * 1.6, length * 0.55, 10), mats.metal);
   upper.position.y = -length * 0.275;
@@ -458,10 +486,16 @@ export function makeGearLeg({ length, wheelRadius, wheelWidth, wheels = 1, track
   lower.add(piston);
   const axleY = -length + wheelRadius;
   const wheelMeshes = [];
-  const offsets = wheels === 2 ? [-track / 2, track / 2] : [0];
+  const lateral = wheels === 2 ? [-track / 2, track / 2] : [0];
+  // Bogies: `axles` rows of wheels spaced along the aircraft's X axis.
+  const offsets = [];
+  for (let a = 0; a < axles; a++) {
+    const x = (a - (axles - 1) / 2) * axleSpacing;
+    for (const z of lateral) offsets.push([x, z]);
+  }
   const tireGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, detail > LOW ? 24 : 12);
   const rimGeo = new THREE.CylinderGeometry(wheelRadius * 0.55, wheelRadius * 0.55, wheelWidth * 1.04, 16);
-  for (const off of offsets) {
+  for (const [offX, off] of offsets) {
     const wheel = new THREE.Group();
     const tire = new THREE.Mesh(tireGeo, mats.rubber);
     tire.rotation.x = Math.PI / 2;
@@ -473,15 +507,23 @@ export function makeGearLeg({ length, wheelRadius, wheelWidth, wheels = 1, track
       const mark = new THREE.Mesh(new THREE.BoxGeometry(wheelRadius * 0.9, wheelRadius * 0.08, wheelWidth * 1.08), mats.dark);
       wheel.add(mark);
     }
-    wheel.position.set(0, axleY, off);
+    wheel.position.set(offX, axleY, off);
     lower.add(wheel);
     wheelMeshes.push(wheel);
   }
+  if (axles > 1) {
+    // Bogie beam joining the axles.
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(axleSpacing * (axles - 1) + 0.3, strutRadius * 2.4, strutRadius * 3), mats.steel);
+    beam.position.y = axleY + wheelRadius * 0.55;
+    lower.add(beam);
+  }
   if (wheels === 2) {
-    const axle = new THREE.Mesh(new THREE.CylinderGeometry(strutRadius, strutRadius, track, 8), mats.steel);
-    axle.rotation.x = Math.PI / 2;
-    axle.position.y = axleY;
-    lower.add(axle);
+    for (let a = 0; a < axles; a++) {
+      const axle = new THREE.Mesh(new THREE.CylinderGeometry(strutRadius, strutRadius, track, 8), mats.steel);
+      axle.rotation.x = Math.PI / 2;
+      axle.position.set((a - (axles - 1) / 2) * axleSpacing, axleY, 0);
+      lower.add(axle);
+    }
   } else if (detail > LOW) {
     const fork = new THREE.Mesh(new THREE.BoxGeometry(0.06, wheelRadius * 1.1, wheelWidth + 0.06), mats.steel);
     fork.position.y = axleY + wheelRadius * 0.4;

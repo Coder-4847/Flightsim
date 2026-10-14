@@ -59,6 +59,10 @@ export class FlightModel {
       flapsStage: 0, gearDown: true, speedbrake: false, steer: 0, lights: true,
     };
     this.surfaces = { elevator: 0, aileron: 0, rudder: 0, flap: 0, speedbrake: 0 };
+    // Optional multi-tank layout (spec.tanks): each tank has its own arm for the CG calculation and
+    // feeds either every engine or a listed subset, drawn in ascending `order`.
+    this.tanks = (spec.tanks ?? []).map((t) => ({ ...t, content: 0 }));
+    this._fuel = 0;
     this.fuel = spec.mass.fuelStart;
     this.damage = { overspeed: 0, overG: 0, landing: 0, scrape: 0 };
     this.air = {
@@ -72,6 +76,46 @@ export class FlightModel {
     this.stallWarning = false;
     this.refCg = spec.cg.ref;
     this.reset({ mode: 'runway' });
+  }
+
+  get fuel() {
+    return this.tanks.length ? this.tanks.reduce((sum, t) => sum + t.content, 0) : this._fuel;
+  }
+
+  set fuel(total) {
+    if (!this.tanks.length) { this._fuel = total; return; }
+    // Fill the tanks that burn last first (reverse burn order), the way a fuelling truck loads them;
+    // tanks that burn together (same order) share the load in proportion to their capacity.
+    let left = Math.max(0, total);
+    for (const t of this.tanks) t.content = 0;
+    const orders = [...new Set(this.tanks.map((t) => t.order))].sort((a, b) => b - a);
+    for (const order of orders) {
+      const group = this.tanks.filter((t) => t.order === order);
+      const capacity = group.reduce((sum, t) => sum + t.capacity, 0);
+      const put = Math.min(capacity, left);
+      for (const t of group) t.content = (put * t.capacity) / capacity;
+      left -= put;
+    }
+  }
+
+  /** Draw `amount` kg for engine `index` from the tanks that feed it, in burn order. */
+  #drawFuel(index, amount) {
+    if (!this.tanks.length) { this._fuel = Math.max(0, this._fuel - amount); return; }
+    const feeding = this.tanks.filter((t) => t.content > 0 && (!t.feeds || t.feeds.includes(index)))
+      .sort((a, b) => a.order - b.order);
+    let left = amount;
+    for (const t of feeding) {
+      const take = Math.min(t.content, left);
+      t.content -= take;
+      left -= take;
+      if (left <= 0) break;
+    }
+  }
+
+  /** True when engine `index` still has a tank to draw from. */
+  #hasFuelFor(index) {
+    if (!this.tanks.length) return this._fuel > 0;
+    return this.tanks.some((t) => t.content > 0 && (!t.feeds || t.feeds.includes(index)));
   }
 
   get mass() {
@@ -265,6 +309,11 @@ export class FlightModel {
 
   #cgFraction() {
     const { cg, mass } = this.spec;
+    if (this.tanks.length) {
+      const dry = mass.empty + mass.payload;
+      const moment = dry * cg.empty + this.tanks.reduce((sum, t) => sum + t.content * t.arm, 0);
+      return moment / (dry + this.fuel);
+    }
     return cg.empty + (cg.full - cg.empty) * clamp(this.fuel / mass.fuelCapacity, 0, 1);
   }
 
@@ -318,11 +367,11 @@ export class FlightModel {
     let fuelFlow = 0;
     for (let i = 0; i < this.engines.length; i++) {
       const e = this.engines[i];
-      e.step(dt, c.throttle[i], env, this.fuel > 0);
+      e.step(dt, c.throttle[i], env, this.#hasFuelFor(i));
       thrustTotal += e.thrust;
       fuelFlow += e.fuelFlow;
+      if (!settling) this.#drawFuel(i, e.fuelFlow * dt);
     }
-    if (!settling) this.fuel = Math.max(0, this.fuel - fuelFlow * dt);
 
     // Aerodynamic forces and moments.
     const S = spec.wing.area;
@@ -519,7 +568,8 @@ export class FlightModel {
       heading, pitch: this.#pitch() / DEG, bank: this.#bank() / DEG, pitchRate: this.w.z / DEG, rollRate: this.w.x / DEG,
       alpha: air.alpha / DEG, beta: air.beta / DEG, nz: air.nz,
       flaps: this.surfaces.flap, gear: this.gear.extension, gearLever: this.controls.gearDown,
-      fuel: this.fuel, fuelCapacity: this.spec.mass.fuelCapacity, mass: this.mass,
+      fuel: this.fuel, fuelCapacity: this.spec.mass.fuelCapacity, mass: this.mass, cg: this.#cgFraction(),
+      tanks: this.tanks,
       throttle: this.controls.throttle, engines: this.engines.map((e) => e.gauges),
       onGround: this.gear.weightOnWheels,
       groundSpeed: Math.hypot(this.vel.x, this.vel.z) / KT,

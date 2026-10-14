@@ -75,7 +75,7 @@ function landing(spec, sinkTarget = 150, assist = 'light') {
   const dist = 3000;
   m.reset({ mode: 'final', heading: 0, x: 0, z: 1200 + dist, altitude: dist * Math.tan(3 * Math.PI / 180) + 12, speed: spec.speeds.vapp * KT, pathAngle: -3 });
   const approachPitch = m.telemetry.pitch;
-  const flareHeight = spec.id === 'cessna172' ? 30 : 45; // ft
+  const flareHeight = spec.id === 'cessna172' ? 30 : spec.mass.ref > 15000 ? 45 : 45; // ft
   let t = 0; let td = null; let flarePitch = approachPitch;
   while (t < 300) {
     const tel = m.telemetry;
@@ -91,13 +91,17 @@ function landing(spec, sinkTarget = 150, assist = 'light') {
       m.controls.throttle.fill(agl < (spec.fcs ? 8 : flareHeight) ? 0 : thr);
       let pitchTarget;
       if (agl > flareHeight) pitchTarget = approachPitch + (glideFpm - tel.vsFpm) * 0.004;
-      else { flarePitch = Math.min(flarePitch + 1.6 * dt, Math.max(spec.id === 'cessna172' ? 7 : 6, approachPitch + 2)); pitchTarget = flarePitch; }
+      else {
+        // Flare: raise the nose at a steady rate, throttle at idle (heavies start a little higher).
+        flarePitch = Math.min(flarePitch + (spec.mass.ref > 15000 ? 2.2 : 1.8) * dt, approachPitch + 4);
+        pitchTarget = flarePitch;
+      }
       if (spec.fcs) {
         // Fly-by-wire: the stick commands load factor, so control the sink rate directly.
         const sinkTgt = agl > 25 ? glideFpm : -(120 + agl * 4);
         m.controls.pitch = Math.max(-0.15, Math.min(0.25, (sinkTgt - tel.vsFpm) * 0.0003));
       } else {
-        m.controls.pitch = Math.max(-1, Math.min(1, (pitchTarget - tel.pitch) * 0.2 - tel.pitchRate * 0.6));
+        m.controls.pitch = Math.max(-1, Math.min(1, spec.mass.ref > 3500 ? (pitchTarget - tel.pitch) * 0.6 - tel.pitchRate * 0.5 : (pitchTarget - tel.pitch) * 0.2 - tel.pitchRate * 0.6));
       }
     } else {
       m.controls.pitch = 0; m.controls.throttle.fill(0);

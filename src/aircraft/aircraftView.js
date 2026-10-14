@@ -4,6 +4,12 @@ import { buildCessna172 } from './models/cessna172.js';
 import { buildCitation } from './models/citation.js';
 import { buildFighter } from './models/fighter.js';
 import { buildKingAir } from './models/kingair.js';
+import {
+  buildBizjet, buildJumbo, buildNarrowbody, buildRegional, buildWidebody,
+} from './models/airliner.js';
+import { buildCaravan, buildTurboprop72 } from './models/highwing.js';
+import { buildHeavyFighter, buildHornet } from './models/twinfighter.js';
+import { buildTrainer } from './models/trainer.js';
 import { clamp, DEG, smoothstep } from '../flight/units.js';
 
 // Builds the visual aircraft (three LOD levels sharing materials), animates it from the
@@ -14,6 +20,16 @@ const BUILDERS = {
   kingair: buildKingAir,
   citation: buildCitation,
   fighter: buildFighter,
+  caravan: buildCaravan,
+  turboprop72: buildTurboprop72,
+  bizjet: buildBizjet,
+  narrowbody: buildNarrowbody,
+  regional: buildRegional,
+  widebody: buildWidebody,
+  jumbo: buildJumbo,
+  hornet: buildHornet,
+  heavyfighter: buildHeavyFighter,
+  trainer: buildTrainer,
 };
 
 export function hasModel(id) {

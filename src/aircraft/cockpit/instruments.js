@@ -332,6 +332,40 @@ export function engineDisplay(ctx, w, h, t, spec) {
 }
 
 /** Head-up display symbology (green on transparent). */
+/**
+ * Fuel / weight page: one bar per tank (or left/right wing for single-tank aircraft), total, gross
+ * weight and the centre of gravity as % of the mean aerodynamic chord.
+ */
+export function fuelDisplay(ctx, w, h, t, spec) {
+  ctx.fillStyle = '#04070a'; ctx.fillRect(0, 0, w, h);
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  ctx.fillStyle = COLORS.cyan; ctx.font = 'bold 18px Arial';
+  ctx.fillText('FUEL', w / 2, 20);
+  const tanks = t.tanks?.length
+    ? t.tanks.map((k) => ({ name: k.name, content: k.content, capacity: k.capacity }))
+    : [{ name: 'L', content: t.fuel / 2, capacity: t.fuelCapacity / 2 }, { name: 'R', content: t.fuel / 2, capacity: t.fuelCapacity / 2 }];
+  const n = tanks.length;
+  const bw = Math.min(46, (w - 24) / n - 10);
+  const by = 48; const bh = h * 0.42;
+  tanks.forEach((k, i) => {
+    const cx = (w * (i + 0.5)) / n;
+    ctx.fillStyle = '#10161c'; ctx.fillRect(cx - bw / 2, by, bw, bh);
+    const fill = k.capacity ? Math.min(1, k.content / k.capacity) : 0;
+    ctx.fillStyle = fill < 0.08 ? COLORS.amber : COLORS.green;
+    ctx.fillRect(cx - bw / 2, by + bh * (1 - fill), bw, bh * fill);
+    ctx.strokeStyle = '#2b3037'; ctx.strokeRect(cx - bw / 2 + 0.5, by + 0.5, bw - 1, bh - 1);
+    ctx.fillStyle = COLORS.white; ctx.font = 'bold 14px Arial';
+    ctx.fillText(k.name, cx, by + bh + 16);
+    ctx.fillStyle = COLORS.dim; ctx.font = '12px Arial';
+    ctx.fillText(`${Math.round(k.content / 100) / 10}t`, cx, by + bh + 32);
+  });
+  ctx.fillStyle = COLORS.white; ctx.font = 'bold 17px Arial'; ctx.textAlign = 'left';
+  ctx.fillText(`TOTAL  ${(t.fuel / 1000).toFixed(1)} t`, 14, h - 56);
+  ctx.fillText(`GW     ${(t.mass / 1000).toFixed(1)} t`, 14, h - 34);
+  ctx.fillStyle = COLORS.cyan;
+  ctx.fillText(`CG ${(t.cg * 100).toFixed(1)} % MAC`, 14, h - 12);
+}
+
 export function hud(ctx, w, h, t) {
   ctx.clearRect(0, 0, w, h);
   const cx = w / 2; const cy = h / 2; const k = h / 40;

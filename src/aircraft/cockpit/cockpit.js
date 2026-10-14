@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {
-  COLORS, airspeedDial, altimeterDial, annunciator, attitudeDial, engineDisplay, headingDial, hud as drawHud,
+  COLORS, airspeedDial, altimeterDial, annunciator, attitudeDial, engineDisplay, fuelDisplay, headingDial, hud as drawHud,
   led, mfdMap, pfd, simpleGauge, turnCoordinator, vsiDial,
 } from './instruments.js';
 
@@ -262,7 +262,7 @@ function buildJetCockpit(spec) {
   const group = new THREE.Group();
   const eye = spec.cockpit.eye;
   const f = eye.x;
-  const half = 0.74;
+  const half = spec.cockpit.width ?? 0.74;
   const roof = eye.y + 0.36; const floor = -0.55; const sill = eye.y + 0.04;
   const xBack = f - 3.0; const xFront = f + 1.0;
   group.add(bx(xFront - xBack, 0.03, half * 2, interior.carpet, (xFront + xBack) / 2, floor, 0));
@@ -301,8 +301,11 @@ function buildJetCockpit(spec) {
   });
   group.add(standby.group);
 
-  const yokes = [makeYoke(f + 0.6, eye.y - 0.32, eye.z), makeYoke(f + 0.6, eye.y - 0.32, -eye.z)];
+  const sidestick = spec.cockpit.yoke === 'sidestick';
+  const yokes = sidestick ? [] : [makeYoke(f + 0.6, eye.y - 0.32, eye.z), makeYoke(f + 0.6, eye.y - 0.32, -eye.z)];
   yokes.forEach((y) => group.add(y.group));
+  const sticks = sidestick ? [-1, 1].map((s) => makeStick(f + 0.28, eye.y - 0.5, s * (Math.abs(eye.z) + 0.42))) : [];
+  sticks.forEach((st) => group.add(st.group));
   const pedestal = new THREE.Group();
   pedestal.position.set(f + 0.5, eye.y - 0.5, 0);
   pedestal.add(bx(0.4, 0.12, 0.22, interior.dark, 0, 0, 0));
@@ -315,6 +318,7 @@ function buildJetCockpit(spec) {
     update(model, t, dt) {
       const c = model.controls;
       yokes.forEach((y) => { y.group.position.x = y.baseX - c.pitch * 0.07; y.wheel.rotation.x = c.roll * 1.0; });
+      sticks.forEach((st) => { st.stick.rotation.z = c.pitch * 0.2; st.stick.rotation.x = c.roll * 0.25; });
       levers.forEach((l, i) => { l.rotation.z = (c.throttle[i] - 0.5) * -1.0; });
       timer += dt;
       if (timer >= REDRAW_INTERVAL) { timer = 0; screens.forEach((s) => s.draw(t, model)); standby.draw(t, model); }
@@ -371,6 +375,16 @@ function buildFighterCockpit(spec) {
   lever.add(mesh(new THREE.BoxGeometry(0.18, 0.04, 0.05), interior.black, 0.06, 0.04, 0));
   lever.add(mesh(new THREE.SphereGeometry(0.03, 8, 6), interior.black, 0.16, 0.05, 0));
   throttle.add(lever);
+  // Twin-engine fighters get a second lever beside the first.
+  const levers = [lever];
+  if (spec.engines.positions.length > 1) {
+    const second = lever.clone();
+    second.position.z = 0.06;
+    lever.position.z = -0.03;
+    second.position.z = 0.03;
+    throttle.add(second);
+    levers.push(second);
+  }
   group.add(throttle);
 
   let timer = 0;
@@ -380,9 +394,185 @@ function buildFighterCockpit(spec) {
       const c = model.controls;
       stick.stick.rotation.z = c.pitch * 0.18;
       stick.stick.rotation.x = c.roll * 0.25;
-      lever.position.x = -0.15 + c.throttle[0] * 0.3;
+      levers.forEach((l, i) => { l.position.x = -0.15 + c.throttle[Math.min(i, c.throttle.length - 1)] * 0.3; });
       timer += dt;
       if (timer >= REDRAW_INTERVAL) { timer = 0; hudScreen.draw(t, model); mfds.forEach((m) => m.draw(t, model)); engine.draw(t, model); }
+    },
+  };
+}
+
+// ---- airliner flight deck -----------------------------------------------------------------------------
+function buildAirlinerCockpit(spec) {
+  const group = new THREE.Group();
+  const eye = spec.cockpit.eye;
+  const f = eye.x;
+  const half = spec.cockpit.width ?? 1.05;
+  const roof = eye.y + 0.62; const floor = eye.y - 1.2; const sill = eye.y - 0.05;
+  const xBack = f - 2.3; const xFront = f + 1.15;
+  group.add(bx(xFront - xBack, 0.03, half * 2, interior.carpet, (xFront + xBack) / 2, floor, 0));
+  group.add(bx(xFront - xBack, 0.04, half * 2, interior.liner, (xFront + xBack) / 2, roof, 0));
+  for (const s of [-1, 1]) {
+    group.add(bx(xFront - xBack, sill - floor, 0.03, interior.liner, (xFront + xBack) / 2, (sill + floor) / 2, s * half));
+    for (const px of [f + 1.05, f - 0.2, xBack + 0.2]) group.add(bx(0.08, roof - sill, 0.06, interior.liner, px, (roof + sill) / 2, s * half));
+    group.add(bx(xFront - xBack, 0.06, 0.06, interior.liner, (xFront + xBack) / 2, roof - 0.02, s * half));
+  }
+  // Windscreen frame: header, two centre posts and the eyebrow panel above the glareshield.
+  group.add(bx(0.08, 0.07, half * 2, interior.liner, f + 0.98, roof - 0.01, 0));
+  for (const z of [-half * 0.55, 0, half * 0.55]) group.add(bx(0.06, roof - sill + 0.2, 0.06, interior.liner, f + 1.0, (roof + sill - 0.2) / 2, z));
+  group.add(bx(0.4, 0.05, half * 1.95, interior.black, f + 1.0, eye.y - 0.11, 0)); // glareshield
+  group.add(bx(0.7, 0.7, half * 1.95, interior.black, f + 1.5, eye.y - 0.5, 0)); // nose structure behind the panel
+  group.add(bx(0.06, 0.9, half * 1.95, interior.dark, xBack, eye.y - 0.4, 0)); // rear bulkhead
+  group.add(bx(0.7, 0.05, half * 1.2, interior.dark, f - 0.2, roof - 0.07, 0)); // overhead panel
+  group.add(cabinLight(f - 0.4, roof - 0.2, 0));
+  group.add(seat(f - 0.4, eye.y - 0.62, eye.z, interior.leather));
+  group.add(seat(f - 0.4, eye.y - 0.62, -eye.z, interior.leather));
+  group.add(seat(f - 1.5, eye.y - 0.62, half - 0.3, interior.seat));
+
+  const sy = eye.y - 0.32; const sx = f + 0.82; const sz = Math.abs(eye.z);
+  const mk = (w, h, px, py, z, tilt, draw) => screen({ w, h, px, py, x: sx, y: sy + (draw.dy ?? 0), z, tilt }, draw.fn);
+  const pfdFn = (ctx, w, h, t) => pfd(ctx, w, h, t, spec);
+  const mapFn = (ctx, w, h, t, model) => mfdMap(ctx, w, h, t, model);
+  const screens = [
+    { s: mk(0.3, 0.3, 512, 512, -sz - 0.12, 0.35, { fn: pfdFn }), rate: 1 },
+    { s: mk(0.3, 0.3, 512, 512, -sz + 0.22, 0.35, { fn: mapFn }), rate: 2 },
+    { s: mk(0.28, 0.3, 400, 430, 0.0, 0.35, { fn: (ctx, w, h, t) => engineDisplay(ctx, w, h, t, spec), dy: 0.1 }), rate: 2 },
+    { s: mk(0.28, 0.3, 400, 430, 0.0, 0.35, { fn: (ctx, w, h, t) => fuelDisplay(ctx, w, h, t, spec), dy: -0.24 }), rate: 3 },
+    { s: mk(0.3, 0.3, 512, 512, sz - 0.22, 0.35, { fn: mapFn }), rate: 2 },
+    { s: mk(0.3, 0.3, 512, 512, sz + 0.12, 0.35, { fn: pfdFn }), rate: 2 },
+  ];
+  screens.forEach(({ s }) => group.add(s.group));
+  // Mode control panel strip above the screens.
+  const fcu = screen({ w: 0.9, h: 0.1, px: 900, py: 100, x: f + 0.92, y: eye.y - 0.1, z: 0, tilt: 0.35 }, (ctx, w, h, t) => {
+    ctx.fillStyle = '#0a0c0f'; ctx.fillRect(0, 0, w, h);
+    led(ctx, 20, 20, 150, 60, `SPD ${Math.round(t.ias)}`, COLORS.cyan);
+    led(ctx, 200, 20, 150, 60, `HDG ${String(Math.round(t.heading)).padStart(3, '0')}`, COLORS.cyan);
+    led(ctx, 380, 20, 190, 60, `ALT ${String(Math.round(t.altitudeFt / 100) * 100).padStart(5, '0')}`, COLORS.cyan);
+    led(ctx, 600, 20, 140, 60, `V/S ${Math.round(t.vsFpm / 100) * 100}`, COLORS.cyan);
+    annunciator(ctx, 760, 20, 60, 28, 'GEAR', t.gear > 0.02 && t.gear < 0.98, COLORS.red);
+    annunciator(ctx, 830, 20, 60, 28, 'STALL', t.stallWarning, COLORS.red);
+    annunciator(ctx, 760, 52, 60, 28, 'BRK', t.parkingBrake, COLORS.amber);
+    annunciator(ctx, 830, 52, 60, 28, 'FUEL', t.fuel < t.fuelCapacity * 0.06, COLORS.amber);
+  });
+  group.add(fcu.group);
+
+  // Control column / sidestick for both seats.
+  const sidestick = spec.cockpit.yoke === 'sidestick';
+  const yokes = sidestick ? [] : [makeYoke(f + 0.55, eye.y - 0.42, eye.z), makeYoke(f + 0.55, eye.y - 0.42, -eye.z)];
+  yokes.forEach((y) => group.add(y.group));
+  const sticks = sidestick ? [-1, 1].map((sgn) => makeStick(f + 0.15, eye.y - 0.56, sgn * (sz + 0.55))) : [];
+  sticks.forEach((st) => group.add(st.group));
+
+  // Centre pedestal: one throttle per engine, flap lever and gear lever.
+  const n = spec.engines.positions.length;
+  const pedestal = new THREE.Group();
+  pedestal.position.set(f + 0.35, eye.y - 0.62, 0);
+  pedestal.add(bx(0.6, 0.14, 0.34, interior.dark, 0, 0, 0));
+  const spacing = 0.05;
+  const levers = [];
+  for (let i = 0; i < n; i++) {
+    const l = makeLever(interior.black, 0.16);
+    l.position.set(0.12, 0.07, (i - (n - 1) / 2) * spacing - 0.02);
+    pedestal.add(l);
+    levers.push(l);
+  }
+  const flapLever = makeLever(interior.black, 0.12);
+  flapLever.position.set(0.1, 0.07, 0.13);
+  pedestal.add(flapLever);
+  const brakeLever = makeLever(interior.red, 0.12);
+  brakeLever.position.set(0.1, 0.07, -0.13);
+  pedestal.add(brakeLever);
+  group.add(pedestal);
+  const gearLever = makeLever(interior.red, 0.07);
+  gearLever.position.set(f + 0.74, eye.y - 0.42, 0.32);
+  group.add(gearLever);
+
+  let timer = 0; let slow = 0;
+  return {
+    group,
+    update(model, t, dt) {
+      const c = model.controls;
+      yokes.forEach((y) => { y.group.position.x = y.baseX - c.pitch * 0.08; y.wheel.rotation.x = c.roll * 1.0; });
+      sticks.forEach((st) => { st.stick.rotation.z = c.pitch * 0.2; st.stick.rotation.x = c.roll * 0.25; });
+      levers.forEach((l, i) => { l.rotation.z = (c.throttle[i] - 0.5) * -1.0; });
+      flapLever.rotation.z = -0.4 + (c.flapsStage / Math.max(1, model.spec.flaps.stages.length - 1)) * 0.8;
+      brakeLever.rotation.z = c.speedbrake ? -0.6 : 0.2;
+      gearLever.rotation.z = c.gearDown ? 0.4 : -0.4;
+      timer += dt;
+      if (timer >= REDRAW_INTERVAL) {
+        timer = 0; slow++;
+        screens.forEach(({ s, rate }) => { if (slow % rate === 0) s.draw(t, model); });
+        fcu.draw(t, model);
+      }
+    },
+  };
+}
+
+// ---- jet trainer cockpit ----------------------------------------------------------------------------------
+function buildTrainerCockpit(spec) {
+  const group = new THREE.Group();
+  const eye = spec.cockpit.eye;
+  const f = eye.x;
+  const canopyMat = new THREE.MeshStandardMaterial({ color: 0x2a2e33, roughness: 0.6, metalness: 0.4 });
+  for (const s of [-1, 1]) {
+    group.add(bx(2.4, 0.05, 0.05, canopyMat, f + 0.1, eye.y - 0.18, s * 0.45));
+    group.add(bx(1.6, 0.08, 0.16, interior.panel, f - 0.2, eye.y - 0.4, s * 0.42)); // side console
+    group.add(bx(0.8, 0.3, 0.02, interior.dark, f - 0.3, eye.y - 0.4, s * 0.38));
+  }
+  for (const bowX of [f - 0.7, f + 1.15]) {
+    const bow = mesh(new THREE.TorusGeometry(0.55, 0.022, 8, 24, Math.PI), canopyMat, bowX, eye.y - 0.2, 0);
+    bow.rotation.y = Math.PI / 2;
+    group.add(bow);
+  }
+  group.add(bx(0.4, 0.7, 0.46, interior.seat, f - 0.5, eye.y - 0.3, 0).rotateZ(-0.15));
+  group.add(bx(0.18, 0.2, 0.3, interior.seat, f - 0.58, eye.y + 0.1, 0));
+  group.add(bx(0.6, 0.3, 0.7, interior.panel, f + 0.85, eye.y - 0.5, 0));
+  group.add(bx(0.5, 0.06, 0.78, interior.black, f + 0.9, eye.y - 0.2, 0)); // glare shield
+  group.add(cabinLight(f - 0.2, eye.y + 0.35, 0));
+
+  const panel = screen({ w: 0.8, h: 0.335, px: 1024, py: 430, x: f + 0.62, y: eye.y - 0.28, z: 0, tilt: 0.45 }, (ctx, w, h, t) => {
+    ctx.fillStyle = '#16191e'; ctx.fillRect(0, 0, w, h);
+    const r = 82;
+    airspeedDial(ctx, 100, h * 0.3, r, t, spec);
+    attitudeDial(ctx, 270, h * 0.3, r, t);
+    altimeterDial(ctx, 440, h * 0.3, r, t);
+    turnCoordinator(ctx, 100, h * 0.76, r, t);
+    headingDial(ctx, 270, h * 0.76, r, t);
+    vsiDial(ctx, 440, h * 0.76, r, t);
+    const e = t.engines[0];
+    simpleGauge(ctx, 620, h * 0.3, 70, { label: 'RPM', unit: '%', value: e.n1, min: 0, max: 110, major: 20, bands: [{ from: 60, to: 100, color: COLORS.green }, { from: 100, to: 110, color: COLORS.red }] });
+    simpleGauge(ctx, 620, h * 0.76, 70, { label: 'EGT', unit: '°C', value: 300 + e.n1 * 6, min: 200, max: 1000, major: 200, bands: [{ from: 200, to: 700, color: COLORS.green }, { from: 700, to: 1000, color: COLORS.red }] });
+    simpleGauge(ctx, 780, h * 0.3, 60, { label: 'FUEL', unit: 'kg', value: t.fuel, min: 0, max: t.fuelCapacity, major: t.fuelCapacity / 4, format: (v) => Math.round(v) });
+    simpleGauge(ctx, 780, h * 0.76, 60, { label: 'FLOW', unit: 'kg/h', value: e.fuelFlow * 3600, min: 0, max: 1200, major: 300 });
+    led(ctx, 880, 30, 130, 36, `${Math.round(t.ias)} KT`, COLORS.cyan);
+    led(ctx, 880, 80, 130, 36, `FL ${String(Math.round(t.altitudeFt / 100)).padStart(3, '0')}`, COLORS.cyan);
+    annunciator(ctx, 880, 150, 130, 34, 'GEAR', t.gear > 0.02 && t.gear < 0.98, COLORS.red);
+    annunciator(ctx, 880, 194, 130, 34, 'STALL', t.stallWarning, COLORS.red);
+    annunciator(ctx, 880, 238, 130, 34, 'BRAKE', t.parkingBrake, COLORS.amber);
+    annunciator(ctx, 880, 282, 130, 34, 'LOW FUEL', t.fuel < t.fuelCapacity * 0.15, COLORS.amber);
+    annunciator(ctx, 880, 326, 130, 34, `FLAP ${Math.round(t.flaps)}`, t.flaps > 0.5, COLORS.amber);
+  });
+  group.add(panel.group);
+
+  const stick = makeStick(f + 0.2, eye.y - 0.52, 0);
+  group.add(stick.group);
+  const throttle = new THREE.Group();
+  throttle.position.set(f - 0.1, eye.y - 0.38, -0.4);
+  throttle.add(bx(0.5, 0.06, 0.1, interior.dark, 0, -0.03, 0));
+  const lever = new THREE.Group();
+  lever.add(mesh(new THREE.BoxGeometry(0.16, 0.04, 0.05), interior.black, 0.06, 0.04, 0));
+  lever.add(mesh(new THREE.SphereGeometry(0.03, 8, 6), interior.black, 0.15, 0.05, 0));
+  throttle.add(lever);
+  group.add(throttle);
+  let timer = 0;
+  return {
+    group,
+    update(model, t, dt) {
+      const c = model.controls;
+      stick.stick.rotation.z = c.pitch * 0.18;
+      stick.stick.rotation.x = c.roll * 0.25;
+      lever.position.x = -0.15 + c.throttle[0] * 0.3;
+      timer += dt;
+      if (timer >= REDRAW_INTERVAL) { timer = 0; panel.draw(t, model); }
     },
   };
 }
@@ -393,6 +583,8 @@ export function createCockpit(spec) {
     case 'steam2': return buildPropCockpit(spec, 'steam2');
     case 'glass': return buildJetCockpit(spec);
     case 'fighter': return buildFighterCockpit(spec);
+    case 'airliner': return buildAirlinerCockpit(spec);
+    case 'trainer': return buildTrainerCockpit(spec);
     default: return buildPropCockpit(spec, 'steam');
   }
 }

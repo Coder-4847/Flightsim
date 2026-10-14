@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createNoise, smoothstep } from '../util/noise.js';
+import { SURFACES, SimWorld } from '../flight/world.js';
 import { makeApronTexture, makeGroundDetailTexture, makeRunwayTexture } from './textures.js';
 
 // World conventions (used everywhere): +X east, +Y up, -Z north. Heading 0 deg
@@ -12,6 +13,7 @@ const SKY_COLOR_HORIZON = new THREE.Color('#b9d3e8');
 const SKY_COLOR_ZENITH = new THREE.Color('#2c6cb0');
 const SUN_DIRECTION = new THREE.Vector3(0.45, 0.62, -0.64).normalize();
 
+const TERRAIN_NOISE = createNoise(1337);
 const QUALITY_PIXEL_RATIO = { low: 1, medium: 1.5, high: 2 };
 
 // Yield to the browser between build steps so the loading bar can repaint.
@@ -25,11 +27,9 @@ export class FlightScene {
     this.renderer.toneMappingExposure = 0.95;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.5, 40000);
+    this.camera.position.set(0, 60, 400);
     this.built = false;
-    this.reduceMotion = false;
 
-    // Orbit rig for the Phase 1 demo camera (the real cameras arrive in Phase 2).
-    this.orbit = { yaw: 0.6, pitch: 0.22, distance: 260, target: new THREE.Vector3(0, 18, 120), idle: 0 };
     this.setQuality('medium');
     this.resize();
   }
@@ -66,36 +66,25 @@ export class FlightScene {
     this.camera.updateProjectionMatrix();
   }
 
-  // ---- demo camera -------------------------------------------------------
-  dragCamera(dx, dy) {
-    const o = this.orbit;
-    o.yaw -= dx * 0.005;
-    o.pitch = THREE.MathUtils.clamp(o.pitch + dy * 0.004, 0.03, 1.4);
-    o.idle = 0;
+  /** Ground height and surface type for the physics (the same function shapes the terrain mesh). */
+  static createPhysicsWorld(weather = 'calm') {
+    const inRect = (x, z, x0, x1, z0, z1) => x >= x0 && x <= x1 && z >= z0 && z <= z1;
+    return new SimWorld({
+      groundHeight: (x, z) => FlightScene.terrainHeight(TERRAIN_NOISE, x, z),
+      surface: (x, z) => (
+        inRect(x, z, -30, 30, -1260, 1260) || inRect(x, z, 20, 65, 76, 104) || inRect(x, z, 60, 242, 33, 147)
+          ? SURFACES.paved : SURFACES.grass),
+      weather,
+    });
   }
 
-  zoomCamera(delta) {
-    const o = this.orbit;
-    o.distance = THREE.MathUtils.clamp(o.distance * Math.exp(delta * 0.001), 40, 3000);
-    o.idle = 0;
+  /** Where the tower camera sits (the control tower cab). */
+  static get TOWER_POSITION() {
+    return new THREE.Vector3(205, 33.5, 15);
   }
 
-  update(dt) {
-    const o = this.orbit;
-    o.idle += dt;
-    if (!this.reduceMotion && o.idle > 4) o.yaw += dt * 0.05; // gentle auto-orbit after idling
-  }
-
-  render() {
-    const o = this.orbit;
-    const cp = Math.cos(o.pitch);
-    this.camera.position.set(
-      o.target.x + Math.sin(o.yaw) * cp * o.distance,
-      Math.max(2, o.target.y + Math.sin(o.pitch) * o.distance),
-      o.target.z + Math.cos(o.yaw) * cp * o.distance,
-    );
-    this.camera.lookAt(o.target);
-    this.sky?.position.copy(this.camera.position); // sky dome follows the camera
+  render(cameraPosition) {
+    this.sky?.position.copy(cameraPosition); // sky dome follows the camera
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -150,7 +139,7 @@ export class FlightScene {
   }
 
   #buildTerrain() {
-    const noise = createNoise(1337);
+    const noise = TERRAIN_NOISE;
     const geo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEGMENTS, TERRAIN_SEGMENTS);
     geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position;

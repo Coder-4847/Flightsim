@@ -1,17 +1,21 @@
 import { Emitter } from '../core/events.js';
 import { ACTIONS } from '../storage/keybinds.js';
+import { GamepadSource } from './gamepad.js';
 
-// Keyboard -> action layer. Gameplay code asks "is pitch_up held?" instead of
-// checking key codes, so remapping works everywhere. Emits 'press'/'release'
-// with the action id. Mouse and gamepad sources are added in Phase 2 and feed
-// the same action layer.
+// Keyboard + gamepad -> action layer. Gameplay code asks "is pitch_up held?"
+// instead of checking key codes or buttons, so remapping works everywhere.
+// Emits 'press'/'release' with the action id. Analog stick/trigger values are
+// read from `pad` (see FlightControls).
 export class Input extends Emitter {
   #down = new Set(); // action ids currently held
   #codeToActions = new Map();
+  #padButtonToActions;
 
-  constructor(bindings) {
+  constructor(bindings, settings) {
     super();
     this.bindings = bindings;
+    this.pad = new GamepadSource(settings);
+    this.#padButtonToActions = new Map();
     this.enabled = false; // only true while flying/paused
     this.suspended = false; // true while the UI is capturing a key for rebinding
     this.#rebuild();
@@ -31,6 +35,22 @@ export class Input extends Emitter {
     return (this.isDown(positive) ? 1 : 0) - (this.isDown(negative) ? 1 : 0);
   }
 
+  /** Poll the gamepad (call once per frame while active) and emit button actions. */
+  pollGamepad() {
+    if (this.suspended) return; // the settings screen reads the pad directly while rebinding
+    for (const { name, down } of this.pad.poll()) {
+      if (!this.enabled || this.suspended) continue;
+      for (const action of this.#padButtonToActions.get(name) ?? []) {
+        if (down) {
+          this.#down.add(action);
+          this.emit('press', action);
+        } else if (this.#down.delete(action)) {
+          this.emit('release', action);
+        }
+      }
+    }
+  }
+
   releaseAll() {
     for (const action of [...this.#down]) {
       this.#down.delete(action);
@@ -40,7 +60,12 @@ export class Input extends Emitter {
 
   #rebuild() {
     this.#codeToActions.clear();
+    this.#padButtonToActions.clear();
     for (const { id } of ACTIONS) {
+      for (const name of this.bindings.get(id, 'gamepad')) {
+        if (!this.#padButtonToActions.has(name)) this.#padButtonToActions.set(name, []);
+        this.#padButtonToActions.get(name).push(id);
+      }
       for (const code of this.bindings.get(id, 'keyboard')) {
         if (!this.#codeToActions.has(code)) this.#codeToActions.set(code, []);
         this.#codeToActions.get(code).push(id);

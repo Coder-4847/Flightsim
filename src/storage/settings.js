@@ -40,6 +40,42 @@ export const SETTINGS_SCHEMA = {
     section: 'Display', label: 'HUD opacity', type: 'range',
     min: 0.3, max: 1, step: 0.05, default: 1, format: (v) => `${Math.round(v * 100)}%`,
   },
+  flightAssist: {
+    section: 'Game',
+    label: 'Flight assist',
+    type: 'options',
+    options: [
+      ['off', 'Off'],
+      ['light', 'Light'],
+      ['full', 'Full'],
+    ],
+    default: 'light',
+    hint: 'Light adds rate damping and turn coordination. Full holds bank and pitch when you release the stick, with stall protection. (J cycles it in flight.)',
+  },
+  weather: {
+    section: 'Game',
+    label: 'Wind',
+    type: 'options',
+    options: [
+      ['calm', 'Calm'],
+      ['breeze', 'Headwind'],
+      ['crosswind', 'Crosswind'],
+      ['gusty', 'Gusty'],
+    ],
+    default: 'calm',
+    hint: 'Applies to the next flight. Full weather arrives with the maps in Phase 3.',
+  },
+  padDeadzone: {
+    section: 'Controller', label: 'Stick dead zone', type: 'range',
+    min: 0, max: 0.4, step: 0.01, default: 0.12, format: (v) => `${Math.round(v * 100)}%`,
+  },
+  padCurve: {
+    section: 'Controller', label: 'Stick curve', type: 'range',
+    min: 0, max: 0.9, step: 0.05, default: 0.35, format: (v) => (v < 0.05 ? 'Linear' : `${Math.round(v * 100)}% expo`),
+    hint: 'Higher values soften small stick movements.',
+  },
+  padInvertPitch: { section: 'Controller', label: 'Invert pitch', type: 'bool', default: false },
+  padInvertLook: { section: 'Controller', label: 'Invert camera look', type: 'bool', default: false },
   masterVolume: {
     section: 'Audio', label: 'Master volume', type: 'range',
     min: 0, max: 1, step: 0.05, default: 0.8, format: (v) => `${Math.round(v * 100)}%`,

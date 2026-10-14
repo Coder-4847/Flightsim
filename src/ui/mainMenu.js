@@ -12,7 +12,7 @@ export function createMainMenu({ onStart, onSettings }) {
         h('button.btn.primary', { onclick: onStart }, 'Start flying'),
         h('button.btn', { onclick: onSettings }, 'Settings'),
       ),
-      h('p.build-note', 'Phase 1 build · foundation'),
+      h('p.build-note', 'Phase 2 build · flight model and first aircraft'),
     ),
   );
 }
@@ -30,12 +30,13 @@ export function createLoadingScreen() {
   return el;
 }
 
-export function createPauseMenu({ onResume, onSettings, onQuit }) {
+export function createPauseMenu({ onResume, onRestart, onSettings, onQuit }) {
   return h('section.pause-screen',
     h('div.menu-card.compact',
       h('h2', 'Paused'),
       h('nav.menu-list',
         h('button.btn.primary', { onclick: onResume }, 'Resume'),
+        h('button.btn', { onclick: onRestart }, 'Restart flight'),
         h('button.btn', { onclick: onSettings }, 'Settings'),
         h('button.btn.danger', { onclick: onQuit }, 'Quit to menu'),
       ),

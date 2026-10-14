@@ -60,7 +60,7 @@ export function makeRunwayTexture({ widthM, lengthM, northNumber, southNumber })
   // Pixels per metre: 4 across, 1.6 along. The long axis stays <= 4096 px, the
   // smallest max-texture-size we expect on mobile GPUs.
   const ppm = 4;
-  const sy = 1.6;
+  const sy = Math.min(1.6, 4000 / lengthM);
   const w = widthM * ppm;
   const h = Math.round(lengthM * sy);
   const c = canvas(w, h);
@@ -154,4 +154,54 @@ export function makeApronTexture() {
     ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke();
   }
   return finish(c, { repeat: true });
+}
+
+/** Taxiway/apron surface: asphalt with a yellow centre line along the canvas Y axis. */
+export function makeTaxiTexture() {
+  const c = canvas(64, 256);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#4a4d52';
+  ctx.fillRect(0, 0, 64, 256);
+  const n = createNoise(17);
+  for (let y = 0; y < 256; y += 2) for (let x = 0; x < 64; x += 2) {
+    const v = n.value(x / 9, y / 9);
+    ctx.fillStyle = `rgba(0,0,0,${(v - 0.45) * 0.14})`;
+    ctx.fillRect(x, y, 2, 2);
+  }
+  ctx.fillStyle = '#d9b310';
+  ctx.fillRect(30, 0, 4, 160);
+  return finish(c, { repeat: true });
+}
+
+/** Mown grass airstrip: pale stripe on a slightly darker field with end markers. */
+export function makeGrassStripTexture({ widthM, lengthM, northNumber, southNumber }) {
+  const w = Math.round(widthM * 4);
+  const sy = Math.min(1.2, 3000 / lengthM);
+  const h = Math.round(lengthM * sy);
+  const c = canvas(w, h);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#7d9a45';
+  ctx.fillRect(0, 0, w, h);
+  const n = createNoise(33);
+  for (let y = 0; y < h; y += 4) for (let x = 0; x < w; x += 4) {
+    const v = n.value(x / 24, y / 60);
+    ctx.fillStyle = `rgba(${v > 0.5 ? 255 : 0},${v > 0.5 ? 255 : 0},${v > 0.5 ? 220 : 0},0.07)`;
+    ctx.fillRect(x, y, 4, 4);
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  for (const y of [14 * sy, h - 30 * sy]) ctx.fillRect(w * 0.2, y, w * 0.6, 8 * sy);
+  const drawNumber = (text, y, flipped) => {
+    ctx.save();
+    ctx.translate(w / 2, y);
+    if (flipped) ctx.rotate(Math.PI);
+    ctx.scale(1, sy / 4);
+    ctx.font = `bold ${5.5 * 4}px Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+  };
+  drawNumber(northNumber, 50 * sy, true);
+  drawNumber(southNumber, h - 50 * sy, false);
+  return finish(c, { anisotropy: 8 });
 }

@@ -65,6 +65,18 @@ export const SETTINGS_SCHEMA = {
     default: 'calm',
     hint: 'Applies to the next flight. Full weather arrives with the maps in Phase 3.',
   },
+  timeScale: {
+    section: 'Game',
+    label: 'Time of day',
+    type: 'options',
+    options: [
+      ['0', 'Frozen'],
+      ['1', 'Real time'],
+      ['60', 'Fast (60x)'],
+    ],
+    default: '1',
+    hint: 'How fast the clock runs once you are flying. Dusk and night bring the airport and city lights.',
+  },
   padDeadzone: {
     section: 'Controller', label: 'Stick dead zone', type: 'range',
     min: 0, max: 0.4, step: 0.01, default: 0.12, format: (v) => `${Math.round(v * 100)}%`,

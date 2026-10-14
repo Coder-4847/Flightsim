@@ -1,20 +1,15 @@
+import * as THREE from 'three';
 import { AircraftView } from '../aircraft/aircraftView.js';
 import { createCockpit } from '../aircraft/cockpit/index.js';
 import { getAircraft } from '../aircraft/index.js';
+import { buildMap, getAirport } from '../world/mapBuilder.js';
 import { FlightModel } from '../flight/flightModel.js';
-import { KT } from '../flight/units.js';
 import { FlightControls } from '../input/flightControls.js';
 import { CameraSystem } from '../scene/cameras.js';
-import { FlightScene } from '../scene/flightScene.js';
+import { startPoint } from './startPoints.js';
 
 // One flight: the flight model, the pilot controls, the visible aircraft and the cameras.
 // The game loop calls update() at a fixed rate and render() once per animation frame.
-
-export const START_MODES = [
-  { id: 'runway', label: 'On the runway', hint: 'Ready for takeoff at the south end of runway 36.' },
-  { id: 'final', label: 'Final approach', hint: 'Four and a half kilometres out on a 3° glide path, gear and flaps set.' },
-  { id: 'air', label: 'In flight', hint: 'Trimmed and cruising above the airfield.' },
-];
 
 export class FlightSession {
   constructor(flightScene, input, settings) {
@@ -24,10 +19,11 @@ export class FlightSession {
     this.model = null;
     this.view = null;
     this.controls = new FlightControls(input, settings);
-    this.cameras = new CameraSystem(flightScene.camera, { towerPosition: FlightScene.TOWER_POSITION });
+    this.cameras = new CameraSystem(flightScene.camera, { towerPosition: new THREE.Vector3(0, 30, 0) });
     this.cameras.reduceMotion = settings.get('reduceMotion');
     this.startMode = 'runway';
     this.clock = 0;
+    this.windAtCamera = new THREE.Vector3();
     this.onToast = null; // (text) => void
     input.on('press', (action) => {
       if (!this.model) return;
@@ -45,12 +41,30 @@ export class FlightSession {
     return this.model?.spec.id;
   }
 
-  /** Create (or replace) the aircraft and place it for the chosen start. */
-  start(aircraftId, startMode = 'runway') {
+  /**
+   * Load the map and start a flight.
+   * @param opts {aircraftId, mapId, airportCode, endId, startMode, hour, sky, onProgress}
+   */
+  async start(opts) {
     this.dispose();
+    const { aircraftId, mapId, startMode = 'runway', onProgress = () => {} } = opts;
     const spec = getAircraft(aircraftId);
+    this.options = opts;
     this.startMode = startMode;
-    const world = FlightScene.createPhysicsWorld(this.settings.get('weather'));
+
+    // The map must exist before we know where the airport is.
+    const map = buildMap(mapId);
+    const airport = getAirport(map, opts.airportCode);
+    const endId = opts.endId ?? airport.runways[0].ends[0].id;
+    this.airport = airport;
+    this.endId = endId;
+    const spawn = startPoint(map, airport, endId, startMode, aircraftId);
+
+    await this.flightScene.loadMap(mapId, { x: spawn.x, y: spawn.y, z: spawn.z }, (f, label) => onProgress(f * 0.9, label));
+    onProgress(0.92, `Building ${spec.name}`);
+    await new Promise((r) => requestAnimationFrame(() => r()));
+
+    const world = this.flightScene.createPhysicsWorld(this.settings.get('weather'));
     this.model = new FlightModel(spec, world);
     this.view = new AircraftView(spec, createCockpit);
     this.flightScene.scene.add(this.view.root);
@@ -59,26 +73,17 @@ export class FlightSession {
     this.cameras.setMode('chase');
     this.cameras.applyLens();
     this.view.setCockpitActive(false);
+    this.cameras.towerPosition.set(airport.towerPos.x, airport.elevation + airport.towerPos.y, airport.towerPos.z);
+    if (opts.hour != null) this.flightScene.env.setHour(opts.hour);
+    this.flightScene.env.timeScale = Number(this.settings.get('timeScale'));
     this.place(startMode);
   }
 
   place(startMode = this.startMode) {
-    const spec = this.model.spec;
+    const map = this.flightScene.map;
     this.model.world.setWeather(this.settings.get('weather'));
-    const threshold = 1200; // south threshold of runway 36 (z = +1200), heading north
-    switch (startMode) {
-      case 'final':
-        this.model.reset({
-          mode: 'final', heading: 0, x: 0, z: threshold + 4500,
-          altitude: 4500 * Math.tan((3 * Math.PI) / 180) + 14, speed: spec.speeds.vapp * KT, pathAngle: -3,
-        });
-        break;
-      case 'air':
-        this.model.reset({ mode: 'air', heading: 0, x: 0, z: threshold, altitude: 1200, speed: spec.speeds.cruise * KT });
-        break;
-      default:
-        this.model.reset({ mode: 'runway', heading: 0, x: 0, z: threshold - 60 });
-    }
+    const spawn = startPoint(map, this.airport, this.endId, startMode, this.model.spec.id);
+    this.model.reset(spawn.reset);
     this.controls.attach(this.model);
     this.cameras.initialised = false;
     this.cameras.reset();
@@ -110,7 +115,9 @@ export class FlightSession {
     this.clock += frameDt;
     this.view.update(this.model, alpha, frameDt, this.clock);
     this.cameras.update(frameDt, this.view.root.position, this.view.root.quaternion, this.controls.look);
-    this.flightScene.render(this.flightScene.camera.position);
+    this.model.world.wind(this.view.root.position, this.model.time, this.windAtCamera);
+    this.flightScene.update(frameDt, this.flightScene.camera.position, this.windAtCamera);
+    this.flightScene.render();
   }
 
   /** Drain physics events (touchdown, stall, crash). */

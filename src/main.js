@@ -1,5 +1,4 @@
 import './style.css';
-import { getAircraft } from './aircraft/index.js';
 import { GameLoop } from './core/loop.js';
 import { GameState, StateMachine } from './core/stateMachine.js';
 import { FlightSession } from './game/session.js';
@@ -7,9 +6,10 @@ import { Input } from './input/input.js';
 import { FlightScene } from './scene/flightScene.js';
 import { Keybinds } from './storage/keybinds.js';
 import { Settings } from './storage/settings.js';
-import { createAircraftSelect } from './ui/aircraftSelect.js';
 import { h } from './ui/dom.js';
 import { createFlightHud } from './ui/flightHud.js';
+import { createFlightSetup } from './ui/flightSetup.js';
+import { createMapSelect } from './ui/mapSelect.js';
 import { createHud } from './ui/hud.js';
 import { createLoadingScreen, createMainMenu, createPauseMenu } from './ui/mainMenu.js';
 import { ScreenManager } from './ui/screens.js';
@@ -41,14 +41,14 @@ function boot() {
   const state = new StateMachine(GameState.MENU);
   const flightScene = new FlightScene(canvas);
   const session = new FlightSession(flightScene, input, settings);
-  let selection = { aircraftId: 'cessna172', startMode: 'runway' };
+  let selection = null;
 
   // ---- UI ----------------------------------------------------------------
   const screens = new ScreenManager(uiRoot);
   const hud = createHud();
   const flightHud = createFlightHud({
     onRestart: () => restartFlight(),
-    onSelect: () => { state.go(GameState.MENU); screens.show('select'); },
+    onSelect: () => { state.go(GameState.MENU); screens.show('setup'); },
     onMenu: () => state.go(GameState.MENU),
   });
   uiRoot.append(hud, flightHud);
@@ -79,12 +79,17 @@ function boot() {
   const settingsScreen = createSettingsScreen({
     settings, bindings, input, onBack: () => screens.show(settingsReturn),
   });
-  const selectScreen = createAircraftSelect({ onFly: startFlight, onBack: () => screens.show('main') });
+  const mapScreen = createMapSelect({
+    onSelect: (mapId) => { setupScreen.setMap(mapId); screens.show('setup'); },
+    onBack: () => screens.show('main'),
+  });
+  const setupScreen = createFlightSetup({ onFly: startFlight, onBack: () => { mapScreen.refresh(); screens.show('maps'); } });
   screens.register('main', createMainMenu({
-    onStart: () => screens.show('select'),
+    onStart: () => { mapScreen.refresh(); screens.show('maps'); },
     onSettings: () => openSettings('main'),
   }));
-  screens.register('select', selectScreen);
+  screens.register('maps', mapScreen);
+  screens.register('setup', setupScreen);
   screens.register('loading', loadingScreen);
   screens.register('pause', createPauseMenu({
     onResume: () => state.go(GameState.FLYING),
@@ -181,10 +186,7 @@ function boot() {
         screens.show('loading');
         loadingScreen.setProgress(0, 'Starting…');
         try {
-          await flightScene.build((fraction, label) => loadingScreen.setProgress(fraction * 0.8, label));
-          loadingScreen.setProgress(0.85, `Building ${getAircraft(selection.aircraftId).name}`);
-          await new Promise((r) => requestAnimationFrame(() => r()));
-          session.start(selection.aircraftId, selection.startMode);
+          await session.start({ ...selection, onProgress: (fraction, label) => loadingScreen.setProgress(fraction, label) });
           loadingScreen.setProgress(1, 'Ready');
         } catch (err) {
           console.error('Failed to start the flight', err);
@@ -256,5 +258,5 @@ function boot() {
   loop.start();
 
   // Handle for debugging and automated playtests.
-  window.__flightsim = { state, settings, bindings, input, scene: flightScene, session, selectScreen, startFlight };
+  window.__flightsim = { state, settings, bindings, input, scene: flightScene, session, setupScreen, startFlight };
 }

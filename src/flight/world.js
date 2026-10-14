@@ -10,6 +10,7 @@ import { KT } from './units.js';
 export const SURFACES = {
   paved: { rolling: 0.025, friction: 0.9 },
   grass: { rolling: 0.07, friction: 0.55 },
+  sand: { rolling: 0.09, friction: 0.5 },
   snow: { rolling: 0.12, friction: 0.35 },
 };
 

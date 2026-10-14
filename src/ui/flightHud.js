@@ -5,6 +5,7 @@ import { h } from './dom.js';
 import { createChecklistPanel } from './hud/checklistPanel.js';
 import { createControlsPanel } from './hud/controlsPanel.js';
 import { createEnginePanel } from './hud/enginePanel.js';
+import { createMissionPanel } from './hud/missionPanel.js';
 import { createApproachPanel, createNavPanel, createPfdPanel } from './hud/instrumentPanels.js';
 import { createPadMenu } from './hud/padMenu.js';
 import { PanelManager, button } from './hud/panels.js';
@@ -42,14 +43,11 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
 
   const crashTitle = h('h2', 'Crashed');
   const crashReason = h('p.crash-reason');
-  const crash = h('div.crash-card', { hidden: true },
-    crashTitle, crashReason,
-    h('div.crash-actions',
-      h('button.btn.primary', { onclick: onRestart }, 'Restart flight'),
-      h('button.btn', { onclick: onSelect }, 'Choose aircraft'),
-      h('button.btn', { onclick: onMenu }, 'Main menu'),
-    ),
-  );
+  const crashNote = h('p.crash-note');
+  const crashRestart = h('button.btn.primary', { onclick: onRestart }, 'Restart flight');
+  const crashSelect = h('button.btn', { onclick: onSelect }, 'Choose aircraft');
+  const crashMenu = h('button.btn', { onclick: onMenu }, 'Main menu');
+  const crash = h('div.crash-card', { hidden: true }, crashTitle, crashReason, crashNote, h('div.crash-actions', crashRestart, crashSelect, crashMenu));
 
   const el = h('div.flight-hud', warnings, info, toast, touchdown, subtitle, hint, strip, status, panelRoot, toolbar, crash);
 
@@ -61,6 +59,8 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     settings,
     session: null,
     guide: null,
+    modeInfo: null, // () => info for the mission panel, or null outside the game modes
+    perks: null, // Set of owned upgrade ids in the save-based modes, or null when everything is available
     autoOpenRadio: false,
     get model() { return this.session?.model ?? null; },
     get controls() { return this.session?.controls; },
@@ -80,6 +80,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   const pfd = createPfdPanel(hud);
   const nav = createNavPanel(hud);
   const approach = createApproachPanel(hud);
+  const missionPanel = createMissionPanel(hud);
   const padMenu = createPadMenu(hud, input);
   el.append(padMenu.el);
 
@@ -92,6 +93,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     ['controls', 'Controls', 'F4', 'Flaps, gear, trim and more (F4)'],
     ['systems', 'Systems', 'F7', 'Fuel, electrics and emergency actions (F7)'],
     ['approach', 'Approach', 'F8', 'Approach guide and landing score (F8)'],
+    ['mission', 'Mission', 'F9', 'Mission objectives and progress (F9)'],
   ];
   const toolButtons = {};
   for (const [id, label, key, tooltip] of TOOLBAR) {
@@ -99,6 +101,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     toolbar.append(toolButtons[id]);
   }
   hud.panels.onToggle = (id, open) => toolButtons[id]?.classList.toggle('on', open);
+  hud.panels.onLocked = (reason) => el.showToast(reason);
 
   function setHudHidden(hidden) {
     hud.panels.setHidden(hidden);
@@ -144,9 +147,28 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     hintTimer = setTimeout(() => hint.classList.remove('show'), 14000);
   };
 
-  el.setCrash = (reason) => {
+  el.setCrash = (reason, note = '') => {
     crash.hidden = !reason;
+    crashNote.textContent = note;
+    crashNote.hidden = !note;
     if (reason) { crashReason.textContent = reason; audio.stall(false); }
+  };
+
+  /** Game-mode context: where the mission panel gets its text and which upgrades are installed. */
+  el.setMode = (mode) => {
+    hud.modeInfo = mode?.info ?? null;
+    hud.perks = mode?.perks ? new Set(mode.perks) : null;
+    const perks = hud.perks;
+    const gate = (panel, perk, reason) => { if (perks && !perks.has(perk)) hud.panels.lock(panel, reason); else hud.panels.unlock(panel); };
+    gate('nav', 'gps', 'Navigation map needs the Moving-map GPS upgrade (Shop)');
+    gate('approach', 'approach', 'Approach guide needs the Approach assist upgrade (Shop)');
+    crashRestart.textContent = mode?.retryLabel ?? 'Restart flight';
+    crashSelect.textContent = mode?.selectLabel ?? 'Choose aircraft';
+    crashMenu.textContent = mode ? 'Back to menu' : 'Main menu';
+    missionPanel.reset();
+    el.refreshSystems();
+    if (mode) hud.panels.get('mission').open();
+    else hud.panels.get('mission').close();
   };
 
   // ---- binding to a flight ----------------------------------------------------------------------------------------------
@@ -173,6 +195,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   el.refreshSystems = () => {
     const sys = hud.systems;
     // Panels for systems that are switched off disappear (and their keys say why).
+    toolButtons.mission.hidden = !hud.modeInfo;
     toolButtons.checklist.hidden = !sys.checklists;
     toolButtons.radio.hidden = !sys.atc;
     if (!sys.checklists) hud.panels.get('checklist').close();
@@ -194,11 +217,12 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   // ---- panel and key actions --------------------------------------------------------------------------------------------------
   const ACTION_PANEL = {
     radio_menu: 'radio', checklist_toggle: 'checklist', map_toggle: 'nav', panel_pfd: 'pfd', panel_engines: 'engines',
-    panel_controls: 'controls', panel_systems: 'systems', panel_approach: 'approach',
+    panel_controls: 'controls', panel_systems: 'systems', panel_approach: 'approach', panel_mission: 'mission',
   };
   el.handleAction = (action) => {
     if (action === 'radio_menu' && !hud.systems.atc) return el.showToast('ATC is off (turn it on in Settings or the setup screen)');
     if (action === 'checklist_toggle' && !hud.systems.checklists) return el.showToast('Checklists are off (turn them on in Settings or the setup screen)');
+    if (action === 'panel_mission' && !hud.modeInfo) return el.showToast('Missions are part of Free Flight, Career, Emergency and VIP modes');
     if (action === 'hud_toggle') hud.toggleHud();
     else if (action === 'hud_menu') padMenu.toggle();
     else if (ACTION_PANEL[action]) hud.panels.get(ACTION_PANEL[action]).toggle();
@@ -207,7 +231,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   // ---- warnings ----------------------------------------------------------------------------------------------------------------------
   const activeWarnings = new Map();
   function refreshWarnings(t, model, now) {
-    const list = evaluateWarnings(t, model, { runwayIncursion: hud.atc?.phase === 'taxi' && hud.atc.me?.onRunway && !hud.atc.clr?.lineup && !hud.atc.clr?.takeoff });
+    const list = evaluateWarnings(t, model, { gpws: !hud.perks || hud.perks.has('gpws'), runwayIncursion: hud.atc?.phase === 'taxi' && hud.atc.me?.onRunway && !hud.atc.clr?.lineup && !hud.atc.clr?.takeoff });
     for (const w of list) {
       const known = activeWarnings.get(w.id);
       activeWarnings.set(w.id, { ...w, until: now + HOLD_SECONDS, fresh: !known });
@@ -266,7 +290,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
       model.nav.hdgBug = atc?.enabled ? atc.ctx?.hdg ?? null : null;
       model.nav.traffic = session.collectTraffic();
     }
-    for (const p of [pfd, nav, approach, engines, controlsPanel, systemsPanel, checklist]) p.update(t);
+    for (const p of [pfd, nav, approach, engines, controlsPanel, systemsPanel, checklist, missionPanel]) p.update(t);
   };
 
   el.setVisible = (visible) => { el.classList.toggle('active', visible); };

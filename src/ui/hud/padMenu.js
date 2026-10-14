@@ -29,7 +29,7 @@ export function createPadMenu(hud, input) {
     items.push({ label: 'Panels', sub: () => [
       toggleAction('Flight display', 'pfd'), toggleAction('Engines', 'engines'), toggleAction('Controls', 'controls'),
       toggleAction('Fuel and systems', 'systems'), toggleAction('Checklist', 'checklist'), toggleAction('Map', 'nav'),
-      toggleAction('Approach guide', 'approach'), toggleAction('Radio', 'radio'),
+      toggleAction('Approach guide', 'approach'), toggleAction('Radio', 'radio'), toggleAction('Mission', 'mission'),
     ] });
     items.push({ label: hud.panels.hidden ? 'Show HUD' : 'Hide HUD', run: () => hud.toggleHud() });
     return items;

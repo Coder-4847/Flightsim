@@ -12,7 +12,7 @@ export function createMainMenu({ onStart, onSettings }) {
         h('button.btn.primary', { onclick: onStart }, 'Start flying'),
         h('button.btn', { onclick: onSettings }, 'Settings'),
       ),
-      h('p.build-note', 'Phase 2 build · flight model and first aircraft'),
+      h('p.build-note', 'Phase 5 build · game modes, career, economy and saves'),
     ),
   );
 }
@@ -31,15 +31,28 @@ export function createLoadingScreen() {
 }
 
 export function createPauseMenu({ onResume, onRestart, onSettings, onQuit }) {
-  return h('section.pause-screen',
+  const context = h('p.pause-context');
+  const restart = h('button.btn', { onclick: onRestart }, 'Restart flight');
+  const quit = h('button.btn.danger', { onclick: onQuit }, 'Quit to menu');
+  const el = h('section.pause-screen',
     h('div.menu-card.compact',
       h('h2', 'Paused'),
+      context,
       h('nav.menu-list',
         h('button.btn.primary', { onclick: onResume }, 'Resume'),
-        h('button.btn', { onclick: onRestart }, 'Restart flight'),
+        restart,
         h('button.btn', { onclick: onSettings }, 'Settings'),
-        h('button.btn.danger', { onclick: onQuit }, 'Quit to menu'),
+        quit,
       ),
     ),
   );
+  /** Describe the game mode in progress (or clear it with no arguments). */
+  el.setContext = (text = '', restartLabel = 'Restart flight', quitLabel = 'Quit to menu') => {
+    context.textContent = text;
+    context.hidden = !text;
+    restart.textContent = restartLabel;
+    quit.textContent = quitLabel;
+  };
+  el.setContext();
+  return el;
 }

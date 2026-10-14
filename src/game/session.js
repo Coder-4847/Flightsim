@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { AircraftView } from '../aircraft/aircraftView.js';
 import { createCockpit } from '../aircraft/cockpit/index.js';
-import { getAircraft } from '../aircraft/index.js';
+import { specWithLivery } from '../progress/catalog.js';
 import { buildMap, getAirport } from '../world/mapBuilder.js';
 import { FlightModel } from '../flight/flightModel.js';
 import { FlightControls } from '../input/flightControls.js';
@@ -66,11 +66,13 @@ export class FlightSession {
   /**
    * Load the map and start a flight.
    * @param opts {aircraftId, mapId, airportCode, endId, startMode, hour, sky, onProgress}
+   *   Mode extras: liveryId, weather (preset id), fuelKg, seed, spawn {x, z, altitude, heading, speed}
+   *   with startMode 'custom' (a flight that begins somewhere in the air, e.g. an emergency).
    */
   async start(opts) {
     this.dispose();
     const { aircraftId, mapId, startMode = 'runway', onProgress = () => {} } = opts;
-    const spec = getAircraft(aircraftId);
+    const spec = specWithLivery(aircraftId, opts.liveryId);
     this.options = opts;
     this.startMode = startMode;
 
@@ -80,13 +82,13 @@ export class FlightSession {
     const endId = opts.endId ?? airport.runways[0].ends[0].id;
     this.airport = airport;
     this.endId = endId;
-    const spawn = startPoint(map, airport, endId, startMode, aircraftId);
+    const spawn = this.#spawn(map, startMode);
 
     await this.flightScene.loadMap(mapId, { x: spawn.x, y: spawn.y, z: spawn.z }, (f, label) => onProgress(f * 0.9, label));
     onProgress(0.92, `Building ${spec.name}`);
     await new Promise((r) => requestAnimationFrame(() => r()));
 
-    const world = this.flightScene.createPhysicsWorld(this.settings.get('weather'));
+    const world = this.flightScene.createPhysicsWorld(this.#weather());
     world.setSky(opts.sky ?? 'clear');
     this.flightScene.weather.setReference(airport.elevation);
     this.flightScene.weather.setSky(opts.sky ?? 'clear');
@@ -107,12 +109,26 @@ export class FlightSession {
     this.place(startMode);
   }
 
+  #weather() {
+    return this.options?.weather ?? this.settings.get('weather');
+  }
+
+  /** Spawn description for a start mode; 'custom' uses the explicit coordinates from the options. */
+  #spawn(map, startMode) {
+    const o = this.options ?? {};
+    if (startMode === 'custom' && o.spawn) {
+      const sp = o.spawn;
+      return { x: sp.x, y: sp.altitude, z: sp.z, heading: sp.heading, reset: { mode: 'air', heading: sp.heading, x: sp.x, z: sp.z, altitude: sp.altitude, speed: sp.speed } };
+    }
+    return startPoint(map, this.airport, this.endId, startMode === 'custom' ? 'air' : startMode, o.aircraftId ?? this.model?.spec.id);
+  }
+
   place(startMode = this.startMode) {
     const map = this.flightScene.map;
-    this.model.world.setWeather(this.settings.get('weather'));
+    this.model.world.setWeather(this.#weather());
     this.model.world.setSky(this.options?.sky ?? 'clear');
-    const spawn = startPoint(map, this.airport, this.endId, startMode, this.model.spec.id);
-    this.model.reset(spawn.reset);
+    const spawn = this.#spawn(map, startMode);
+    this.model.reset({ ...spawn.reset, ...(this.options?.fuelKg != null ? { fuel: this.options.fuelKg } : {}) });
     this.controls.attach(this.model);
     this.failures = new FailureManager(this.model, this.options?.seed ?? 20260101 + (this.restarts = (this.restarts ?? 0) + 1));
     this.cameras.initialised = false;
@@ -125,7 +141,7 @@ export class FlightSession {
       this.model.controls.parkingBrake = true;
     }
     this.applySystems();
-    this.atc.start(this.model, this.airport, this.endId, startMode, this.systems.atc);
+    this.atc.start(this.model, this.airport, this.endId, startMode === 'custom' ? 'air' : startMode, this.systems.atc);
   }
 
   restart() {

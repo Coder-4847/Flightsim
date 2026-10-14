@@ -64,6 +64,7 @@ export const ACTIONS = [
   a('panel_controls', 'Flight controls panel', 'HUD', ['F4']),
   a('panel_systems', 'Fuel and systems panel', 'HUD', ['F7']),
   a('panel_approach', 'Approach guide panel', 'HUD', ['F8']),
+  a('panel_mission', 'Mission panel', 'HUD', ['F9']),
   a('hud_toggle', 'Toggle HUD', 'HUD', ['KeyH']),
   a('map_toggle', 'Toggle map', 'HUD', ['KeyM']),
   a('checklist_toggle', 'Toggle checklist', 'HUD', ['KeyK']),

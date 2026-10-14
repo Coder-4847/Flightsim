@@ -25,7 +25,7 @@ export function evaluate(t, model, extra = {}) {
   const air = !t.onGround;
   if (t.stallWarning || t.stalled) add('stall', 'red', 'STALL', 'stall');
   if (t.overspeed) add('overspeed', 'red', 'OVERSPEED', 'master');
-  if (air && t.aglFt < 2500) {
+  if (air && t.aglFt < 2500 && extra.gpws !== false) {
     const clear = terrainClearance(model, 12);
     if (clear < 40 && t.vsFpm < 300 && t.iasTrue > 70) add('terrain', 'red', 'TERRAIN — PULL UP', 'gpws:pull up');
     else if (t.aglFt < 1000 && t.vsFpm < -2400) add('sink', 'amber', 'SINK RATE', 'gpws:sink rate');

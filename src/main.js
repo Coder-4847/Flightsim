@@ -8,9 +8,17 @@ import { FlightScene } from './scene/flightScene.js';
 import { Keybinds } from './storage/keybinds.js';
 import { Settings } from './storage/settings.js';
 import { h } from './ui/dom.js';
+import { ModeRunner } from './modes/runner.js';
+import { SaveManager } from './progress/saves.js';
+import { createContractScreen } from './ui/contractScreen.js';
+import { createDebrief } from './ui/debrief.js';
+import { createEmergencyScreen } from './ui/emergencyScreen.js';
 import { createFlightHud } from './ui/flightHud.js';
 import { createFlightSetup } from './ui/flightSetup.js';
 import { createMapSelect } from './ui/mapSelect.js';
+import { createModeSelect } from './ui/modeSelect.js';
+import { createSavesScreen } from './ui/savesScreen.js';
+import { createShopScreen } from './ui/shopScreen.js';
 import { createHud } from './ui/hud.js';
 import { createLoadingScreen, createMainMenu, createPauseMenu } from './ui/mainMenu.js';
 import { ScreenManager } from './ui/screens.js';
@@ -43,7 +51,11 @@ function boot() {
   const state = new StateMachine(GameState.MENU);
   const flightScene = new FlightScene(canvas);
   const session = new FlightSession(flightScene, input, settings);
+  const saves = new SaveManager();
+  const runner = new ModeRunner({ session, saves, settings });
   let selection = null;
+  let menuScreen = 'main'; // which menu screen to land on when a flight ends
+  let pendingDebrief = false;
 
   // ---- UI ----------------------------------------------------------------
   const screens = new ScreenManager(uiRoot);
@@ -51,8 +63,8 @@ function boot() {
   const flightHud = createFlightHud({
     settings, input,
     onRestart: () => restartFlight(),
-    onSelect: () => { state.go(GameState.MENU); screens.show('setup'); },
-    onMenu: () => state.go(GameState.MENU),
+    onSelect: () => leaveToMenu(runner.active ? modeScreenFor() : 'setup'),
+    onMenu: () => leaveToMenu(),
   });
   uiRoot.append(hud, flightHud);
   const loadingScreen = createLoadingScreen();
@@ -65,12 +77,31 @@ function boot() {
     settingsScreen.focusPanel();
   };
 
-  const startFlight = (choice) => {
-    selection = choice;
+  const screenEls = {};
+  const openScreen = (name) => {
+    screenEls[name]?.refresh?.();
+    screens.show(name);
+  };
+
+  /** Begin a flight: a Quick Flight choice from the setup screen, or a game-mode plan. */
+  const launch = (plan) => {
+    if (!plan.mode || plan.mode === 'quick') {
+      runner.clear();
+      selection = plan;
+    } else {
+      selection = runner.prepare(plan);
+    }
     state.go(GameState.LOADING);
+  };
+  const startFlight = (choice) => launch(choice.mode === 'free' ? { ...choice, mode: 'free' } : { ...choice, mode: 'quick' });
+  const modeScreenFor = () => ({ free: 'setup', career: 'career', vip: 'vip', emergency: 'emergency' })[runner.kind] ?? 'main';
+  const leaveToMenu = (screen) => {
+    menuScreen = screen ?? (runner.active ? modeScreenFor() : 'main');
+    state.go(GameState.MENU);
   };
   const restartFlight = () => {
     session.restart();
+    if (runner.active) runner.attach();
     flightHud.setCrash(null);
     flightHud.bind(session);
     announceStart();
@@ -78,30 +109,63 @@ function boot() {
   };
   const announceStart = () => {
     const sim = session.systems.atc;
-    flightHud.showHint(`W/S pitch · A/D roll · Q/E rudder · Shift/Ctrl throttle · Space brakes · B parking brake · G gear · F/V flaps · C camera${sim ? ' · R radio · K checklist' : ''} · H hide HUD`);
+    const keys = `W/S pitch · A/D roll · Q/E rudder · Shift/Ctrl throttle · Space brakes · B parking brake · G gear · F/V flaps · C camera${sim ? ' · R radio · K checklist' : ''} · H hide HUD`;
+    const info = runner.active ? runner.info() : null;
+    flightHud.showHint(info ? `${info.title} · F9 shows your objectives · ${keys}` : keys);
   };
 
   const settingsScreen = createSettingsScreen({
     settings, bindings, input, onBack: () => screens.show(settingsReturn),
   });
   const mapScreen = createMapSelect({
-    onSelect: (mapId) => { setupScreen.setMap(mapId); screens.show('setup'); },
-    onBack: () => screens.show('main'),
+    onSelect: (mapId) => { setupScreen.setMap(mapId); openScreen('setup'); },
+    onBack: () => openScreen('modes'),
   });
-  const setupScreen = createFlightSetup({ settings, onFly: startFlight, onBack: () => { mapScreen.refresh(); screens.show('maps'); } });
-  screens.register('main', createMainMenu({
-    onStart: () => { mapScreen.refresh(); screens.show('maps'); },
+  const setupScreen = createFlightSetup({ settings, saves, onFly: startFlight, onBack: () => { mapScreen.refresh(); screens.show('maps'); }, onShop: () => openScreen('shop') });
+
+  // Pilots and saves can be opened from anywhere; `afterPilot` continues what the player was doing.
+  let savesReturn = 'modes';
+  let afterPilot = null;
+  const openSaves = (from, next = null) => { savesReturn = from; afterPilot = next; openScreen('saves'); };
+  const needPilot = (from, next) => { if (saves.active) next(); else openSaves(from, next); };
+
+  const pick = (id) => {
+    if (id === 'quick') { setupScreen.setKind('quick'); mapScreen.refresh(); screens.show('maps'); }
+    else if (id === 'free') needPilot('modes', () => { setupScreen.setKind('free'); mapScreen.refresh(); screens.show('maps'); });
+    else if (id === 'career') needPilot('modes', () => openScreen('career'));
+    else if (id === 'vip') needPilot('modes', () => openScreen('vip'));
+    else if (id === 'emergency') needPilot('modes', () => openScreen('emergency'));
+  };
+  const begin = (plan) => needPilot('modes', () => launch(plan));
+
+  screenEls.main = screens.register('main', createMainMenu({
+    onStart: () => openScreen('modes'),
     onSettings: () => openSettings('main'),
   }));
-  screens.register('maps', mapScreen);
-  screens.register('setup', setupScreen);
+  screenEls.modes = screens.register('modes', createModeSelect({
+    saves, onPick: pick, onShop: () => openScreen('shop'), onPilots: () => openSaves('modes'), onBack: () => openScreen('main'),
+  }));
+  screenEls.saves = screens.register('saves', createSavesScreen({
+    saves,
+    onBack: () => { afterPilot = null; openScreen(savesReturn); },
+    onPicked: () => { const next = afterPilot; afterPilot = null; if (next && saves.active) next(); },
+  }));
+  screenEls.shop = screens.register('shop', createShopScreen({ saves, onBack: () => openScreen('modes'), onPilots: () => openSaves('shop') }));
+  screenEls.career = screens.register('career', createContractScreen({ kind: 'career', saves, onStart: begin, onBack: () => openScreen('modes'), onPilots: () => openSaves('career') }));
+  screenEls.vip = screens.register('vip', createContractScreen({ kind: 'vip', saves, onStart: begin, onBack: () => openScreen('modes'), onPilots: () => openSaves('vip') }));
+  screenEls.emergency = screens.register('emergency', createEmergencyScreen({ saves, onStart: begin, onBack: () => openScreen('modes'), onPilots: () => openSaves('emergency') }));
+  screenEls.maps = screens.register('maps', mapScreen);
+  screenEls.setup = screens.register('setup', setupScreen);
   screens.register('loading', loadingScreen);
-  screens.register('pause', createPauseMenu({
+  const debrief = createDebrief();
+  screens.register('debrief', debrief);
+  const pauseMenu = createPauseMenu({
     onResume: () => state.go(GameState.FLYING),
     onRestart: restartFlight,
     onSettings: () => openSettings('pause'),
-    onQuit: () => state.go(GameState.MENU),
-  }));
+    onQuit: () => leaveToMenu(),
+  });
+  screens.register('pause', pauseMenu);
   screens.register('settings', settingsScreen);
   screens.show('main');
 
@@ -135,6 +199,7 @@ function boot() {
       if (state.is(GameState.FLYING)) {
         session.update(dt);
         handleEvents();
+        runner.update(dt);
       }
     },
     render: (alpha, frameDt) => {
@@ -166,13 +231,49 @@ function boot() {
     });
   }
   function handleEvents() {
-    for (const e of session.takeEvents()) {
+    const events = session.takeEvents();
+    if (!events.length) return;
+    runner.handleEvents(events);
+    for (const e of events) {
       if (e.type === 'touchdown') flightHud.showTouchdown(e);
       else if (e.type === 'strike') flightHud.showToast('Airframe strike! Check your pitch attitude');
       else if (e.type === 'crash') { flightHud.setCrash(e.reason); input.releaseAll(); }
       else if (e.type === 'failure') flightHud.onFailure(e);
     }
   }
+
+  // ---- game-mode results -----------------------------------------------------
+  const showDebrief = (res) => {
+    const buttons = [];
+    const again = () => { pendingDebrief = false; restartFlight(); };
+    if (res.mode === 'free') {
+      buttons.push({ label: 'Continue flying', primary: true, run: () => { runner.result = null; state.go(GameState.FLYING); } });
+      buttons.push({ label: 'Back to menu', run: () => leaveToMenu('modes') });
+    } else if (res.mode === 'emergency') {
+      buttons.push({ label: 'Fly this seed again', primary: !res.success, run: again });
+      buttons.push({ label: 'New scenario', primary: res.success, run: () => { screenEls.emergency.setSeed(1 + Math.floor(Math.random() * 99999)); leaveToMenu('emergency'); } });
+      buttons.push({ label: 'Back to menu', run: () => leaveToMenu('modes') });
+    } else {
+      if (res.success && res.nextUnlocked) buttons.push({ label: 'Next mission', primary: true, run: () => { leaveToMenu(res.mode); screenEls[res.mode].select(res.nextId); } });
+      buttons.push({ label: res.success ? 'Fly it again' : 'Retry', primary: !(res.success && res.nextUnlocked), run: again });
+      buttons.push({ label: res.mode === 'vip' ? 'Escort list' : 'Mission list', run: () => { leaveToMenu(res.mode); if (res.missionId) screenEls[res.mode].select(res.missionId); } });
+    }
+    debrief.show(res, buttons, saves.active ? `Progress saved · ${saves.active.name} · ${Math.round(saves.active.money).toLocaleString('en-US')} cr` : '');
+    input.releaseAll();
+    pendingDebrief = true;
+    state.go(GameState.PAUSED);
+  };
+  runner.on('result', (res) => {
+    if (res.crash) {
+      const money = res.total < 0 ? `Repair bill ${Math.abs(res.total).toLocaleString('en-US')} cr.` : '';
+      flightHud.setCrash(res.subtitle, money);
+      input.releaseAll();
+      return;
+    }
+    // Let the touchdown report and the last toast be seen before the debrief takes over.
+    setTimeout(() => { if (state.is(GameState.FLYING) && runner.result === res) showDebrief(res); }, res.success ? 1500 : 900);
+  });
+  window.addEventListener('pagehide', () => saves.autosave('close'));
 
   // ---- state transitions ---------------------------------------------------
   state.on('change', async ({ to }) => {
@@ -187,9 +288,14 @@ function boot() {
 
     switch (to) {
       case GameState.MENU:
-        screens.show('main');
+        saves.autosave('menu');
+        runner.clear();
+        flightHud.setMode(null);
+        pauseMenu.setContext();
         flightHud.setCrash(null);
         session.dispose();
+        openScreen(menuScreen);
+        menuScreen = 'main';
         break;
       case GameState.LOADING:
         screens.show('loading');
@@ -205,16 +311,30 @@ function boot() {
           break;
         }
         flightHud.setCrash(null);
+        if (runner.active) {
+          runner.attach();
+          flightHud.setMode({
+            info: () => runner.info(), perks: saves.active?.upgrades ?? [],
+            retryLabel: runner.kind === 'free' ? 'Restart flight' : 'Retry', selectLabel: runner.kind === 'free' ? 'Choose aircraft' : 'Mode menu',
+          });
+          const info = runner.info();
+          pauseMenu.setContext(`${info.title}${info.subtitle ? ` · ${info.subtitle}` : ''}`, runner.kind === 'free' ? 'Restart flight' : 'Retry', 'Quit to mode menu');
+        } else {
+          flightHud.setMode(null);
+          pauseMenu.setContext();
+        }
         flightHud.bind(session);
         announceStart();
         if (state.is(GameState.LOADING)) state.go(GameState.FLYING);
         break;
       case GameState.FLYING:
+        pendingDebrief = false;
         screens.show(null);
         loop.resetClock();
         break;
       case GameState.PAUSED:
-        screens.show('pause');
+        if (pendingDebrief) screens.show('debrief');
+        else { saves.autosave('pause'); screens.show('pause'); }
         break;
       default: break;
     }
@@ -269,5 +389,5 @@ function boot() {
   loop.start();
 
   // Handle for debugging and automated playtests.
-  window.__flightsim = { state, settings, bindings, input, scene: flightScene, session, setupScreen, startFlight, hud: flightHud };
+  window.__flightsim = { state, settings, bindings, input, scene: flightScene, session, setupScreen, startFlight, hud: flightHud, saves, runner, launch, screens, openScreen, showDebrief };
 }

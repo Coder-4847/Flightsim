@@ -39,7 +39,19 @@ export class PanelManager {
     this.z = 10;
     this.hidden = false;
     this.onToggle = null;
+    this.locks = new Map(); // panel id -> reason it is unavailable (an upgrade that has not been bought)
+    this.onLocked = null;
+    this.lastLockedToast = 0;
   }
+
+  /** Make a panel unavailable (closing it) until unlock() is called. */
+  lock(id, reason) {
+    this.locks.set(id, reason);
+    this.panels.get(id)?.close();
+    this.onToggle?.(id, false);
+  }
+
+  unlock(id) { this.locks.delete(id); }
 
   /**
    * @param o {id, title, x, y, width, open, hint}
@@ -56,7 +68,14 @@ export class PanelManager {
     const panel = {
       id: o.id, el, body, titleEl,
       get isOpen() { return !el.hidden; },
-      open: () => { el.hidden = false; this.#raise(el); this.#save(); this.onToggle?.(o.id, true); },
+      open: () => {
+        if (this.locks.has(o.id)) {
+          const now = performance.now();
+          if (now - this.lastLockedToast > 4000) { this.lastLockedToast = now; this.onLocked?.(this.locks.get(o.id)); }
+          return;
+        }
+        el.hidden = false; this.#raise(el); this.#save(); this.onToggle?.(o.id, true);
+      },
       close: () => { el.hidden = true; this.#save(); this.onToggle?.(o.id, false); },
       toggle: () => (el.hidden ? panel.open() : panel.close()),
       setTitle: (t) => { titleEl.textContent = t; },

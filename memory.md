@@ -1,9 +1,9 @@
 # Flight Sim: memory
 
 ## Current status
-- Phase: 1 (Foundation) — code complete, awaiting playtest deploy confirmation
+- Phase: 1 (Foundation) — code complete; **playtest deploy BLOCKED** on a one-time repo setting (see Known bugs)
 - Last completed: Vite + Three.js project, Pages workflow, state machine (menu/loading/flying/paused), fixed-step game loop, settings + keybind storage, menu shell, settings screen with key rebinding, pause menu, demo airfield scene. Verified locally in headless Chromium with zero console errors.
-- Next step: confirm the Pages deploy is live and loads with no console errors; user playtests Phase 1. Then Phase 2 (flight model, controls, first four aircraft, chase + cockpit cameras).
+- Next step: user enables Pages (Settings > Pages > Source = GitHub Actions), then re-run the "Deploy to GitHub Pages" workflow (Actions tab > Run workflow, or any push). Confirm the live URL loads with no console errors; user playtests Phase 1. Do NOT start Phase 2 before that. Then Phase 2 (flight model, controls, first four aircraft, chase + cockpit cameras).
 - Live playtest URL: https://coder-4847.github.io/Flightsim/ (requires Settings > Pages > Source = "GitHub Actions" to be enabled once on the repo)
 
 ## What to test in this build (Phase 1)
@@ -27,7 +27,8 @@
 - 2026-10-14 `window.__flightsim` exposes state/settings/bindings/scene for debugging and automated playtests.
 
 ## Known bugs
-- None known. Scene is intentionally bare (no aircraft yet, no shadows).
+- Deploy blocked: run 38579841450 built fine but `actions/configure-pages` failed with "Get Pages site failed ... Pages enabled and configured to build using GitHub Actions". Pages is not enabled on the repo; the agent has no admin API access to enable it. Fix is the one-time setting above.
+- No other bugs known. Scene is intentionally bare (no aircraft yet, no shadows).
 
 ## File map
 - index.html: page shell (canvas `#view`, UI root `#ui`, inline SVG favicon so no favicon 404)
@@ -53,4 +54,5 @@
 - Deploy: push to the branch; the workflow builds and publishes to Pages. One-time repo setting: Settings > Pages > Build and deployment > Source = GitHub Actions.
 
 ## Session log (newest first)
+- 2026-10-14 First Pages workflow run: build OK, configure-pages failed because Pages is not enabled on the repo. Recorded the blocker; waiting on the user to enable Pages.
 - 2026-10-14 Phase 1 implemented and verified locally (menu -> loading -> flying -> pause -> settings -> quit, persistence, zero console errors).

@@ -90,7 +90,7 @@ export class LandingGear {
   update(dt, state, ctl, world, forceOut, torqueOut) {
     const { pos, vel, q, w } = state;
     this.extension = this.retractable
-      ? approach(this.extension, this.target, dt / this.spec.transitTime)
+      ? approach(this.extension, this.target, (dt / this.spec.transitTime) * (this.rateScale ?? 1))
       : 1;
     _qInv.copy(q).invert();
     _w.copy(w).applyQuaternion(q); // body rates -> world

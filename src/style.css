@@ -308,3 +308,10 @@ h1, h2, h3, h4, p { margin: 0; }
 .spec-sheet dt { color: var(--muted); }
 .spec-sheet dd { margin: 0; }
 @media (max-width: 560px) { .preview-card { grid-template-columns: 1fr; } }
+
+/* ---- game mode controls on the setup screen ------------------------------------- */
+.system-details { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--panel-2); }
+.system-details summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.system-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px 14px; padding: 10px 0 4px; }
+.system-toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
+.system-select { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }

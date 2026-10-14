@@ -6,6 +6,8 @@ import { buildMap, getAirport } from '../world/mapBuilder.js';
 import { FlightModel } from '../flight/flightModel.js';
 import { FlightControls } from '../input/flightControls.js';
 import { CameraSystem } from '../scene/cameras.js';
+import { FailureManager } from './failures.js';
+import { REALISM_ASSIST, getSystems } from './modes.js';
 import { startPoint } from './startPoints.js';
 
 // One flight: the flight model, the pilot controls, the visible aircraft and the cameras.
@@ -35,6 +37,21 @@ export class FlightSession {
       }
     });
     this.controls.onToast = (text) => this.onToast?.(text);
+    this.systems = getSystems(settings);
+    settings.on('change', ({ key }) => { if (key.startsWith('sys_')) this.applySystems(); });
+  }
+
+  /** Push the current mode toggles into the controls, physics world and cameras. */
+  applySystems() {
+    this.systems = getSystems(this.settings);
+    this.controls.setSystems(this.systems);
+    this.cameras.cockpitAvailable = this.systems.cockpitCam;
+    if (this.view && !this.systems.cockpitCam && this.cameras.mode === 'cockpit') this.cycleCamera();
+    if (this.model) {
+      this.model.damageEnabled = this.systems.damage;
+      this.model.world.setRealism?.(this.systems.fullWeather ? 1 : 0.3);
+    }
+    this.onSystemsChanged?.(this.systems);
   }
 
   get aircraftId() {
@@ -73,7 +90,6 @@ export class FlightSession {
     this.view = new AircraftView(spec, createCockpit);
     this.flightScene.scene.add(this.view.root);
     this.cameras.setAircraft(this.view);
-    this.cameras.cockpitAvailable = true;
     this.cameras.setMode('chase');
     this.cameras.applyLens();
     this.view.setCockpitActive(false);
@@ -90,9 +106,12 @@ export class FlightSession {
     const spawn = startPoint(map, this.airport, this.endId, startMode, this.model.spec.id);
     this.model.reset(spawn.reset);
     this.controls.attach(this.model);
+    this.failures = new FailureManager(this.model, this.options?.seed ?? 20260101 + (this.restarts = (this.restarts ?? 0) + 1));
     this.cameras.initialised = false;
     this.cameras.reset();
+    this.settings.set('flightAssist', REALISM_ASSIST[this.settings.get('sys_realism')] ?? 'light');
     this.model.assist = this.settings.get('flightAssist');
+    this.applySystems();
   }
 
   restart() {
@@ -112,6 +131,7 @@ export class FlightSession {
     if (!this.model) return;
     this.controls.update(dt);
     this.model.step(dt);
+    this.failures?.update(dt, this.systems.failures);
   }
 
   /** Per-frame: animate the aircraft, move the camera, draw. */

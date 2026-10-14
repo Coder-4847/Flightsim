@@ -42,6 +42,8 @@ export class SimWorld {
     this.noise = createNoise(4242);
     this.wetness = 0;
     this.turbulence = 0;
+    this.realism = 1; // 1 = full weather effects, lower values soften turbulence, shear and wet runways
+    this.shearK = 0;
     this.sky = SKY_PHYSICS.clear;
     this.weather = WEATHER_PRESETS.calm;
     this.setWeather(weather);
@@ -63,8 +65,16 @@ export class SimWorld {
   #update() {
     const w = this.weather;
     const s = this.sky;
-    this.wetness = s.wet;
-    this.turbulence = Math.min(1, s.turb + (w.gust + s.gust) / 50);
+    const r = this.realism;
+    this.wetness = s.wet * (0.35 + 0.65 * r);
+    this.turbulence = Math.min(1, s.turb + (w.gust + s.gust) / 50) * (0.3 + 0.7 * r);
+    this.shearK = s.shear * r;
+  }
+
+  /** 0..1: how much of the sky's turbulence, shear and wetness the aircraft feels. */
+  setRealism(r) {
+    this.realism = Math.min(1, Math.max(0, r));
+    this.#update();
   }
 
   /** Wind velocity (m/s, world axes) at `pos`: power-law profile, veering and shear near the ground, gusts. */
@@ -78,8 +88,8 @@ export class SimWorld {
     const profile = Math.min(1.5, Math.max(0.45, (agl / 10) ** 0.14));
     // Shear: wind falls and backs as you descend (a tailwind-gain hazard on final).
     const low = 1 - smooth(0, 400, agl);
-    const speedKt = base * profile * (1 - 0.55 * s.shear * low);
-    const dirDeg = (w.speed > 0 ? w.direction : 270) - 28 * s.shear * low;
+    const speedKt = base * profile * (1 - 0.55 * this.shearK * low);
+    const dirDeg = (w.speed > 0 ? w.direction : 270) - 28 * this.shearK * low;
     const from = (dirDeg * Math.PI) / 180;
     const toX = -Math.sin(from);
     const toZ = Math.cos(from);

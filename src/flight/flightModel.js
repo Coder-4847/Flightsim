@@ -6,6 +6,7 @@ import {
 import { Engine } from './engine.js';
 import { FlightControlSystem } from './fcs.js';
 import { LandingGear } from './gear.js';
+import { AircraftSystems } from './systems.js';
 import { DEG, FPM, G, KT, approach, clamp } from './units.js';
 
 // 6-DOF rigid-body flight model.
@@ -40,6 +41,8 @@ export class FlightModel {
     this.gear = new LandingGear(spec.gear, spec.strike, spec.mass.ref);
     this.engines = spec.engines.positions.map((p) => new Engine(spec.engines.spec, p));
     this.fcs = new FlightControlSystem(spec);
+    this.sys = new AircraftSystems(spec);
+    this.crossfeed = false; // fuel crossfeed valve: any tank may feed any engine
     this.assist = 'light';
 
     this.pos = new THREE.Vector3();
@@ -75,6 +78,7 @@ export class FlightModel {
     this.vs = 0;
     this.stallWarning = false;
     this.refCg = spec.cg.ref;
+    this.damageEnabled = true; // false: overspeed, over-g, hard landings and scrapes do not destroy the aircraft
     this.reset({ mode: 'runway' });
   }
 
@@ -101,7 +105,7 @@ export class FlightModel {
   /** Draw `amount` kg for engine `index` from the tanks that feed it, in burn order. */
   #drawFuel(index, amount) {
     if (!this.tanks.length) { this._fuel = Math.max(0, this._fuel - amount); return; }
-    const feeding = this.tanks.filter((t) => t.content > 0 && (!t.feeds || t.feeds.includes(index)))
+    const feeding = this.tanks.filter((t) => t.content > 0 && t.pump !== false && (this.crossfeed || !t.feeds || t.feeds.includes(index)))
       .sort((a, b) => a.order - b.order);
     let left = amount;
     for (const t of feeding) {
@@ -112,10 +116,24 @@ export class FlightModel {
     }
   }
 
+  /** Remove fuel for a leak or a dump: from the fullest tanks first. */
+  drainFuel(amount) {
+    if (!this.tanks.length) { this._fuel = Math.max(0, this._fuel - amount); return; }
+    let left = amount;
+    for (const t of [...this.tanks].sort((a, b) => b.content / b.capacity - a.content / a.capacity)) {
+      const take = Math.min(t.content, left);
+      t.content -= take;
+      left -= take;
+      if (left <= 0) break;
+    }
+  }
+
+  crashWith(reason) { if (!this.crashed) this.#crash(reason); }
+
   /** True when engine `index` still has a tank to draw from. */
   #hasFuelFor(index) {
     if (!this.tanks.length) return this._fuel > 0;
-    return this.tanks.some((t) => t.content > 0 && (!t.feeds || t.feeds.includes(index)));
+    return this.tanks.some((t) => t.content > 0 && t.pump !== false && (this.crossfeed || !t.feeds || t.feeds.includes(index)));
   }
 
   get mass() {
@@ -150,6 +168,9 @@ export class FlightModel {
     this.controls.brakeLeft = this.controls.brakeRight = 0;
     this.controls.speedbrake = false;
     this.surfaces.elevator = this.surfaces.aileron = this.surfaces.rudder = this.surfaces.speedbrake = 0;
+    this.sys.reset();
+    this.crossfeed = false;
+    this.tanks.forEach((t) => { t.pump = true; });
     this.engines.forEach((e) => { e.failed = false; e.fire = false; e.spool = spec.engines.spec.idle ?? 0.1; });
 
     const heading = (init.heading ?? 0) * DEG;
@@ -352,14 +373,19 @@ export class FlightModel {
     }, this.assist, c.trim);
     const ctl = spec.controls;
     const surf = this.surfaces;
-    const elevTarget = cmd.elevator * ctl.elevatorUp * DEG; // symmetric authority; elevatorDown only limits the visual travel
-    surf.elevator = approach(surf.elevator, elevTarget, ctl.rate * DEG * dt);
-    surf.aileron = approach(surf.aileron, cmd.aileron * ctl.aileron * DEG, ctl.rate * DEG * dt);
-    surf.rudder = approach(surf.rudder, cmd.rudder * ctl.rudder * DEG, ctl.rate * DEG * dt);
-    const flapTarget = spec.flaps.stages[c.flapsStage].deg;
+    const sys = this.sys;
+    const auth = sys.controlAuthority;
+    const slew = ctl.rate * DEG * dt * sys.controlRate;
+    const elevTarget = cmd.elevator * ctl.elevatorUp * DEG * auth; // symmetric authority; elevatorDown only limits the visual travel
+    surf.elevator = approach(surf.elevator, elevTarget, slew);
+    surf.aileron = approach(surf.aileron, cmd.aileron * ctl.aileron * DEG * auth, slew);
+    surf.rudder = approach(surf.rudder, cmd.rudder * ctl.rudder * DEG * auth, slew);
+    if (sys.jam) surf[sys.jam.axis] = sys.jam.value;
+    const flapTarget = sys.flapStuck ? surf.flap : spec.flaps.stages[c.flapsStage].deg;
     surf.flap = approach(surf.flap, flapTarget, spec.flaps.rate * dt);
     surf.speedbrake = approach(surf.speedbrake, c.speedbrake ? 1 : 0, dt / 2);
-    this.gear.setLever(c.gearDown);
+    if (sys.gearEmergency) this.gear.target = 1;
+    else if (!sys.gearLocked) this.gear.setLever(c.gearDown);
 
     // Engines.
     const env = { sigma: air.sigma, mach: air.mach, tas: air.tas };
@@ -441,12 +467,12 @@ export class FlightModel {
     _gearTorque.set(0, 0, 0);
     const brakeAll = c.parkingBrake ? 1 : 0;
     const gearCtl = {
-      brakeLeft: Math.max(c.brakeLeft, brakeAll),
-      brakeRight: Math.max(c.brakeRight, brakeAll),
+      brakeLeft: Math.max(c.brakeLeft, brakeAll) * sys.brakePower,
+      brakeRight: Math.max(c.brakeRight, brakeAll) * sys.brakePower,
     };
     const speedForSteer = Math.hypot(this.vel.x, this.vel.z);
     // Steering authority falls off quickly with speed so keyboard taps stay controllable.
-    this.gear.steerAngle = c.steer * spec.gear.steerMax * DEG / (1 + (speedForSteer / 12) ** 2);
+    this.gear.steerAngle = sys.steeringWorks ? c.steer * spec.gear.steerMax * DEG / (1 + (speedForSteer / 12) ** 2) : 0;
     this.gear.update(dt, { pos: this.pos, vel: this.vel, q: this.q, w: this.w, mass, time: this.time }, gearCtl, this.world, _gearForce, _gearTorque);
     _force.add(_gearForce);
     _torque.add(_gearTorque);
@@ -480,7 +506,10 @@ export class FlightModel {
     this.q.set(this.q.x + _dq.x, this.q.y + _dq.y, this.q.z + _dq.z, this.q.w + _dq.w).normalize();
     // (set from components: premultiply gives q * dq ordering as required for body rates)
 
-    if (!settling) this.#checkLimits(dt, air);
+    if (!settling) {
+      sys.update(dt, this, air);
+      this.#checkLimits(dt, air);
+    }
   }
 
   // ---- damage, limits, events ----------------------------------------------------------
@@ -490,11 +519,12 @@ export class FlightModel {
     this.nzPeak = Math.max(this.nzPeak, air.nz);
 
     const overspeed = air.ias / (lim.vne * KT);
-    if (overspeed > 1 || (lim.mmo && air.mach > lim.mmo)) {
+    const vulnerable = this.damageEnabled;
+    if (vulnerable && (overspeed > 1 || (lim.mmo && air.mach > lim.mmo))) {
       dmg.overspeed += dt * Math.max(overspeed - 1, air.mach - (lim.mmo ?? 9)) * 2.5 + (overspeed > 1.2 ? 1 : 0);
     }
     if (dmg.overspeed >= 1) return this.#crash('Structural failure: overspeed');
-    if (air.nz > lim.nzPos * 1.45 || air.nz < lim.nzNeg * 1.45) {
+    if (vulnerable && (air.nz > lim.nzPos * 1.45 || air.nz < lim.nzNeg * 1.45)) {
       return this.#crash(air.nz > 0 ? 'Structural failure: wing overload' : 'Structural failure: negative g overload');
     }
 
@@ -505,7 +535,7 @@ export class FlightModel {
       td.fpm = sink / FPM;
       td.grade = gradeLanding(sink, lim);
       this.events.push({ type: 'touchdown', ...td });
-      if (sink > lim.crashLanding) return this.#crash(`Crashed on landing (${Math.round(td.fpm)} ft/min)`);
+      if (vulnerable && sink > lim.crashLanding) return this.#crash(`Crashed on landing (${Math.round(td.fpm)} ft/min)`);
       if (sink > lim.hardLanding) dmg.landing = Math.min(1, dmg.landing + 0.5);
     }
     const strike = this.gear.strike;
@@ -516,11 +546,11 @@ export class FlightModel {
         this.events.push({ type: 'strike', where: 'airframe' });
       }
       // A hard impact destroys the aircraft; a scrape (tail strike, belly slide) builds up damage over time.
-      if (strike.sink > 6 || strike.load > 30 * this.mass * G) {
+      if (strike.sink > 6 || (vulnerable && strike.load > 30 * this.mass * G)) {
         return this.#crash('Crashed: airframe struck the ground');
       }
       dmg.scrape = (dmg.scrape ?? 0) + dt * (strike.load / (this.mass * G)) * Math.min(horizontal / 40, 1.5) * 0.35;
-      if (dmg.scrape >= 1) return this.#crash('Airframe destroyed by ground scraping');
+      if (vulnerable && dmg.scrape >= 1) return this.#crash('Airframe destroyed by ground scraping');
       this.gear.strike = null;
     } else if (this.gear.strikeLoad === 0) {
       this.strikeReported = false;
@@ -562,7 +592,7 @@ export class FlightModel {
     if (heading < 0) heading += 360;
     const air = this.air;
     return {
-      ias: air.ias / KT, tas: air.tas / KT, mach: air.mach,
+      ias: this.sys.shownIas(air, this.pos.y) / KT, iasTrue: air.ias / KT, tas: air.tas / KT, mach: air.mach,
       altitudeFt: this.pos.y / 0.3048, aglFt: this.agl / 0.3048,
       vsFpm: this.vel.y / FPM,
       heading, pitch: this.#pitch() / DEG, bank: this.#bank() / DEG, pitchRate: this.w.z / DEG, rollRate: this.w.x / DEG,
@@ -577,6 +607,7 @@ export class FlightModel {
       overspeed: air.ias > this.spec.limits.vne * KT * 0.98,
       parkingBrake: this.controls.parkingBrake, trim: this.controls.trim,
       speedbrake: this.surfaces.speedbrake, afterburner: Math.max(0, ...this.engines.map((e) => e.afterburner)),
+      powered: this.sys.powered, failures: this.sys.describe(this), apuSpool: this.sys.apu.spool, dumping: this.sys.dumping, crossfeed: this.crossfeed,
       crashed: this.crashed, fuelFlow: this.engines.reduce((s, e) => s + e.fuelFlow, 0),
     };
   }

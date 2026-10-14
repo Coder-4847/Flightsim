@@ -6,6 +6,7 @@ import { buildMap } from '../world/mapBuilder.js';
 import { MAPS } from '../world/maps.js';
 import { createAircraftPreview } from './aircraftPreview.js';
 import { h } from './dom.js';
+import { SETTINGS_SCHEMA } from '../storage/settings.js';
 
 // The hangar and flight setup screen: aircraft, airport and runway, start position, time of
 // day and sky. The last choices are remembered between visits.
@@ -29,7 +30,7 @@ export const SKY_OPTIONS = [
 
 const formatHour = (hour) => `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.round((hour % 1) * 60)).padStart(2, '0')}`;
 
-export function createFlightSetup({ onFly, onBack }) {
+export function createFlightSetup({ settings, onFly, onBack }) {
   const saved = loadJSON('flightsetup', {}) ?? {};
   const state = {
     aircraftId: saved.aircraftId ?? 'cessna172', mapId: saved.mapId ?? 'grasslands', airportCode: saved.airportCode ?? null,
@@ -47,6 +48,36 @@ export function createFlightSetup({ onFly, onBack }) {
   const hourLabel = h('span.range-value', formatHour(state.hour));
   const skyRow = h('div.segmented.wrap', { role: 'group' });
   const mapTitle = h('span.setup-map');
+  const modeRow = h('div.segmented', { role: 'group' });
+  const modeHint = h('p.help');
+  const systemList = h('div.system-list');
+  const PRESET_HINTS = {
+    arcade: 'Single throttle, automatic flaps and gear, no ATC or checklists, a simple approach guide.',
+    simulation: 'Per-engine throttle, manual flaps and gear, full ATC, systems, checklists and failures.',
+    custom: 'Your own mix of systems. Every toggle below is independent.',
+  };
+  function paintMode() {
+    const preset = settings.get('preset');
+    modeRow.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === preset));
+    modeHint.textContent = PRESET_HINTS[preset];
+    systemList.querySelectorAll('input[type=checkbox]').forEach((box) => { box.checked = settings.get(box.dataset.key); });
+    systemList.querySelectorAll('button[data-key]').forEach((b) => b.classList.toggle('on', settings.get(b.dataset.key) === b.dataset.value));
+  }
+  for (const [id, label] of SETTINGS_SCHEMA.preset.options) {
+    modeRow.append(h('button', { type: 'button', dataset: { id }, onclick: () => settings.set('preset', id) }, label));
+  }
+  for (const [key, spec] of Object.entries(SETTINGS_SCHEMA)) {
+    if (spec.section !== 'Game systems') continue;
+    if (spec.type === 'bool') {
+      const box = h('input', { type: 'checkbox', dataset: { key }, onchange: () => settings.set(key, box.checked) });
+      systemList.append(h('label.system-toggle', { title: spec.hint ?? '' }, box, h('span', spec.label)));
+    } else {
+      const group = h('div.segmented', { role: 'group' });
+      for (const [value, text] of spec.options) group.append(h('button', { type: 'button', dataset: { key, value }, onclick: () => settings.set(key, value) }, text));
+      systemList.append(h('div.system-select', h('span', spec.label), group));
+    }
+  }
+  settings.on('change', ({ key }) => { if (key === 'preset' || key.startsWith('sys_')) paintMode(); });
 
   const persist = () => saveJSON('flightsetup', state);
   const preview = createAircraftPreview();
@@ -190,6 +221,8 @@ export function createFlightSetup({ onFly, onBack }) {
           row('Start', startRow), startHint,
           row('Time', timeRow, h('div.range', hourSlider, hourLabel)),
           row('Sky', skyRow),
+          h('h3', 'Game mode'), row('Mode', modeRow), modeHint,
+          h('details.system-details', h('summary', 'Customize systems'), systemList),
         ),
       ),
     ),
@@ -203,6 +236,7 @@ export function createFlightSetup({ onFly, onBack }) {
     paintAircraft(); paintStart(); paintTime(); paintSky();
   };
   el.state = state;
+  paintMode();
   preview.start();
   paintAircraft(); paintStart(); paintTime(); paintSky();
   return el;

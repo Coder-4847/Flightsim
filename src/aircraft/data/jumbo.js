@@ -75,6 +75,7 @@ export default {
     eye: { x: 33.0, y: 4.1, z: -0.62 }, panel: 'airliner', seats: 400, yoke: 'yoke', width: 1.15,
   },
 
+  fuelDump: 60, // kg/s
   minRunway: 3300, // metres: comfortable takeoff or landing distance at typical weights
   geometry: { wingHeight: -2.2, length: 70.7 },
 };

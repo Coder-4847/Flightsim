@@ -1,6 +1,7 @@
 import './style.css';
 import { GameLoop } from './core/loop.js';
 import { GameState, StateMachine } from './core/stateMachine.js';
+import { watchModes } from './game/modes.js';
 import { FlightSession } from './game/session.js';
 import { Input } from './input/input.js';
 import { FlightScene } from './scene/flightScene.js';
@@ -36,6 +37,7 @@ if (!webglAvailable()) {
 function boot() {
   // ---- core services -----------------------------------------------------
   const settings = new Settings();
+  watchModes(settings);
   const bindings = new Keybinds();
   const input = new Input(bindings, settings);
   const state = new StateMachine(GameState.MENU);
@@ -83,7 +85,7 @@ function boot() {
     onSelect: (mapId) => { setupScreen.setMap(mapId); screens.show('setup'); },
     onBack: () => screens.show('main'),
   });
-  const setupScreen = createFlightSetup({ onFly: startFlight, onBack: () => { mapScreen.refresh(); screens.show('maps'); } });
+  const setupScreen = createFlightSetup({ settings, onFly: startFlight, onBack: () => { mapScreen.refresh(); screens.show('maps'); } });
   screens.register('main', createMainMenu({
     onStart: () => { mapScreen.refresh(); screens.show('maps'); },
     onSettings: () => openSettings('main'),

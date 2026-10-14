@@ -4,7 +4,8 @@ import { approach, clamp } from '../flight/units.js';
 // Keyboard keys act like a stick that ramps toward full deflection and springs
 // back to centre; gamepad sticks are analog and win whenever they are deflected.
 
-const KEY_RATE = { pitch: 2.4, roll: 2.8, yaw: 3.2 }; // stick units per second while a key is held
+const KEY_RATE = { pitch: 1.5, roll: 2.4, yaw: 2.0 }; // stick units per second while a key is held
+const KEY_LIMIT = { pitch: 0.7, roll: 0.9, yaw: 0.85 }; // keys never give full deflection; use a pad or assist for that
 const KEY_RETURN = 5; // per second back to centre when released
 const THROTTLE_RATE = 0.35; // per second
 const TRIM_RATE = 0.12; // per second
@@ -90,7 +91,7 @@ export class FlightControls {
       yaw: input.axis('yaw_left', 'yaw_right'),
     };
     for (const axis of ['pitch', 'roll', 'yaw']) {
-      const target = keyAxis[axis];
+      const target = keyAxis[axis] * KEY_LIMIT[axis];
       const rate = target === 0 ? KEY_RETURN : KEY_RATE[axis];
       this.stick[axis] = approach(this.stick[axis], target, rate * dt);
     }

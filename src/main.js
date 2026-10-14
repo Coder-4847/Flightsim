@@ -157,6 +157,7 @@ function boot() {
   function handleEvents() {
     for (const e of session.takeEvents()) {
       if (e.type === 'touchdown') flightHud.showTouchdown(e);
+      else if (e.type === 'strike') flightHud.showToast('Airframe strike! Check your pitch attitude');
       else if (e.type === 'crash') { flightHud.setCrash(e.reason); input.releaseAll(); }
     }
   }

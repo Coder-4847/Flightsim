@@ -59,7 +59,7 @@ export class FlightModel {
     };
     this.surfaces = { elevator: 0, aileron: 0, rudder: 0, flap: 0, speedbrake: 0 };
     this.fuel = spec.mass.fuelStart;
-    this.damage = { overspeed: 0, overG: 0, landing: 0 };
+    this.damage = { overspeed: 0, overG: 0, landing: 0, scrape: 0 };
     this.air = {
       tas: 0, ias: 0, mach: 0, sigma: 1, rho: 1.225, qbar: 0, alpha: 0, beta: 0, cl: 0, cd: 0,
       separation: 0, nz: 1, alphaStall: 0.28,
@@ -90,7 +90,8 @@ export class FlightModel {
     this.events.length = 0;
     this.crashed = null;
     this.fuel = init.fuel ?? spec.mass.fuelStart;
-    this.damage = { overspeed: 0, overG: 0, landing: 0 };
+    this.damage = { overspeed: 0, overG: 0, landing: 0, scrape: 0 };
+    this.strikeReported = false;
     this.nzPeak = 1;
     this.w.set(0, 0, 0);
     this.vel.set(0, 0, 0);
@@ -394,7 +395,8 @@ export class FlightModel {
       brakeRight: Math.max(c.brakeRight, brakeAll),
     };
     const speedForSteer = Math.hypot(this.vel.x, this.vel.z);
-    this.gear.steerAngle = c.steer * spec.gear.steerMax * DEG / (1 + (speedForSteer / 20) ** 2);
+    // Steering authority falls off quickly with speed so keyboard taps stay controllable.
+    this.gear.steerAngle = c.steer * spec.gear.steerMax * DEG / (1 + (speedForSteer / 12) ** 2);
     this.gear.update(dt, { pos: this.pos, vel: this.vel, q: this.q, w: this.w, mass, time: this.time }, gearCtl, this.world, _gearForce, _gearTorque);
     _force.add(_gearForce);
     _torque.add(_gearTorque);
@@ -450,10 +452,19 @@ export class FlightModel {
     const strike = this.gear.strike;
     if (strike) {
       const horizontal = Math.hypot(this.vel.x, this.vel.z);
-      if (strike.sink > 2.2 || strike.load > 9 * this.mass * G || (horizontal > 45 && strike.load > 0.5 * this.mass * G)) {
+      if (!this.strikeReported) {
+        this.strikeReported = true;
+        this.events.push({ type: 'strike', where: 'airframe' });
+      }
+      // A hard impact destroys the aircraft; a scrape (tail strike, belly slide) builds up damage over time.
+      if (strike.sink > 6 || strike.load > 30 * this.mass * G) {
         return this.#crash('Crashed: airframe struck the ground');
       }
+      dmg.scrape = (dmg.scrape ?? 0) + dt * (strike.load / (this.mass * G)) * Math.min(horizontal / 40, 1.5) * 0.35;
+      if (dmg.scrape >= 1) return this.#crash('Airframe destroyed by ground scraping');
       this.gear.strike = null;
+    } else if (this.gear.strikeLoad === 0) {
+      this.strikeReported = false;
     }
     if (this.pos.y < this.world.groundHeight(this.pos.x, this.pos.z) - 2) {
       return this.#crash('Crashed into terrain');

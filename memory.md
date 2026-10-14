@@ -70,7 +70,7 @@
 - Deploy: push to the branch; the workflow builds and publishes to Pages.
 
 ## Verification record (Phase 3)
-- Headless: all 14 aircraft take off (liftoff within 3% of Vr), hold a hands-off cruise within a 3-70 ft band (assist Light/Full), land with a sensible flare (200-450 fpm) and crash on a deliberate 2,000+ fpm arrival. Roll rates 8-20 deg/s at half stick.
+- Headless: all 14 aircraft take off (liftoff within about 10% of the listed Vr), hold a hands-off cruise within a 40 ft altitude band (assist Light/Full), land with a sensible flare (200-450 fpm) and crash on a deliberate 2,000+ fpm arrival. Roll rates 8-20 deg/s at half stick.
 - Browser (headless Chromium): every aircraft starts on a runway on the Verdant Plains and in the air/final on the other maps with no console errors; hangar, cockpit cameras and night rendering checked by screenshot.
 - Numbers: map load about 5-9 s in software rendering; hub draw calls about 700 with parked traffic; build about 850 kB JS (235 kB gzip).
 

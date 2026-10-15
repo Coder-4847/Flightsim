@@ -34,7 +34,7 @@ export class AirTraffic {
     const airports = this.map.airports;
     const from = flight.to ?? this.rng.pick(airports);
     let to = this.rng.pick(airports);
-    for (let n = 0; n < 8 && (to === from || Math.hypot(to.x - from.x, to.z - from.z) < 8000); n++) to = this.rng.pick(airports);
+    for (let n = 0; n < 8 && (to === from || Math.hypot(to.x - from.x, to.z - from.z) < 5000); n++) to = this.rng.pick(airports);
     flight.from = from;
     flight.to = to;
     flight.length = Math.hypot(to.x - from.x, to.z - from.z);

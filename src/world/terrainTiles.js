@@ -196,6 +196,8 @@ export class Terrain {
     mesh.position.set(cx, 0, cz);
     mesh.matrixAutoUpdate = false;
     mesh.updateMatrix();
+    mesh.receiveShadow = true;
+    mesh.castShadow = n.level <= 1;
     const tile = {
       ...n, key: Terrain.key(n.level, n.ix, n.iz), mesh, size, cx, cz, minY, maxY, lastUsed: this.frame, decor: null, built: true,
       heights, step, x0, z0, border,

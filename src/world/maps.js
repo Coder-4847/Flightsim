@@ -1,7 +1,8 @@
 // Static definitions of the three maps. The builders (mapBuilder.js) turn these into worlds.
-// Every map is a 120 km x 120 km square centred on the origin, generated from a fixed seed.
+// Every map is an 80 km x 80 km square centred on the origin, generated from a fixed seed.
 
-export const MAP_HALF = 60000; // metres from the centre to each edge
+export const MAP_HALF = 40000; // metres from the centre to each edge
+export const MAP_SIZE_KM = (MAP_HALF * 2) / 1000;
 
 export const MAPS = {
   grasslands: {
@@ -13,7 +14,7 @@ export const MAPS = {
     surfaceDefault: 'grass',
     palette: { sky: 'clear' },
     rivers: { count: 2, width: [70, 150], depth: 9 },
-    lakes: { count: 4, radius: [700, 2200] },
+    lakes: { count: 4, radius: [600, 1700] },
     cities: { major: 1, towns: 5, villages: 9 },
     airports: { hub: 1, regional: 3, small: 5, strip: 4 },
     prevailingWind: 270,
@@ -34,7 +35,7 @@ export const MAPS = {
     surfaceDefault: 'sand',
     palette: { sky: 'clear' },
     rivers: { count: 0 },
-    lakes: { count: 3, radius: [350, 700] },
+    lakes: { count: 3, radius: [280, 560] },
     cities: { major: 1, towns: 4, villages: 6 },
     airports: { hub: 1, regional: 3, small: 4, strip: 4 },
     prevailingWind: 340,
@@ -55,7 +56,7 @@ export const MAPS = {
     surfaceDefault: 'snow',
     palette: { sky: 'clear' },
     rivers: { count: 1, width: [50, 90], depth: 7 },
-    lakes: { count: 5, radius: [800, 2000] },
+    lakes: { count: 5, radius: [650, 1500] },
     cities: { major: 1, towns: 4, villages: 6 },
     airports: { hub: 1, regional: 2, small: 4, strip: 4 },
     prevailingWind: 220,

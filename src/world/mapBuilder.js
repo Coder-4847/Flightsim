@@ -2,6 +2,8 @@ import { Rng } from '../util/random.js';
 import { createBaseHeight, createHeightfield } from './heightfield.js';
 import { AIRPORT_CLASSES, MAPS, MAP_HALF } from './maps.js';
 import { PolylineSet } from './polyline.js';
+import { buildLinearSet } from './placement.js';
+import { generateInfrastructure } from './infrastructure.js';
 
 // Turns a static map definition into a world: height function, rivers, lakes, cities, airports
 // (with runways and ILS data), navaids, waypoints and roads. Pure data, no rendering, so it also
@@ -23,7 +25,7 @@ function generateRivers(cfg, base, rng) {
     let best = null;
     for (let i = 0; i < 30; i++) {
       const a = rng.range(0, Math.PI * 2);
-      const rad = MAP_HALF * rng.range(0.55, 0.8);
+      const rad = MAP_HALF * rng.range(0.5, 0.78);
       const p = { x: Math.cos(a) * rad, z: Math.sin(a) * rad };
       p.h = base(p.x, p.z);
       if (!best || p.h > best.h) best = p;
@@ -98,9 +100,28 @@ function findSite(rng, fn, o) {
     if (apart.some((t) => Math.hypot(t.x - x, t.z - z) < spacing)) continue;
     if (reject?.(x, z)) continue;
     if (flatness(fn, x, z, radius) > allowed) continue;
+    if (o.corridor && !o.corridor(x, z, allowed / o.maxRange)) continue;
     return { x, z };
   }
   return null;
+}
+
+/**
+ * Are the approaches along the likely runway axis kept well below the 3 degree glide path (at least ~170 m under it)?
+ * (The runway heading is the prevailing wind within about 30 degrees, either way.)
+ */
+function approachClear(fn, x, z, wind, relax = 1) {
+  const e0 = fn(x, z);
+  for (const dh of [-30, -15, 0, 15, 30]) {
+    const dir = dirOf(wind + dh);
+    for (const sign of [1, -1]) {
+      for (let d = 2400; d <= 7200; d += 1200) {
+        const h = fn(x + dir.x * d * sign, z + dir.z * d * sign);
+        if (h > e0 + Math.max(20, d * 0.0524 - 170) * relax + 14 * (relax - 1)) return false;
+      }
+    }
+  }
+  return true;
 }
 
 // ---- lakes -------------------------------------------------------------------------------------------
@@ -113,15 +134,15 @@ function generateLakes(cfg, base, rng, taken) {
     const x = rng.range(-HALF_USABLE, HALF_USABLE);
     const z = rng.range(-HALF_USABLE, HALF_USABLE);
     let ring = 0;
-    for (let k = 0; k < 6; k++) ring += base(x + Math.cos(k * 1.047) * 3200, z + Math.sin(k * 1.047) * 3200);
+    for (let k = 0; k < 6; k++) ring += base(x + Math.cos(k * 1.047) * 2500, z + Math.sin(k * 1.047) * 2500);
     cands.push({ x, z, score: base(x, z) - ring / 6 });
   }
   cands.sort((a, b) => a.score - b.score);
   for (const c of cands) {
     if (lakes.length >= cfg.lakes.count) break;
     const radius = rng.range(cfg.lakes.radius[0], cfg.lakes.radius[1]);
-    if (lakes.some((l) => Math.hypot(l.x - c.x, l.z - c.z) < 12000)) continue;
-    if (taken.some((t) => Math.hypot(t.x - c.x, t.z - c.z) < 6000)) continue;
+    if (lakes.some((l) => Math.hypot(l.x - c.x, l.z - c.z) < 8000)) continue;
+    if (taken.some((t) => Math.hypot(t.x - c.x, t.z - c.z) < 4500)) continue;
     lakes.push({
       x: c.x, z: c.z, radius, level: base(c.x, c.z) + 2, frozen: cfg.biome === 'snow', oasis: false,
     });
@@ -148,9 +169,9 @@ function generateCities(cfg, hf, rng) {
     cities.push(city);
     return city;
   };
-  add('major', 6500, 140, 30000, { limit: MAP_HALF * 0.45 });
-  for (let i = 0; i < cfg.cities.towns; i++) add('town', rng.range(1500, 2300), 90, 16000);
-  for (let i = 0; i < cfg.cities.villages; i++) add('village', rng.range(380, 700), 60, 8000);
+  add('major', 5000, 140, 17000, { limit: MAP_HALF * 0.4 });
+  for (let i = 0; i < cfg.cities.towns; i++) add('town', rng.range(1250, 1850), 90, 10500);
+  for (let i = 0; i < cfg.cities.villages; i++) add('village', rng.range(330, 560), 60, 5200);
   return cities;
 }
 
@@ -208,25 +229,34 @@ function generateAirports(cfg, hf, cities, rng) {
   const sites = [];
   const place = (cls, o) => {
     const spec = AIRPORT_CLASSES[cls];
-    const site = findSite(rng, hf.carved, {
-      radius: spec.flatRadius * 0.8, maxRange: cls === 'hub' ? 30 : 45, spacing: 9000, taken, apart: sites,
-      reject: (x, z) => hf.rivers && hf.rivers.nearest(x, z).dist < spec.flatRadius * 1.6, ...o,
-    });
-    if (!site) return;
-    sites.push({ ...site, cls });
+    // Progressively relaxed attempts so every airport of the map always gets a site.
+    const tiers = [
+      {},
+      { maxRange: (cls === 'hub' ? 30 : 45) * 1.8, near: null },
+      { maxRange: (cls === 'hub' ? 30 : 45) * 3, near: null, spacing: 4200, corridor: null },
+      { maxRange: 200, near: null, spacing: 3600, corridor: null, taken: [] },
+    ];
+    for (const t of tiers) {
+      const site = findSite(rng, hf.carved, {
+        radius: spec.flatRadius * 0.8, maxRange: cls === 'hub' ? 30 : 45, spacing: 6500, taken, apart: sites,
+        reject: (x, z) => hf.rivers && hf.rivers.nearest(x, z).dist < spec.flatRadius * 1.6,
+        corridor: (x, z, relax) => approachClear(hf.carved, x, z, cfg.prevailingWind, relax), ...o, ...t,
+      });
+      if (site) { sites.push({ ...site, cls }); return; }
+    }
   };
 
   // The hub sits a short drive from the major city; regionals near towns; the rest are scattered.
-  if (cfg.airports.hub && major) place('hub', { near: major, nearMin: major.radius + 3000, nearMax: major.radius + 9000, spacing: 5000 });
+  if (cfg.airports.hub && major) place('hub', { near: major, nearMin: major.radius + 3000, nearMax: major.radius + 7000, spacing: 4200 });
   else if (cfg.airports.hub) place('hub', {});
   for (let i = 0; i < cfg.airports.regional; i++) {
     const t = towns[i % Math.max(1, towns.length)];
-    place('regional', t ? { near: t, nearMin: t.radius + 2200, nearMax: t.radius + 6500, spacing: 7000 } : {});
+    place('regional', t ? { near: t, nearMin: t.radius + 2200, nearMax: t.radius + 5000, spacing: 5500 } : {});
   }
   for (let i = 0; i < cfg.airports.small; i++) place('small', {});
   for (let i = 0; i < cfg.airports.strip; i++) {
     const v = villages[i % Math.max(1, villages.length)];
-    place('strip', v ? { near: v, nearMin: v.radius + 1000, nearMax: v.radius + 4000, spacing: 7000 } : {});
+    place('strip', v ? { near: v, nearMin: v.radius + 1000, nearMax: v.radius + 3000, spacing: 5000 } : {});
   }
 
   sites.forEach((s, i) => {
@@ -298,45 +328,6 @@ function generateNavaids(cfg, airports, rng) {
   return { navaids, waypoints };
 }
 
-// ---- roads ---------------------------------------------------------------------------------------------------------
-/** Connect settlements and airports with a minimum spanning tree of gently wiggling roads. */
-function generateRoads(cfg, cities, airports, rng) {
-  const nodes = [
-    ...cities.map((c) => ({ x: c.x, z: c.z, kind: c.kind })),
-    ...airports.filter((a) => a.cls !== 'strip').map((a) => ({ x: a.x + 450, z: a.z + 450, kind: 'airport' })),
-  ];
-  const lines = [];
-  const inTree = [0];
-  const rest = new Set(nodes.map((_, i) => i).filter((i) => i > 0));
-  const sparse = cfg.biome === 'desert';
-  while (rest.size) {
-    let best = null;
-    for (const i of inTree) for (const j of rest) {
-      const d = Math.hypot(nodes[i].x - nodes[j].x, nodes[i].z - nodes[j].z);
-      if (!best || d < best.d) best = { i, j, d };
-    }
-    if (!best) break;
-    inTree.push(best.j);
-    rest.delete(best.j);
-    const a = nodes[best.i];
-    const b = nodes[best.j];
-    const len = best.d;
-    const pts = [];
-    const steps = Math.max(2, Math.round(len / 160));
-    const phase = rng.range(0, 6);
-    const amp = Math.min(900, len * 0.06);
-    for (let k = 0; k <= steps; k++) {
-      const t = k / steps;
-      const wig = Math.sin(t * Math.PI * 3 + phase) * amp * Math.sin(t * Math.PI);
-      const nx = -(b.z - a.z) / len;
-      const nz = (b.x - a.x) / len;
-      pts.push({ x: a.x + (b.x - a.x) * t + nx * wig, z: a.z + (b.z - a.z) * t + nz * wig });
-    }
-    lines.push({ points: pts, width: sparse ? 7 : best.d > 20000 ? 9 : 8, major: !sparse && (nodes[best.i].kind === 'major' || nodes[best.j].kind === 'major') });
-  }
-  return lines;
-}
-
 // ---- entry point ---------------------------------------------------------------------------------------------------------
 const cache = new Map();
 
@@ -364,9 +355,14 @@ export function buildMap(id) {
   const airports = generateAirports(cfg, hf, cities, rng);
   hf.setAirports(airports);
   const { navaids, waypoints } = generateNavaids(cfg, airports, rng);
-  const roads = generateRoads(cfg, cities, airports, rng);
 
-  const map = { id, cfg, hf, rivers, riverLines, lakes, cities, airports, navaids, waypoints, roads, half: MAP_HALF };
+  const map = { id, cfg, hf, rivers, riverLines, lakes, cities, airports, navaids, waypoints, roads: [], half: MAP_HALF };
+  const infra = generateInfrastructure({ cfg, hf, cities, airports, lakes, rivers }, cfg.seed * 13 + 99);
+  hf.setPits(infra.quarries);
+  map.roads = infra.roads;
+  map.rails = infra.rails;
+  map.infra = infra;
+  map.linearSet = buildLinearSet([...infra.roads, ...infra.rails, ...infra.pipelines]);
   cache.set(id, map);
   return map;
 }

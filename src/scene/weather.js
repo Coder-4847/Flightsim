@@ -17,24 +17,65 @@ export const SKY_PRESETS = {
   snow: { label: 'Snow', cover: 0.5, deck: 0.95, base: 900, thickness: 1200, precip: 'snow', rate: 0.7, visibility: 2600, dim: 0.5, fogGround: 0 },
 };
 
+const _sunV = new THREE.Vector3();
 const CELL = 1100; // metres per cloud-grid cell
 const RADIUS_CELLS = 21;
 
 function puffTexture() {
+  // 2x2 atlas of cumulus puffs: flat-ish bases, cauliflower tops and ragged edges (alpha only).
+  const S = 512;
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = S;
   const g = c.getContext('2d');
-  const blobs = [[64, 70, 40], [38, 78, 28], [92, 76, 30], [56, 50, 28], [80, 54, 24], [30, 62, 20], [100, 66, 18]];
-  for (const [x, y, r] of blobs) {
-    const grad = g.createRadialGradient(x, y, 0, x, y, r);
-    grad.addColorStop(0, 'rgba(255,255,255,0.95)');
-    grad.addColorStop(0.55, 'rgba(255,255,255,0.55)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = grad;
-    g.fillRect(0, 0, 128, 128);
+  let seed = 12345;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let tile = 0; tile < 4; tile++) {
+    const ox = (tile % 2) * 256;
+    const oy = Math.floor(tile / 2) * 256;
+    // Canvas y grows downwards; the flat base sits near the bottom of each tile.
+    const gauss = () => Math.sqrt(-2 * Math.log(Math.max(1e-6, rnd()))) * Math.cos(6.2832 * rnd());
+    const blobs = 70 + tile * 12;
+    const list = [];
+    const y0 = 168;
+    for (let i = 0; i < blobs; i++) {
+      const h = Math.min(120, Math.abs(gauss()) * (38 + tile * 7));
+      const r = (30 - h * 0.14) * (0.65 + 0.7 * rnd());
+      const px = Math.max(r + 8, Math.min(248 - r, 128 + gauss() * (44 - h * 0.18) * (1 + tile * 0.1)));
+      const py = Math.min(y0 - h, y0 + 4 - r * 0.45);
+      list.push([px, py, Math.max(9, r)]);
+    }
+    list.sort((p, q) => q[1] - p[1]);
+    for (const [px, py, r] of list) {
+      const grad = g.createRadialGradient(ox + px, oy + py, r * 0.15, ox + px, oy + py, r);
+      grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+      grad.addColorStop(0.55, 'rgba(255,255,255,0.7)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grad;
+      g.fillRect(ox + px - r, oy + py - r, r * 2, r * 2);
+    }
   }
+  // Roughen the edges with noise and flatten the bottoms.
+  const img = g.getImageData(0, 0, S, S);
+  const d = img.data;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const i = (y * S + x) * 4;
+      const ty = y % 256;
+      const n = 0.5 + 0.5 * Math.sin(x * 0.31 + Math.sin(y * 0.23) * 2) * Math.sin(y * 0.37 + Math.cos(x * 0.19) * 2);
+      const n2 = 0.5 + 0.5 * Math.sin(x * 0.83 + y * 0.57) * Math.sin(x * 0.47 - y * 0.91);
+      let a = d[i + 3] / 255;
+      a = Math.max(0, Math.min(1, (a - 0.14 * (1 - n) - 0.08 * n2) * 1.3));
+      const base = 1 - Math.min(1, Math.max(0, (ty - 176) / 26));
+      a *= base;
+      d[i] = d[i + 1] = d[i + 2] = 255;
+      d[i + 3] = Math.round(a * 255);
+    }
+  }
+  g.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
   return tex;
 }
 
@@ -76,6 +117,7 @@ export class Weather {
     this.cloudUniforms = {
       uMap: { value: puffTexture() }, uSunColor: { value: new THREE.Color() }, uAmbient: { value: new THREE.Color() },
       uFogColor: { value: new THREE.Color() }, uFogFar: { value: 60000 }, uDim: { value: 0 }, uFade: { value: RADIUS_CELLS * CELL },
+      uSunScreen: { value: new THREE.Vector2(0, 1) }, uBack: { value: 0 },
     };
     const mat = new THREE.ShaderMaterial({
       uniforms: this.cloudUniforms, transparent: true, depthWrite: false, fog: false,
@@ -93,17 +135,30 @@ export class Weather {
         }`,
       fragmentShader: `
         uniform sampler2D uMap; uniform vec3 uSunColor; uniform vec3 uAmbient; uniform vec3 uFogColor; uniform float uFogFar; uniform float uDim; uniform float uFade;
+        uniform vec2 uSunScreen; uniform float uBack;
         varying vec2 vUv; varying float vShade; varying float vDist;
         ${LOG_FRAG_PARS}
+        vec4 puff(vec2 uv, float tile) { if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return vec4(0.0); return texture2D(uMap, (uv * 0.96 + 0.02 + vec2(mod(tile, 2.0), floor(tile / 2.0))) * 0.5); }
         void main() {
           ${LOG_FRAG}
-          vec4 t = texture2D(uMap, vUv);
-          float a = t.a * smoothstep(120.0, 700.0, vDist) * (1.0 - smoothstep(uFade * 0.7, uFade, vDist));
+          float tile = floor(vShade);
+          float sh = fract(vShade);
+          float a0 = puff(vUv, tile).a;
+          float a = a0 * smoothstep(120.0, 700.0, vDist) * (1.0 - smoothstep(uFade * 0.7, uFade, vDist));
           if (a < 0.01) discard;
-          float lit = clamp(vUv.y * 1.15 + vShade * 0.35 + 0.1, 0.0, 1.0);
-          vec3 col = mix(uAmbient, uSunColor, lit * (1.0 - uDim * 0.8));
+          // Self shadowing: more cloud towards the sun means this texel is shaded.
+          vec2 L = uSunScreen * 0.08;
+          float aS = puff(vUv + L, tile).a;
+          float aS2 = puff(vUv + L * 2.4, tile).a;
+          float lit = clamp(0.8 + (a0 - aS) * 0.7 + (a0 - aS2) * 0.3, 0.2, 1.1);
+          lit *= 0.72 + 0.38 * vUv.y + sh * 0.1;
+          float back = uBack;
+          lit *= mix(1.0, 0.6, back);
+          vec3 col = mix(uAmbient, uSunColor, clamp(lit, 0.0, 1.0) * (1.0 - uDim * 0.8));
+          // Silver lining when the sun is behind the cloud.
+          col += uSunColor * back * (1.0 - a0) * a0 * 2.2 * (1.0 - uDim);
           col = mix(col, uFogColor, smoothstep(uFogFar * 0.25, uFogFar, vDist) * 0.75);
-          gl_FragColor = vec4(col, a * 0.92);
+          gl_FragColor = vec4(col, a * 0.94);
         }`,
     });
     this.clouds = new THREE.Mesh(geo, mat);
@@ -246,6 +301,7 @@ export class Weather {
   /** Cloud heights are measured from this MSL height (use the airport elevation). */
   setReference(h) {
     this.groundRef = h;
+    this.env.setGroundReference(h);
     this.lastCell.x = 1e9;
   }
 
@@ -254,6 +310,7 @@ export class Weather {
     this.preset = SKY_PRESETS[this.presetId];
     const p = this.preset;
     this.baseVisibility = p.visibility;
+    this.env.setFogHeight(p.fogGround > 0 ? 380 : p.visibility < 10000 ? 1800 : 2800);
     this.env.setVisibility(p.visibility);
     this.env.setCloudDim(p.dim);
     this.deck.visible = p.deck > 0;
@@ -296,16 +353,18 @@ export class Weather {
     this.clusters.sort((a, b) => sortKey(b) - sortKey(a));
     let n = 0;
     for (const c of this.clusters) {
-      for (let k = 0; k < c.towers + 2 && n < this.maxSprites; k++) {
-        const lateral = (k - (c.towers + 1) / 2) * c.size * 0.42 * (hash2(k, c.key * 1000, 9) - 0.2);
-        const rise = k * c.size * 0.18 * (0.5 + hash2(k, c.key * 1000, 10));
-        const s = c.size * (1 - k * 0.1) * (0.8 + hash2(k, c.key * 999, 11) * 0.5);
+      const count = 1 + (c.key > 0.45 ? 1 : 0) + (c.towers > 2 ? 1 : 0);
+      for (let k = 0; k < count && n < this.maxSprites; k++) {
+        const tall = k === count - 1 && count > 2;
+        const lateral = (k - (count - 1) / 2) * c.size * 0.62 * (0.8 + 0.4 * hash2(k, c.key * 1000, 9));
+        const s = c.size * (tall ? 0.8 : 0.95) * (0.8 + hash2(k, c.key * 999, 11) * 0.4);
+        const rise = tall ? s * 0.32 * (0.6 + p.thickness / 3000) : 0;
         this.iPos.array[n * 3] = c.x + lateral;
-        this.iPos.array[n * 3 + 1] = c.y + rise + s * 0.25;
-        this.iPos.array[n * 3 + 2] = c.z + lateral * 0.6;
-        this.iSize.array[n * 2] = s * 1.5;
-        this.iSize.array[n * 2 + 1] = s;
-        this.iShade.array[n] = k / (c.towers + 2);
+        this.iPos.array[n * 3 + 1] = c.y + rise + s * 0.2;
+        this.iPos.array[n * 3 + 2] = c.z + lateral * 0.5 * (hash2(k, c.key * 1000, 12) - 0.5);
+        this.iSize.array[n * 2] = s * 1.7;
+        this.iSize.array[n * 2 + 1] = s * 0.95;
+        this.iShade.array[n] = (Math.floor(c.key * 4 + k) % 4) + 0.99 * (tall ? 0.8 : 0.3 + 0.4 * hash2(k, c.key * 999, 13));
         n++;
       }
     }
@@ -335,6 +394,10 @@ export class Weather {
     cu.uFogColor.value.copy(this.env.fogTint);
     cu.uFogFar.value = this.env.scene.fog.far;
     cu.uDim.value = this.env.cloudDim;
+    // Sun direction in view space: where the light comes from on the billboards, and whether they are backlit.
+    _sunV.copy(this.env.sunDir).transformDirection(camera.matrixWorldInverse);
+    cu.uSunScreen.value.set(_sunV.x, _sunV.y).normalize();
+    cu.uBack.value = Math.max(0, Math.min(1, (-_sunV.z - 0.15) * 1.4)) * Math.min(1, this.env.dayAmt * 1.5);
     const du = this.deckUniforms;
     du.uTime.value = this.time;
     du.uCamY.value = cam.y;
@@ -360,11 +423,8 @@ export class Weather {
     }
     this.inCloud += (inside - this.inCloud) * (1 - Math.exp(-dt * 1.5));
     // Ground fog: visibility collapses close to the surface.
+    // (the ground-fog preset uses a thin haze layer: see Environment.setFogHeight)
     let vis = this.baseVisibility;
-    if (p.fogGround > 0) {
-      const agl = cam.y - this.groundRef;
-      vis = this.baseVisibility * (1 + 40 * smoothstep(0, 450, agl));
-    }
     vis = vis + (260 - vis) * this.inCloud;
     this.env.setVisibility(Math.max(120, vis));
     this.currentVisibility = vis;

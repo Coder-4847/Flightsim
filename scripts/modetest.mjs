@@ -14,6 +14,7 @@ const { FlightModel } = await import('../src/flight/flightModel.js');
 const { SimWorld } = await import('../src/flight/world.js');
 const { FPM, KT } = await import('../src/flight/units.js');
 const { buildMap } = await import('../src/world/mapBuilder.js');
+const { MAP_HALF } = await import('../src/world/maps.js');
 const { startPoint } = await import('../src/game/startPoints.js');
 const { FailureManager } = await import('../src/game/failures.js');
 const catalog = await import('../src/progress/catalog.js');
@@ -165,7 +166,7 @@ section('emergency scenarios');
     assert.deepEqual(JSON.parse(JSON.stringify({ ...a, target: a.target.code })), JSON.parse(JSON.stringify({ ...b, target: b.target.code })), `seed ${seed} repeats`);
     const spec = getAircraft(a.aircraftId);
     const map = buildMap(a.mapId);
-    ok(Math.abs(a.spawn.x) < 58000 && Math.abs(a.spawn.z) < 58000, `seed ${seed} spawn inside the map`);
+    ok(Math.abs(a.spawn.x) < MAP_HALF * 0.97 && Math.abs(a.spawn.z) < MAP_HALF * 0.97, `seed ${seed} spawn inside the map`);
     ok(a.spawn.altitude > map.hf.height(a.spawn.x, a.spawn.z) + 300, `seed ${seed} spawn above terrain`);
     ok(em.suitableAirports(map, spec).includes(a.target), `seed ${seed} target is suitable`);
     ok(a.failures.length >= 1 && a.failures.length <= 3, `seed ${seed} failure count`);
@@ -383,7 +384,7 @@ function flyLeg(session, runner, destAirport, destEndId, { maxT = 1500 } = {}) {
     console.log(`  leg VPAS -> VPLA: ${res.subtitle}; ${res.notes.join(' | ')}; total ${res.total}`);
     ok(taken[0] === 'VPAS', `takeoff detected at VPAS (${taken.join()})`);
     ok(/VPAS|Ashbourne/.test(res.subtitle) && /Larkfield/.test(res.subtitle), 'report names origin and destination');
-    ok(saves.money - money0 === res.total && res.total > 300, `leg paid ${res.total}`);
+    ok(saves.money - money0 === res.total && res.total > 100, `leg paid ${res.total}`);
     ok(saves.active.stats.distanceKm > 15, `distance recorded: ${saves.active.stats.distanceKm.toFixed(1)} km`);
   }
 }

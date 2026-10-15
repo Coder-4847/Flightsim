@@ -55,7 +55,7 @@ for (const spec of AIRCRAFT) {
   }
   const tel = m.telemetry;
   const g = m.crashed ? null : (await import('../src/game/approachGuide.js')).computeApproach(m, map.airports, null, tel);
-  const ok = !m.crashed && res?.off && g && Math.abs(g.lateral) < 25 && Math.abs(g.gsDots) < 1.2 && Math.abs(tel.iasTrue - spec.speeds.vapp) < 15 && tel.vsFpm > -900;
+  const ok = !m.crashed && res?.off && g && Math.abs(g.lateral) < 25 && Math.abs(g.heightFt - (12 + Math.max(0, g.distM) * Math.tan(3 * DEG)) * 3.28084) < 45 && Math.abs(tel.iasTrue - spec.speeds.vapp) < 15 && tel.vsFpm > -900;
   if (!ok) fails++;
   console.log(`${ok ? 'ok ' : 'BAD'} ${spec.id.padEnd(13)} t=${t.toFixed(0)}s agl=${tel.aglFt.toFixed(0)} lat=${g ? g.lateral.toFixed(0) : '-'}m gs=${g ? g.gsDots.toFixed(2) : '-'} ias=${tel.iasTrue.toFixed(0)}/${spec.speeds.vapp} vs=${tel.vsFpm.toFixed(0)} dist=${g ? (g.distM / 1000).toFixed(1) : '-'}km ${m.crashed ? 'CRASH ' + m.crashed.reason : ''} [${log.slice(-4).join(' | ')}]`);
 }

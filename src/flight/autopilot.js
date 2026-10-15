@@ -193,7 +193,7 @@ export class Autopilot {
     } else {
       // The integral term removes the steady vertical-speed error a proportional pitch loop leaves.
       const vsErr = vsT - tel.vsFpm;
-      if (!prof.heavy && Math.abs(vsErr) < 400) this.vsInt = clamp((this.vsInt ?? 0) + vsErr * 0.0008 * (1 / 120), -4, 4);
+      if (Math.abs(vsErr) < 400) this.vsInt = clamp((this.vsInt ?? 0) + vsErr * 0.0008 * (1 / 120), -4, 4);
       const pT = clamp(tel.pitch + (vsT - tel.vsFpm) * 0.0022 + this.vsInt, -9, prof.pitchMax);
       this.out.pitch = prof.heavy ? clamp((pT - tel.pitch) * 0.6 - tel.pitchRate * 0.5, -0.6, 0.6) : clamp((pT - tel.pitch) * 0.2 - tel.pitchRate * 0.6, -0.5, 0.6);
     }

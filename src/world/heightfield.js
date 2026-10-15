@@ -1,6 +1,7 @@
 import { smoothstep } from '../util/noise.js';
 import { MAP_HALF } from './maps.js';
 import { createGradNoise, lerp, sstep, terrace, unit } from './terrainNoise.js';
+import { lakeD } from './lakeShape.js';
 
 // Terrain height for each biome plus the features carved into it (rivers, lakes) and the flat
 // pads under airports. All functions are deterministic for a given map seed.
@@ -167,9 +168,10 @@ export function createHeightfield(config, features) {
       const dx = x - l.x;
       const dz = z - l.z;
       const d2 = dx * dx + dz * dz;
-      const outer = l.radius * 1.7;
+      const outer = l.radius * 2.4;
       if (d2 > outer * outer) continue;
-      const d = Math.sqrt(d2) / l.radius;
+      const d = lakeD(l, dx, dz);
+      if (d > 1.7) continue;
       if (d < 1) h = l.level - 1.5 - 16 * (1 - d * d);
       else h = lerp(l.level + 0.6, h, smoothstep(1, 1.7, d));
     }

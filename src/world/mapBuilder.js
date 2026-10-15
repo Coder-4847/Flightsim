@@ -2,6 +2,7 @@ import { Rng } from '../util/random.js';
 import { createBaseHeight, createHeightfield } from './heightfield.js';
 import { AIRPORT_CLASSES, MAPS, MAP_HALF } from './maps.js';
 import { PolylineSet } from './polyline.js';
+import { buildLinearSet } from './placement.js';
 
 // Turns a static map definition into a world: height function, rivers, lakes, cities, airports
 // (with runways and ILS data), navaids, waypoints and roads. Pure data, no rendering, so it also
@@ -395,6 +396,7 @@ export function buildMap(id) {
   const roads = generateRoads(cfg, cities, airports, rng);
 
   const map = { id, cfg, hf, rivers, riverLines, lakes, cities, airports, navaids, waypoints, roads, half: MAP_HALF };
+  map.linearSet = buildLinearSet(roads);
   cache.set(id, map);
   return map;
 }

@@ -246,6 +246,7 @@ export class Weather {
   /** Cloud heights are measured from this MSL height (use the airport elevation). */
   setReference(h) {
     this.groundRef = h;
+    this.env.setGroundReference(h);
     this.lastCell.x = 1e9;
   }
 
@@ -254,6 +255,7 @@ export class Weather {
     this.preset = SKY_PRESETS[this.presetId];
     const p = this.preset;
     this.baseVisibility = p.visibility;
+    this.env.setFogHeight(p.fogGround > 0 ? 380 : p.visibility < 10000 ? 1800 : 2800);
     this.env.setVisibility(p.visibility);
     this.env.setCloudDim(p.dim);
     this.deck.visible = p.deck > 0;
@@ -360,11 +362,8 @@ export class Weather {
     }
     this.inCloud += (inside - this.inCloud) * (1 - Math.exp(-dt * 1.5));
     // Ground fog: visibility collapses close to the surface.
+    // (the ground-fog preset uses a thin haze layer: see Environment.setFogHeight)
     let vis = this.baseVisibility;
-    if (p.fogGround > 0) {
-      const agl = cam.y - this.groundRef;
-      vis = this.baseVisibility * (1 + 40 * smoothstep(0, 450, agl));
-    }
     vis = vis + (260 - vis) * this.inCloud;
     this.env.setVisibility(Math.max(120, vis));
     this.currentVisibility = vis;

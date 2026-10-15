@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { smoothstep } from '../util/noise.js';
 import { Terrain } from './terrainTiles.js';
+import { lakeD } from './lakeShape.js';
 
 // Road ribbons per terrain tile (draped on the surface), with simple bridges where a road
 // crosses a river.
@@ -27,7 +28,7 @@ function materials() {
 
 /** Is this world point inside a lake? (roads skip these gaps instead of driving across water) */
 function inLake(map, x, z) {
-  for (const l of map.lakes) if (Math.hypot(x - l.x, z - l.z) < l.radius * 1.05) return true;
+  for (const l of map.lakes) if (lakeD(l, x - l.x, z - l.z) < 1.08) return true;
   return false;
 }
 

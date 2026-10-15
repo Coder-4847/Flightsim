@@ -15,7 +15,7 @@ export default {
   aero: {
     cl0: 0.15, cd0: 0.022, oswald: 0.82, gearCd: 0.015, speedbrakeCd: 0.02,
     cm0: 0.04, cmAlpha: -1.2, cmq: -22, cmDe: 1.4,
-    clBeta: -0.12, clp: -0.5, clr: 0.1, clDa: 0.17, clDr: 0.01,
+    clBeta: -0.12, clp: -0.5, clr: 0.1, clDa: 0.223, clDr: 0.01,
     cnBeta: 0.11, cnr: -0.18, cnDr: 0.08, cnDa: -0.03,
     cyBeta: -0.55, cyDr: 0.22,
     machCrit: 0.74, waveDrag: 0.02,

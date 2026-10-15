@@ -5,9 +5,9 @@ import { approach, clamp } from '../flight/units.js';
 // Keyboard keys act like a stick that ramps toward full deflection and springs
 // back to centre; gamepad sticks are analog and win whenever they are deflected.
 
-const KEY_RATE = { pitch: 1.5, roll: 2.4, yaw: 2.0 }; // stick units per second while a key is held
-const KEY_LIMIT = { pitch: 0.7, roll: 0.9, yaw: 0.85 }; // keys never give full deflection; use a pad or assist for that
-const KEY_RETURN = 5; // per second back to centre when released
+const KEY_RATE = { pitch: 2.2, roll: 3.4, yaw: 2.6 }; // stick units per second while a key is held
+const KEY_LIMIT = { pitch: 0.85, roll: 1, yaw: 1 }; // keys never give full deflection; use a pad or assist for that
+const KEY_RETURN = 6; // per second back to centre when released
 const THROTTLE_RATE = 0.35; // per second
 const TRIM_RATE = 0.12; // per second
 

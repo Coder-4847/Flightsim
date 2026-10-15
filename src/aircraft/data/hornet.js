@@ -15,13 +15,13 @@ export default {
   aero: {
     cl0: 0.06, cd0: 0.0205, oswald: 0.78, gearCd: 0.02, speedbrakeCd: 0.025,
     cm0: 0.01, cmAlpha: -0.3, cmq: -7, cmDe: 0.6,
-    clBeta: -0.09, clp: -0.35, clr: 0.06, clDa: 0.12, clDr: 0.01,
+    clBeta: -0.09, clp: -0.2, clr: 0.06, clDa: 0.36, clDr: 0.01,
     cnBeta: 0.16, cnr: -0.2, cnDr: 0.07, cnDa: -0.02,
     cyBeta: -0.8, cyDr: 0.2,
     machCrit: 0.88, waveDrag: 0.028,
   },
   controls: { elevatorUp: 24, elevatorDown: 24, aileron: 25, rudder: 30, rate: 80 },
-  fcs: { type: 'fbw', nzMax: 7.5, nzMin: -3, alphaLimit: 30, rollRate: 220, kq: 0.9, kp: 0.35 },
+  fcs: { type: 'fbw', nzMax: 7.5, nzMin: -3, alphaLimit: 30, rollRate: 280, kq: 2.5, kp: 0.6 },
   flaps: {
     rate: 10, takeoffStage: 1, landingStage: 2,
     stages: [

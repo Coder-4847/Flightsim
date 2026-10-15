@@ -46,7 +46,7 @@ function wheelRimGeometry(R, w, rim, detail) {
  */
 export function makeJetLeg(o, J, detail) {
   const {
-    length, wheelR, wheelW, abreast = 2, axles = 1, axleSpacing = 1.2, track = 0.3, strutR = 0.06, nose = false,
+    length, wheelR, wheelW, abreast = 2, axles = 1, axleSpacing = 1.2, track = 0.3, strutR = 0.06, nose = false, side = 1,
   } = o;
   const pivot = new THREE.Group();
   const seg = [6, 10, 16][detail];
@@ -120,6 +120,16 @@ export function makeJetLeg(o, J, detail) {
     // hydraulic lines
     lowerParts.push([J.black, cylinderGeo(strutR * 0.18, strutR * 0.18, length * 0.4, 5), -strutR * 1.7, -length * 0.32, strutR * 0.8]);
   }
+  if (detail > 0 && !nose) {
+    // side stay (drag brace) from the leg to the wing / fuselage structure, part of the fixed pivot
+    const dy = upperLen * 0.75;
+    const dz = (o.stay ?? 0.9) * -side;
+    const len = Math.hypot(dy, dz);
+    const stay = new THREE.Mesh(boxGeo(strutR * 1.2, len, strutR * 1.2), J.gearPaint);
+    stay.position.set(strutR * 1.2, -dy * 0.5 - upperLen * 0.0, dz * 0.5);
+    stay.rotation.x = Math.atan2(dz, dy);
+    pivot.add(stay);
+  }
   const byMat = new Map();
   for (const [mat, geo, x, y, z, rz = 0] of lowerParts) {
     if (!byMat.has(mat)) byMat.set(mat, []);
@@ -186,7 +196,7 @@ export function buildGear(spec, cfg, J, detail, root, rig, fus) {
     const len = o.mainAttachY - base.y;
     const leg = makeJetLeg({
       length: len, wheelR: o.mainWheelR, wheelW: o.mainWheelW, abreast: 2, axles: o.mainAxles ?? 1, axleSpacing: o.mainAxleSpacing ?? 1.2,
-      track: o.mainTrack ?? 0.9, strutR: o.mainStrut ?? 0.07,
+      track: o.mainTrack ?? 0.9, strutR: o.mainStrut ?? 0.07, side, stay: (o.stayLen ?? 1.0),
     }, J, detail);
     leg.position.set(x, o.mainAttachY, z);
     root.add(leg);

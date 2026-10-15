@@ -365,7 +365,7 @@ export function loftFrames(frames, {
  * tw (twist deg, nose up positive about quarter chord), m (camber)}. `at(z)` interpolates every field.
  */
 export class Planform {
-  constructor(stations) { this.s = stations; }
+  constructor(stations, vs = 1) { this.s = stations; this.vs = vs; }
 
   at(z) {
     const s = this.s;
@@ -383,7 +383,7 @@ export class Planform {
   get tipZ() { return this.s[this.s.length - 1].z; }
 
   /** Frame of the section at span `z` for the right wing (+Z outboard). */
-  frame(z, vScale = 1) {
+  frame(z, vScale = this.vs) {
     const r = this.at(z);
     const tw = (r.tw ?? 0) * DEG;
     const c0 = r.c;
@@ -405,7 +405,7 @@ export class Planform {
   }
 
   /** Frames for the span interval [z0, z1] including the stations in between and `extra` evenly spaced subdivisions. */
-  frames(z0, z1, { vScale = 1, step = 0 } = {}) {
+  frames(z0, z1, { vScale = this.vs, step = 0 } = {}) {
     const zs = [z0];
     for (const st of this.s) if (st.z > z0 + 1e-4 && st.z < z1 - 1e-4) zs.push(st.z);
     zs.push(z1);

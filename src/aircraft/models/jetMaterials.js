@@ -21,14 +21,14 @@ function getEnv() {
     grad.addColorStop(0, '#5f8fc9');
     grad.addColorStop(0.42, '#cfe0f0');
     grad.addColorStop(0.5, '#e8eef2');
-    grad.addColorStop(0.52, '#6c7466');
-    grad.addColorStop(1, '#4a5244');
+    grad.addColorStop(0.52, '#9aa08f');
+    grad.addColorStop(1, '#7d846f');
     g.fillStyle = grad;
     g.fillRect(0, 0, 64, 64);
   };
   mk(side); mk(side); // +x -x
   mk((g) => { g.fillStyle = '#3f78c0'; g.fillRect(0, 0, 64, 64); const r = g.createRadialGradient(32, 32, 0, 32, 32, 40); r.addColorStop(0, 'rgba(255,255,255,0.5)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }); // +y
-  mk((g) => { g.fillStyle = '#4d5646'; g.fillRect(0, 0, 64, 64); }); // -y
+  mk((g) => { g.fillStyle = '#868c78'; g.fillRect(0, 0, 64, 64); }); // -y
   mk(side); mk(side); // +z -z
   const tex = new THREE.CubeTexture(faces);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -84,7 +84,7 @@ export function getJetMaterials(spec, mats) {
   J.wheel = std({ color: 0xb8bec6, roughness: 0.3, metalness: 0.9 }, 1.0);
   J.brake = std({ color: 0x5a4d44, roughness: 0.6, metalness: 0.6 }, 0.6);
   J.engineMetal = std({ color: 0xb4b9bf, roughness: 0.28, metalness: 1 }, 1.0);
-  J.hot = std({ color: 0x6e5a4a, roughness: 0.5, metalness: 0.9 }, 0.8);
+  J.hot = std({ color: 0x77726c, roughness: 0.55, metalness: 0.85 }, 0.7);
   J.intake = std({ color: 0x3d4248, roughness: 0.6, metalness: 0.4, side: THREE.DoubleSide }, 0.5);
   J.fanBlade = std({ color: 0x9aa1a8, roughness: 0.32, metalness: 0.85, side: THREE.DoubleSide }, 1.0);
   J.black = std({ color: 0x0c0d0f, roughness: 0.5, metalness: 0.1 }, 0.3);

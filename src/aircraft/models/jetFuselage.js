@@ -156,7 +156,7 @@ export class Fuselage {
   /** x positions of the rings for a detail level. */
   xSamples(detail) {
     const c = this.cfg;
-    const dens = [0.3, 0.5, 1.5][detail];
+    const dens = [0.3, 0.42, 1.1][detail];
     const xs = [];
     const nN = Math.max(5, Math.round(c.nose.len * 4.2 * dens));
     const nT = Math.max(4, Math.round(c.tail.len * 2.4 * dens));
@@ -184,7 +184,7 @@ export class Fuselage {
   }
 
   geometry(detail) {
-    const segs = [12, 30, 72][detail];
+    const segs = [12, 30, 60][detail];
     const xs = this.xSamples(detail);
     const rings = [];
     const p = new THREE.Vector3();

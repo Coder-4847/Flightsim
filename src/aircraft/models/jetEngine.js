@@ -8,7 +8,7 @@ import {
 /** One twisted fan blade as geometry about the X axis (blade along +Y), unrotated. */
 function fanBlade(R, hub, chordTip, chordRoot, bladeAngle, thickness, detail = 2) {
   const frames = [];
-  const n = detail > 1 ? 6 : 3;
+  const n = detail > 1 ? 5 : 3;
   for (let i = 0; i <= n; i++) {
     const t = i / n;
     const r = hub + (R - hub) * t;
@@ -19,7 +19,7 @@ function fanBlade(R, hub, chordTip, chordRoot, bladeAngle, thickness, detail = 2
     const u = new THREE.Vector3(Math.sin(twist), 0, Math.cos(twist));
     frames.push({ p: new THREE.Vector3(chord * 0.1 * Math.cos(twist), r, -chord * 0.5 * Math.sin(twist)), c: cv, u, t: thickness * (1 - 0.5 * t), m: 0.03, v: t });
   }
-  return loftFrames(frames, { nChord: detail > 1 ? 5 : 2, capStart: true, capEnd: true, crease: 50 });
+  return loftFrames(frames, { nChord: detail > 1 ? 4 : 2, capStart: true, capEnd: true, crease: 50 });
 }
 
 /** The rotating assembly (blades + spinner) in a Group about X; userData.disc = translucent blur disc. */
@@ -55,7 +55,7 @@ export function makeFanAssembly(R, J, detail, { blades = 24, spinnerLen = R * 0.
 export function buildNacelle(e, J, detail, parts, at) {
   const { r, len } = e;
   const xf = len / 2; // front
-  const seg = detail > 1 ? 56 : detail > 0 ? 24 : 12;
+  const seg = detail > 1 ? 44 : detail > 0 ? 24 : 12;
   const rHi = e.rHi ?? r * 0.88;
   const rn = e.rn ?? r * 0.74; // fan nozzle exit radius
   const xFanNozzle = xf - len * (e.nozzleAt ?? 0.68);
@@ -70,7 +70,7 @@ export function buildNacelle(e, J, detail, parts, at) {
     const prof = [[xf - 0.02, rHi + 0.04], [xf - len * 0.2, r], [xf - len * 0.55, r * 0.97], [xFanNozzle, rn]];
     place(revolve(prof, seg, { crease: 70 }), J.nacelle);
     place(disc(xf - 0.12, 0.001, rHi, seg, 1), J.intake);
-    place(revolve([[xFanNozzle + 0.02, rc * 1.1], [xCore, rc * 0.5], [xPlug, 0.01]], seg, { crease: 70 }), J.engineMetal);
+    place(revolve([[xFanNozzle + 0.02, rc * 1.1], [xCore, rc * 0.5], [xPlug, 0.01]], seg, { crease: 70 }), J.hot);
     const fanLow = makeFanAssembly(fanR, J, 0, { blades: 0 });
     fanLow.position.set(at.x + xf - 0.14, at.y, at.z);
     return { fan: fanLow, extent: { front: at.x + xf, back: at.x + xPlug, rMax: r } };
@@ -107,7 +107,7 @@ export function buildNacelle(e, J, detail, parts, at) {
   const core = [
     [xFanNozzle + 0.02, rn * 0.9], [xFanNozzle - 0.05, rn * 0.8], [xFanNozzle - 0.3, rc * 1.12], [xCore + 0.1, rc * 0.72], [xCore, rc * 0.5], [xPlug + 0.25, rc * 0.2], [xPlug, 0.01],
   ];
-  place(revolve(core, seg, { crease: 55 }), J.engineMetal);
+  place(revolve(core, seg, { crease: 55 }), J.hot);
   const nozzleOuter = revolve([[xFanNozzle + 0.02, rn], [xFanNozzle - 0.06, rn * 0.9], [xFanNozzle - 0.06, rc * 1.15]], seg, { crease: 70 });
   place(nozzleOuter, J.hot);
   // The fan assembly sits in the nacelle frame at x = xFan.

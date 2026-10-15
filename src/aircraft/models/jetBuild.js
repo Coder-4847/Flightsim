@@ -18,15 +18,16 @@ function addWindows(fus, cfg, J, hull, detail) {
   const set = new PartSet();
   const addRow = (W) => {
     const count = Math.floor((W.x1 - W.x0) / W.pitch) + 1;
-    const poly = rrect(W.w, W.h, W.r ?? 0.1, detail > 1 ? 3 : 1);
+    const poly = rrect(W.w, W.h, W.r ?? 0.1, detail > 1 ? 2 : 1);
     const rim = scalePoly(poly, 1 + 0.09 / W.w, 1 + 0.09 / W.h);
     for (let i = 0; i < count; i++) {
       const x = W.x1 - i * W.pitch;
       if (W.skip && inRanges(x, W.skip)) continue;
+      if (detail === 1 && i % 2) continue;
       for (const side of [1, -1]) {
         const y = fus.yc + W.y;
         if (detail > 1) set.add(J.rim, fus.sidePatch(side, x, y, rim, { lift: 0.0025, rings: 1 }));
-        set.add(J.window, fus.sidePatch(side, x, y, poly, { lift: 0.006, rings: detail > 1 ? 2 : 1 }));
+        set.add(J.window, fus.sidePatch(side, x, y, poly, { lift: 0.006, rings: 1 }));
       }
     }
   };
@@ -53,7 +54,13 @@ function addWindshield(fus, cfg, J, hull, detail) {
     const q = detail > 0 ? { rings: 3, maxSeg: 0.14 } : { rings: 1, maxSeg: 0.5 };
     if (detail > 0) set.add(J.rim, fus.patch(x, th, scalePoly(ordered, 1.1, 1.1), { lift: 0.004, ...q }));
     set.add(J.glass, fus.patch(x, th, ordered, { lift: 0.009, ...q }));
+    if (detail > 1) {
+      // wiper blade: a thin dark strip across the pane from the lower inboard corner
+      const wp = [[-h * 0.45, s * w * 0.05], [-h * 0.42, s * w * 0.09], [h * 0.45, -s * w * 0.32], [h * 0.42, -s * w * 0.36]];
+      set.add(J.black, fus.patch(x, th, s > 0 ? wp : wp.slice().reverse(), { lift: 0.013, rings: 1, maxSeg: 0.1 }));
+    }
   }
+  if (detail > 0) set.add(J.rim, fus.patch(x, Math.PI / 2, rrect(f.h * 1.15, 0.06, 0.02, 1), { lift: 0.006, rings: 1, maxSeg: 0.1 }));
   // Side windows.
   const sd = k.side;
   for (const side of [1, -1]) {

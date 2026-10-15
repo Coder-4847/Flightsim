@@ -16,7 +16,7 @@ export const JET_CONFIGS = {
     },
     livery: {
       belly: -1.0, stripe: { x0: -18.0, x1: 13.5, y: -0.25, rise: 0.9, drop: 0.1, w: 0.2, gap: 0.12, w2: 0.07 },
-      title: { xc: 1.0, y: 0.95, size: 0.55 }, reg: { xc: -13.0, y: 0.75, size: 0.34 }, tailPaint: 'stripe', logoY: 0.42,
+      title: { xc: 1.0, y: 0.95, size: 0.55 }, reg: { xc: -13.0, y: 0.75, size: 0.34 }, tailPaint: 'stripe', logoY: 0.42, wingletPaint: true,
     },
     windows: { x0: -10.8, x1: 11.9, pitch: 0.508, y: 0.52, w: 0.24, h: 0.34, r: 0.1, skip: [[-12.7, -11.3], [12.3, 14.0]] },
     doors: [
@@ -41,7 +41,7 @@ export const JET_CONFIGS = {
       walkway: { z0: 2.5, z1: 5.5 },
     },
     fin: {
-      stations: [{ y: 1.2, x: -10.0, c: 5.9, t: 0.1 }, { y: 4.8, x: -13.5, c: 3.3, t: 0.09 }, { y: 8.4, x: -16.2, c: 1.95, t: 0.085 }],
+      stations: [{ y: 1.2, x: -8.0, c: 7.9, t: 0.1 }, { y: 2.6, x: -11.0, c: 4.9, t: 0.1 }, { y: 4.8, x: -13.5, c: 3.3, t: 0.09 }, { y: 8.4, x: -16.2, c: 1.95, t: 0.085 }],
       hinge: 0.7, rudderFrom: 1.9,
     },
     stab: {
@@ -66,7 +66,7 @@ export const JET_CONFIGS = {
     },
     livery: {
       belly: -0.8, stripe: { x0: -16.0, x1: 11.0, y: -0.15, rise: 0.8, drop: 0.1, w: 0.17, gap: 0.1, w2: 0.06 },
-      title: { xc: 0.5, y: 0.8, size: 0.45 }, reg: { xc: -11.0, y: 0.65, size: 0.28 }, tailPaint: 'stripe', logoY: 0.35,
+      title: { xc: 0.5, y: 0.8, size: 0.45 }, reg: { xc: -11.0, y: 0.65, size: 0.28 }, tailPaint: 'stripe', logoY: 0.35, wingletPaint: true,
     },
     windows: { x0: -8.6, x1: 9.2, pitch: 0.53, y: 0.42, w: 0.23, h: 0.32, r: 0.1, skip: [[-10.4, -9.2], [9.8, 11.4]] },
     doors: [
@@ -96,7 +96,7 @@ export const JET_CONFIGS = {
       stations: [{ z: 0, x: -13.0, y: 6.45, c: 2.7, t: 0.09, tw: 0 }, { z: 5.0, x: -16.1, y: 6.55, c: 1.0, t: 0.075, tw: 0 }],
       hinge: 0.66, rootZ: 0.2,
     },
-    engines: { r: 0.8, len: 3.7, rHi: 0.71, fanR: 0.68, rn: 0.58, rc: 0.36, blades: 22, paint: 'base' },
+    engines: { r: 0.8, len: 3.7, rHi: 0.71, fanR: 0.68, rn: 0.58, rc: 0.36, blades: 22, paint: 'stripe' },
     gear: {
       noseAttachY: -1.0, mainAttachY: -0.9, noseWheelR: 0.3, noseWheelW: 0.18, noseTrack: 0.4, mainWheelR: 0.5, mainWheelW: 0.3, mainTrack: 0.8, mainStrut: 0.06, noseStrut: 0.06, doorW: 1.4,
     },
@@ -113,7 +113,7 @@ export const JET_CONFIGS = {
     },
     livery: {
       belly: -0.65, stripe: { x0: -15.0, x1: 9.0, y: -0.08, rise: 0.55, drop: 0.1, w: 0.14, gap: 0.09, w2: 0.05 },
-      title: { xc: -1.0, y: 0.8, size: 0.34 }, reg: { xc: -9.8, y: 0.55, size: 0.26 }, tailPaint: 'stripe', logoY: 0.4,
+      title: { xc: -1.0, y: 0.8, size: 0.34 }, reg: { xc: -9.8, y: 0.55, size: 0.26 }, tailPaint: 'stripe', logoY: 0.4, wingletPaint: true,
     },
     windows: { x0: -8.4, x1: 7.4, pitch: 1.05, y: 0.42, w: 0.4, h: 0.5, r: 0.22, skip: [[-10.4, -9.0], [8.0, 9.4]] },
     doors: [{ x: 8.9, w: 0.75, h: 1.6, y0: -0.7, sides: [-1] }, { x: -10.2, w: 0.6, h: 0.7, y0: -0.2, sides: [1] }, { x: 0.5, w: 0.5, h: 0.8, y0: 0.0, sides: [1] }],
@@ -175,7 +175,7 @@ export const JET_CONFIGS = {
       tip: { type: 'round', ext: 0.28 },
     },
     fin: {
-      stations: [{ y: 0.55, x: -6.8, c: 2.8, t: 0.1 }, { y: 1.8, x: -7.7, c: 1.7, t: 0.09 }, { y: 2.95, x: -8.3, c: 1.3, t: 0.085 }],
+      stations: [{ y: 0.55, x: -5.9, c: 3.7, t: 0.1 }, { y: 1.3, x: -7.2, c: 2.4, t: 0.1 }, { y: 1.8, x: -7.7, c: 1.7, t: 0.09 }, { y: 2.95, x: -8.3, c: 1.3, t: 0.085 }],
       hinge: 0.64, rudderFrom: 0.9,
     },
     stab: {
@@ -187,6 +187,7 @@ export const JET_CONFIGS = {
       noseAttachY: -0.55, mainAttachY: -0.45, noseWheelR: 0.22, noseWheelW: 0.12, noseTrack: 0.0, mainWheelR: 0.32, mainWheelW: 0.17, mainTrack: 0.0, mainStrut: 0.04, noseStrut: 0.035, doorW: 0.8, single: true,
     },
     beacons: [[-5.0, 'top'], [0.8, 'belly']],
+    ventral: { x: -6.2, len: 1.5, h: 0.3 },
   },
 
   // ---- Atlas 300 (777-300ER-class) -------------------------------------------------------------------------------------------
@@ -223,7 +224,7 @@ export const JET_CONFIGS = {
       tip: { type: 'raked', ext: 1.45, tipChord: 1.55, sweep: 1.6, rise: 0.35 },
     },
     fin: {
-      stations: [{ y: 2.6, x: -21.0, c: 12.4, t: 0.1 }, { y: 8.0, x: -26.6, c: 7.2, t: 0.09 }, { y: 13.5, x: -31.6, c: 4.7, t: 0.085 }],
+      stations: [{ y: 2.6, x: -17.5, c: 15.9, t: 0.1 }, { y: 5.0, x: -23.5, c: 9.9, t: 0.1 }, { y: 8.0, x: -26.6, c: 7.2, t: 0.09 }, { y: 13.5, x: -31.6, c: 4.7, t: 0.085 }],
       hinge: 0.72, rudderFrom: 3.2,
     },
     stab: {
@@ -251,7 +252,7 @@ export const JET_CONFIGS = {
     },
     livery: {
       belly: -1.6, stripe: { x0: -35.0, x1: 27.0, y: -0.5, rise: 1.4, drop: 0.2, w: 0.34, gap: 0.2, w2: 0.1 },
-      title: { xc: 8.0, y: 1.5, size: 1.0 }, reg: { xc: -28.0, y: 1.1, size: 0.5 }, tailPaint: 'stripe', logoY: 0.45,
+      title: { xc: 8.0, y: 1.5, size: 1.0 }, reg: { xc: -28.0, y: 1.1, size: 0.5 }, tailPaint: 'stripe', logoY: 0.45, wingletPaint: true,
     },
     windows: { x0: -26, x1: 24.5, pitch: 0.508, y: 0.9, w: 0.27, h: 0.38, r: 0.12, skip: [[-32, -29], [-22, -19], [-8, -5.5], [10, 12], [22, 23.4], [26, 28.5]] },
     upperWindows: { x0: 2.0, x1: 22.0, pitch: 0.508, y: 3.35, w: 0.25, h: 0.34, r: 0.11 },
@@ -275,7 +276,7 @@ export const JET_CONFIGS = {
       tip: { type: 'winglet', height: 1.9, tipChord: 1.35, sweep: 40, cant: 62, t: 0.07 },
     },
     fin: {
-      stations: [{ y: 3.0, x: -21.5, c: 13.0, t: 0.1 }, { y: 8.5, x: -26.5, c: 7.8, t: 0.09 }, { y: 14.1, x: -31.4, c: 4.7, t: 0.085 }],
+      stations: [{ y: 3.0, x: -18.5, c: 16.0, t: 0.1 }, { y: 5.5, x: -23.5, c: 10.8, t: 0.1 }, { y: 8.5, x: -26.5, c: 7.8, t: 0.09 }, { y: 14.1, x: -31.4, c: 4.7, t: 0.085 }],
       hinge: 0.72, rudderFrom: 3.8,
     },
     stab: {

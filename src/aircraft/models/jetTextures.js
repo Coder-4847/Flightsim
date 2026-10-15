@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Fuselage } from './jetFuselage.js';
 import { JET_CONFIGS } from './jetConfigs.js';
 import { hashString, rng, clamp, TAU } from './jetKit.js';
+import { wingSemi } from './jetWing.js';
 
 // Canvas generated textures for the jet models: painted fuselage / wing / fin with panel lines, doors, stencils and weathering,
 // matching normal and "ORM" (occlusion / roughness / metalness) maps, tyres, and engine cowls.
@@ -275,7 +276,7 @@ function paintWing(spec, cfg) {
   g.fillStyle = top; // upper (u 0.5..1)
   g.fillRect(S / 2, 0, S / 2, S);
   const W = cfg.wing;
-  const semi = W.stations[W.stations.length - 1].z + (W.tip?.ext ?? W.tip?.height ?? 1);
+  const semi = wingSemi(W);
   const vOf = (z) => (1 - z / semi) * S;
   // weathering: leading edge dirt, engine soot behind the engines, wash streaks
   g.globalCompositeOperation = 'multiply';
@@ -287,6 +288,11 @@ function paintWing(spec, cfg) {
   const lead = g.createLinearGradient(0, 0, S, 0);
   g.globalCompositeOperation = 'source-over';
   void lead;
+  // coloured winglet / sharklet
+  if (cfg.livery.wingletPaint) {
+    g.fillStyle = l.tip ?? l.stripe;
+    g.fillRect(0, 0, S, vOf(W.stations[W.stations.length - 1].z) - 2);
+  }
   // control surface outlines
   g.strokeStyle = 'rgba(30,34,40,0.55)';
   g.lineWidth = 1.4;
@@ -401,7 +407,7 @@ function buildTypeMaps(spec, cfg, fus) {
   hg.lineWidth = Math.max(1, ppm / 40);
   // circumferential skin joints (butt lines) and longitudinal lap joints
   for (const side of [1, -1]) {
-    for (let x = fus.xt0 - 8; x < fus.xn0 + 1.5; x += 2.1) {
+    for (let x = fus.xt0 - 8; x < fus.xn0 + 0.6; x += 2.1) {
       const jitter = (Math.round(x * 3) % 3) * 0.3;
       hg.beginPath();
       let first = true;
@@ -412,7 +418,7 @@ function buildTypeMaps(spec, cfg, fus) {
       hg.beginPath();
       const y0 = yc + dy * Rw;
       let first = true;
-      for (let x = fus.xTail + 0.4; x < fus.xNose - 1.2; x += 0.6) { const [a, b] = P.px(x, y0, side); if (first) hg.moveTo(a, b); else hg.lineTo(a, b); first = false; }
+      for (let x = fus.xTail + 0.4; x < fus.xNose - 3.0; x += 0.6) { const [a, b] = P.px(x, y0, side); if (first) hg.moveTo(a, b); else hg.lineTo(a, b); first = false; }
       hg.stroke();
     }
   }
@@ -473,7 +479,25 @@ function buildTypeMaps(spec, cfg, fus) {
   };
   const [wn, wo] = gen(1024, 64, 11, true);
   const [fn, fo] = gen(1024, 90, 12, true);
-  const [nn, no] = gen(256, 40, 13, true);
+  // nacelle: fan cowl / thrust reverser seams, split lines and a few access doors
+  const nh = cnv(256, 256);
+  const nhg = nh.getContext('2d');
+  nhg.fillStyle = '#808080';
+  nhg.fillRect(0, 0, 256, 256);
+  nhg.strokeStyle = '#4a4a4a';
+  nhg.lineWidth = 2;
+  for (const u of [0.3, 0.5, 0.56, 0.8]) { nhg.beginPath(); nhg.moveTo(u * 256, 0); nhg.lineTo(u * 256, 256); nhg.stroke(); }
+  for (const v of [0.25, 0.75]) { nhg.beginPath(); nhg.moveTo(0, v * 256); nhg.lineTo(256, v * 256); nhg.stroke(); }
+  nhg.strokeRect(0.33 * 256, 0.4 * 256, 0.14 * 256, 0.14 * 256);
+  nhg.strokeRect(0.6 * 256, 0.1 * 256, 0.16 * 256, 0.12 * 256);
+  nhg.fillStyle = '#909090';
+  for (let i = 0; i < 300; i++) nhg.fillRect(R() * 256, R() * 256, 1, 1);
+  const nr = cnv(256, 256);
+  const nrg = nr.getContext('2d');
+  nrg.fillStyle = '#5c5c5c';
+  nrg.fillRect(0, 0, 256, 256);
+  const nn = normalFromHeight(nh, 2.5);
+  const no = ormFrom(nh, nr, null);
   // tyres
   const tm = cnv(256, 256);
   const tg = tm.getContext('2d');

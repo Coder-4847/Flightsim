@@ -19,6 +19,13 @@ export function mappedPivot(map) {
   return o;
 }
 
+/** Spanwise extent used to normalise the wing texture's v coordinate (the tip structure extends past the last station). */
+export function wingSemi(W) {
+  const last = W.stations[W.stations.length - 1].z;
+  const tip = W.tip ?? {};
+  return last + (tip.ext ?? tip.height ?? 0.18);
+}
+
 const leftAxis = (a) => new THREE.Vector3(-a.x, -a.y, a.z);
 
 /** Build a hinged surface (right wing coordinates). Returns { geo (local to hinge start), h0, axis }. */
@@ -79,7 +86,7 @@ export class JetWingBuilder {
   buildWing() {
     const { cfg, detail, J, parts, root, rig } = this;
     const W = cfg.wing;
-    const pf = new Planform(W.stations);
+    const pf = new Planform(W.stations, 1 / wingSemi(W));
     this.pf = pf;
     const tip = pf.tipZ;
     const z0 = W.rootZ;
@@ -157,8 +164,8 @@ export class JetWingBuilder {
         const { lo } = airfoilYs(cn.cf ?? 0.78, f.t, f.m || 0.012);
         const p = f.p.clone().addScaledVector(f.c, cn.cf ?? 0.78).addScaledVector(f.u, lo * f.c.length() - cn.r * 0.55);
         const geo = canoe(cn.len, cn.r, 10);
-        parts.add(J.wing, placed(geo, p.x, p.y, p.z));
-        parts.add(J.wing, placed(geo, p.x, p.y, -p.z));
+        parts.add(J.nacelle, placed(geo, p.x, p.y, p.z));
+        parts.add(J.nacelle, placed(geo, p.x, p.y, -p.z));
       }
     }
     this.tipFrames = this.buildTip(pf, tip);
@@ -201,7 +208,7 @@ export class JetWingBuilder {
         const u = new THREE.Vector3(-Math.sin(tw), Math.cos(cant), -Math.sin(cant) * 1).normalize();
         // make u perpendicular to chord direction
         u.addScaledVector(cv.clone().normalize(), -u.dot(cv.clone().normalize())).normalize();
-        frames.push({ p: lePos, c: cv, u, t: lerp(last.t, tip.t ?? 0.07, t), m: 0.008, v: tipZ + cz });
+        frames.push({ p: lePos, c: cv, u, t: lerp(last.t, tip.t ?? 0.07, t), m: 0.008, v: (tipZ + cz) * pf.vs });
       }
       void pos;
       void r;
@@ -215,7 +222,7 @@ export class JetWingBuilder {
         const cv = new THREE.Vector3(-Math.cos(tw), -Math.sin(tw), 0).multiplyScalar(chord);
         const u = new THREE.Vector3(-Math.sin(tw), Math.cos(tw), 0);
         const le = new THREE.Vector3(last.rec.x - tip.sweep * ext * t + (last.c.length() - chord) * 0.0, last.rec.y + (tip.rise ?? 0.15) * ext * t, z);
-        frames.push({ p: le, c: cv, u, t: lerp(last.t, 0.065, t), m: 0.01, v: z });
+        frames.push({ p: le, c: cv, u, t: lerp(last.t, 0.065, t), m: 0.01, v: z * pf.vs });
       }
     } else {
       // plain: closing ogive over the last bit
@@ -229,7 +236,7 @@ export class JetWingBuilder {
         const cv = new THREE.Vector3(-Math.cos(tw), -Math.sin(tw), 0).multiplyScalar(chord);
         const u = new THREE.Vector3(-Math.sin(tw), Math.cos(tw), 0);
         const le = new THREE.Vector3(last.rec.x - (last.c.length() - chord) * 0.25 * 0 + (last.c.length() - chord) * 0.0, last.rec.y, z);
-        frames.push({ p: le, c: cv, u, t: last.t * k, m: 0.008, v: z });
+        frames.push({ p: le, c: cv, u, t: last.t * k, m: 0.008, v: z * pf.vs });
       }
     }
     // First frame must coincide with the wing's tip section.
@@ -298,7 +305,7 @@ export class JetWingBuilder {
     const { cfg, detail, J, parts, root, rig } = this;
     const S = cfg.stab;
     const nC = this.nChord;
-    const pf = new Planform(S.stations);
+    const pf = new Planform(S.stations, 0.8 / S.stations[S.stations.length - 1].z);
     this.stabPlanform = pf;
     const hinge = S.hinge ?? 0.68;
     const z0 = S.rootZ ?? S.stations[0].z;

@@ -104,6 +104,10 @@ export function addDetails({ spec, cfg, J, fus, wb, detail, parts, hull, root, r
     const topTheta = Math.PI / 2;
     add(J.nacelle, sat, skinMatrix(fus, sx, topTheta, -0.02));
   }
+  if (cfg.ventral) {
+    const v = cfg.ventral;
+    for (const dth of [-0.22, 0.22]) add(J.skin, bladeGeo(v.len, v.h, 0.03, 0.45), skinMatrix(fus, v.x, -Math.PI / 2 + dth, 0));
+  }
   // drain masts and the outflow valve
   for (const s of side) {
     const th = fus.thetaForY(fus.xTail + fus.length * 0.42, fus.yc - fus.cfg.w * 0.9, s);

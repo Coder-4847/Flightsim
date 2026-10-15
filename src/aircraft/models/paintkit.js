@@ -1,5 +1,5 @@
 import { sectionAt } from './kit.js';
-import { FONT, blot, rgba, shade, streak, rng } from './skins.js';
+import { FONT, blot, rgba, shade, streak, rng, AtlasPaint, texSize, attachMap } from './skins.js';
 
 // Painting recipes shared by the aircraft models: wing/tail atlas panels (control-surface seams, boots, walkways, dirt)
 // and common fuselage markings.
@@ -108,4 +108,14 @@ export function paintPanel(rect, o) {
       g.restore();
     }
   });
+}
+
+/** Paint a whole lifting-surface atlas: panels {name: {span, chord, z0}}, jobs {name: paintPanel options}, base fill colour. */
+export function paintAtlas(mats, base, panels, jobs, size = 2048, ratio = 0.5) {
+  const W = texSize(mats, size);
+  const atlas = new AtlasPaint(panels, { W, H: Math.round(W * ratio) });
+  atlas.g.fillStyle = base; atlas.g.fillRect(0, 0, atlas.W, atlas.H);
+  for (const [name, job] of Object.entries(jobs)) paintPanel(atlas.rects[name], job);
+  attachMap(mats.wing, atlas.texture());
+  return atlas;
 }

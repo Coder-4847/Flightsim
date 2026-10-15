@@ -47,6 +47,13 @@ export function xf(geo, m) {
   return g;
 }
 
+/** Point every vertex's primary UV at one texel (e.g. the plain-colour corner of an atlas). */
+export function setUV0(geo, u, v) {
+  const a = geo.attributes.uv;
+  for (let i = 0; i < a.count; i++) a.setXY(i, u, v);
+  return geo;
+}
+
 /** Mirror a geometry across the XY plane (z -> -z). */
 export function mirrorZ(geo) {
   const g = std(geo.clone());

@@ -48,7 +48,7 @@ export const JET_CONFIGS = {
       stations: [{ z: 0, x: -13.7, y: 1.4, c: 3.8, t: 0.095, tw: 0 }, { z: 6.22, x: -17.35, y: 2.0, c: 1.3, t: 0.075, tw: 0 }],
       hinge: 0.66, rootZ: 0.4,
     },
-    engines: { r: 1.0, len: 4.3, rHi: 0.9, fanR: 0.86, rn: 0.74, rc: 0.46, blades: 24, paint: 'base', pylonZ: 5.7 },
+    engines: { zStain: 5.7, r: 1.0, len: 4.3, rHi: 0.9, fanR: 0.86, rn: 0.74, rc: 0.46, blades: 24, paint: 'base', pylonZ: 5.7 },
     gear: {
       noseAttachY: -1.2, mainAttachY: -1.0, noseWheelR: 0.35, noseWheelW: 0.2, noseTrack: 0.5, mainWheelR: 0.55, mainWheelW: 0.4, mainTrack: 0.9, mainStrut: 0.07, noseStrut: 0.07, doorW: 1.8,
     },
@@ -96,7 +96,7 @@ export const JET_CONFIGS = {
       stations: [{ z: 0, x: -13.0, y: 6.45, c: 2.7, t: 0.09, tw: 0 }, { z: 5.0, x: -16.1, y: 6.55, c: 1.0, t: 0.075, tw: 0 }],
       hinge: 0.66, rootZ: 0.2,
     },
-    engines: { r: 0.8, len: 3.7, rHi: 0.71, fanR: 0.68, rn: 0.58, rc: 0.36, blades: 22, paint: 'stripe' },
+    engines: { zStain: 4.0, r: 0.8, len: 3.7, rHi: 0.71, fanR: 0.68, rn: 0.58, rc: 0.36, blades: 22, paint: 'stripe' },
     gear: {
       noseAttachY: -1.0, mainAttachY: -0.9, noseWheelR: 0.3, noseWheelW: 0.18, noseTrack: 0.4, mainWheelR: 0.5, mainWheelW: 0.3, mainTrack: 0.8, mainStrut: 0.06, noseStrut: 0.06, doorW: 1.4,
     },
@@ -231,7 +231,7 @@ export const JET_CONFIGS = {
       stations: [{ z: 0, x: -27.5, y: 2.1, c: 7.0, t: 0.1, tw: 0 }, { z: 10.75, x: -35.0, y: 3.1, c: 2.5, t: 0.075, tw: 0 }],
       hinge: 0.68, rootZ: 1.0,
     },
-    engines: { r: 2.0, len: 7.6, rHi: 1.78, fanR: 1.6, rn: 1.5, rc: 0.9, blades: 22, paint: 'base' },
+    engines: { zStain: 10.0, r: 2.0, len: 7.6, rHi: 1.78, fanR: 1.6, rn: 1.5, rc: 0.9, blades: 22, paint: 'base' },
     gear: {
       noseAttachY: -2.4, mainAttachY: -2.1, noseWheelR: 0.55, noseWheelW: 0.3, noseTrack: 0.7, mainWheelR: 0.65, mainWheelW: 0.4, mainTrack: 1.2,
       mainAxles: 3, mainAxleSpacing: 1.4, mainStrut: 0.14, noseStrut: 0.1, doorW: 3.0, doorH: 0.9,
@@ -283,7 +283,7 @@ export const JET_CONFIGS = {
       stations: [{ z: 0, x: -26.5, y: 1.9, c: 8.2, t: 0.1, tw: 0 }, { z: 11.1, x: -34.5, y: 3.0, c: 2.6, t: 0.075, tw: 0 }],
       hinge: 0.68, rootZ: 1.0,
     },
-    engines: { r: 1.4, len: 6.2, rHi: 1.25, fanR: 1.12, rn: 1.05, rc: 0.7, blades: 20, paint: 'base' },
+    engines: { zStain: 12.0, r: 1.4, len: 6.2, rHi: 1.25, fanR: 1.12, rn: 1.05, rc: 0.7, blades: 20, paint: 'base' },
     gear: {
       noseAttachY: -2.6, mainAttachY: -2.2, noseWheelR: 0.55, noseWheelW: 0.3, noseTrack: 0.7, mainWheelR: 0.65, mainWheelW: 0.4, mainTrack: 1.2,
       mainAxles: 2, mainAxleSpacing: 1.5, mainStrut: 0.13, noseStrut: 0.1, doorW: 3.0, doorH: 0.9,

@@ -131,9 +131,9 @@ export function buildPylon(e, J, parts, at, wing, z, detail, side = 1) {
   });
   const leTop = Math.max(f.p.x - 0.2, xFront + 0.6);
   const frames = [
-    mk(yBot, xFront, xRear, 0.11),
-    mk((yBot + yUp) / 2, (xFront + leTop) / 2, xRear + 0.05, 0.1),
-    mk(yUp, leTop, xRear + 0.15, 0.09),
+    mk(yBot, xFront, xRear, 0.09),
+    mk((yBot + yUp) / 2, (xFront + leTop) / 2, xRear + 0.05, 0.085),
+    mk(yUp, leTop, xRear + 0.15, 0.075),
   ];
   parts.add(J.wing, loftFrames(frames, { nChord: detail > 1 ? 16 : 8, capStart: false, capEnd: false, crease: 50 }));
   void side;

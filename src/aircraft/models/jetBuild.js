@@ -126,17 +126,18 @@ export function buildJet(spec, mats, detail, id = spec.id) {
   parts.addTo(root, 'static');
 
   // Lights.
+  const lsc = Math.min(1.4, Math.max(0.5, fus.cfg.w / 1.975));
   const tip = wb.tipPoint();
   for (const side of [1, -1]) {
-    const nav = makeLight(side < 0 ? 0xff2a2a : 0x2aff5a, 0.07, 1.2);
+    const nav = makeLight(side < 0 ? 0xff2a2a : 0x2aff5a, 0.07 * lsc, 1.1);
     nav.position.set(tip.le.x - 0.1, tip.le.y, side * tip.le.z);
     root.add(nav);
     rig.lights.nav.push(nav);
-    const strobe = makeLight(0xffffff, 0.08, 1.8);
+    const strobe = makeLight(0xffffff, 0.08 * lsc, 1.6);
     strobe.position.set(tip.te.x + 0.05, tip.te.y, side * tip.te.z);
     root.add(strobe);
     rig.lights.strobes.push(strobe);
-    const land = makeLight(0xfff3d0, 0.1, 1.6);
+    const land = makeLight(0xfff3d0, 0.1 * lsc, 1.4);
     const w0 = wingPf.frame(cfg.wing.stations[1].z * 0.55);
     land.position.set(w0.p.x - 0.1, w0.p.y - 0.15, side * w0.p.z);
     root.add(land);

@@ -7,7 +7,7 @@ import { SimWorld } from '../flight/world.js';
 
 // Developer tool (not part of the game build): view one aircraft model in a studio setting.
 // /models.html?id=jumbo&yaw=35&pitch=12&dist=1.5&cockpit=1&night=1&gear=0&look=0.3
-// More: d=<metres> tx/ty/tz=<look-at point> fov=<deg> lod=0|1|2 (force LOW/MEDIUM/HIGH) flaps=<stage> sun=<azimuth deg>
+// More: aileron/elevator/rudder/speedbrake=<value> d=<metres> tx/ty/tz=<look-at point> fov=<deg> lod=0|1|2 (force LOW/MEDIUM/HIGH) flaps=<stage> sun=<azimuth deg>
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
@@ -49,6 +49,8 @@ if (view.setNight) view.setNight(night);
 if (q.has('throttle')) model.controls.throttle.fill(num('throttle', 0));
 if (q.has('flaps')) { model.controls.flapsStage = num('flaps', 0); model.surfaces.flap = spec.flaps.stages[model.controls.flapsStage].deg; }
 for (let i = 0; i < 30; i++) model.step(1 / 120, true);
+for (const k of ['aileron', 'elevator', 'rudder', 'speedbrake']) if (q.has(k)) model.surfaces[k] = num(k, 0);
+if (q.has('gearext')) model.gear.extension = num('gearext', 1);
 for (let i = 0; i < 4; i++) view.update(model, 1, 0.06, i * 0.06);
 view.root.position.set(0, 0, 0);
 view.root.quaternion.identity();

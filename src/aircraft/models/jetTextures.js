@@ -241,6 +241,18 @@ function buildLiveryMaps(spec, cfg, fus) {
     g.fillStyle = l.regColor ?? '#1a2230';
     P.text(g, side, spec.registration, LV.reg.xc, yc + LV.reg.y, LV.reg.size, { spacing: 0.03 });
   }
+  // panel to panel tone variation
+  g.globalCompositeOperation = 'multiply';
+  const cw = Math.round(P.W / Math.max(8, fus.length / 1.9));
+  const ch = Math.round(P.H / 7);
+  for (let x = 0; x < P.W; x += cw) {
+    for (let y = 0; y < P.H; y += ch) {
+      const v = 0.965 + R() * 0.035;
+      g.fillStyle = `rgb(${Math.round(255 * v)},${Math.round(255 * v)},${Math.round(255 * (v + 0.004))})`;
+      g.fillRect(x, y, cw, ch);
+    }
+  }
+  g.globalCompositeOperation = 'source-over';
   // belly grime, tyre smoke and exhaust staining
   g.globalCompositeOperation = 'multiply';
   for (let i = 0; i < 40; i++) {
@@ -319,6 +331,12 @@ function paintWing(spec, cfg) {
     const z = (i / 30) * semi;
     g.beginPath(); g.moveTo(S / 2, vOf(z)); g.lineTo(S, vOf(z)); g.stroke();
     g.beginPath(); g.moveTo(0, vOf(z + 0.25)); g.lineTo(S / 2, vOf(z + 0.25)); g.stroke();
+  }
+  // soot and oil staining behind the engines
+  for (const z of [cfg.engines.zStain ?? 0]) {
+    if (!z) continue;
+    streak(g, S * 0.5 + S * 0.52, vOf(z) - 8, S * 0.28, 22, 0.28, '40,36,32', 0);
+    streak(g, S * 0.01, vOf(z) - 8, S * 0.3, 18, 0.2, '40,36,32', 0);
   }
   // walkway
   if (W.walkway) {

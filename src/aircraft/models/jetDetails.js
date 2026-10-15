@@ -46,7 +46,7 @@ export function addDetails({ spec, cfg, J, fus, wb, detail, parts, hull, root, r
   // ---- beacons and the tail light ------------------------------------------------------------------------------------
   for (const [x, where] of cfg.beacons ?? []) {
     const th = where === 'top' ? Math.PI / 2 : -Math.PI / 2;
-    const beacon = makeLight(0xff2a2a, 0.09, 1.7);
+    const beacon = makeLight(0xff2a2a, 0.09 * Math.min(1.4, Math.max(0.5, sc)), 1.5);
     const p = fus.point(x, th);
     beacon.position.set(p.x, p.y + (where === 'top' ? 0.06 : -0.06), 0);
     root.add(beacon);
@@ -58,7 +58,7 @@ export function addDetails({ spec, cfg, J, fus, wb, detail, parts, hull, root, r
       add(J.lensRed, dome, m);
     }
   }
-  const tail = makeLight(0xffffff, 0.07, 1.3);
+  const tail = makeLight(0xffffff, 0.07 * Math.min(1.4, Math.max(0.5, sc)), 1.2);
   const tp = fus.prof(fus.xTail);
   tail.position.set(fus.xTail - 0.12, tp.yc, 0);
   root.add(tail);
@@ -91,7 +91,7 @@ export function addDetails({ spec, cfg, J, fus, wb, detail, parts, hull, root, r
 
   // ---- antennas, vents and drains -----------------------------------------------------------------------------------------
   const topAnt = [[fus.xNose - 8.0 - 0.15 * fus.length * 0.1, 0.5], [fus.xTail + fus.length * 0.62, 0.45], [fus.xTail + fus.length * 0.52, 0.3]];
-  for (const [x, h] of topAnt) add(J.dark, bladeGeo(h * 0.8 * sc, h * 0.5 * sc, 0.025, 0.6), skinMatrix(fus, x, Math.PI / 2, 0));
+  for (const [x, h] of topAnt) add(J.gearPaint, bladeGeo(h * 0.8 * sc, h * 0.5 * sc, 0.025, 0.6), skinMatrix(fus, x, Math.PI / 2, 0));
   // SATCOM / long blade on the belly and the fuselage top (airliners)
   if (spec.id !== 'citation') {
     add(J.dark, bladeGeo(0.5 * sc, 0.3 * sc, 0.025, 0.6), skinMatrix(fus, fus.xNose - fus.length * 0.28, -Math.PI / 2, 0));

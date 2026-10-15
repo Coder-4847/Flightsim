@@ -1,7 +1,7 @@
 import { getAircraft } from '../aircraft/index.js';
 import { FAILURE_NAMES } from '../game/failures.js';
 import { buildMap } from '../world/mapBuilder.js';
-import { MAPS } from '../world/maps.js';
+import { MAPS, MAP_HALF } from '../world/maps.js';
 import { Rng } from '../util/random.js';
 import { emergencyGrade, emergencyPayout, crashPenalty } from './economy.js';
 
@@ -101,13 +101,15 @@ export function generateScenario(seed, difficulty = null) {
   } else {
     distM = rng.range(12000, 38000) * (spec.class === 'Fighter' ? 1.2 : 1);
   }
-  const bound = 55000;
+  const bound = MAP_HALF * 0.92;
   let spawn = null;
   const a0 = rng.range(0, Math.PI * 2);
-  for (let i = 0; i < 24 && !spawn; i++) {
+  for (let i = 0; i < 24 * 4 && !spawn; i++) {
     const a = a0 + i * 0.2618;
-    const x = target.x + Math.cos(a) * distM;
-    const z = target.z + Math.sin(a) * distM;
+    // The map is small: when no direction fits, come in a little closer.
+    const dist = distM * 0.82 ** Math.floor(i / 24);
+    const x = target.x + Math.cos(a) * dist;
+    const z = target.z + Math.sin(a) * dist;
     if (Math.abs(x) > bound || Math.abs(z) > bound) continue;
     const ceiling = terrainMax(map, x, z, target.x, target.z);
     const altitude = Math.max(target.elevation + aboveFt * FT, ceiling + 450);

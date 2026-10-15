@@ -1,5 +1,5 @@
 import { buildMap } from '../world/mapBuilder.js';
-import { MAP_HALF, MAP_LIST } from '../world/maps.js';
+import { MAP_HALF, MAP_LIST, MAP_SIZE_KM } from '../world/maps.js';
 import { h } from './dom.js';
 
 // Map picker: one card per map with a relief preview drawn from the generated world itself.
@@ -77,7 +77,7 @@ export function createMapSelect({ onSelect, onBack }) {
       h('span.ac-class', cfg.biome === 'grass' ? 'Temperate' : cfg.biome === 'desert' ? 'Arid' : 'Alpine'),
       h('span.ac-name', cfg.name),
       h('span.ac-blurb', cfg.blurb),
-      h('span.ac-stats', h('span', '120 × 120 km'), h('span.map-counts', '…')),
+      h('span.ac-stats', h('span', `${MAP_SIZE_KM} × ${MAP_SIZE_KM} km`), h('span.map-counts', '…')),
     );
     grid.append(card);
     return { cfg, canvas, card };

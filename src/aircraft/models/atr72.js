@@ -184,12 +184,12 @@ export function buildTurboprop72(spec, mats, detail) {
       // Gear sponsons on the lower fuselage.
       const sp = loftBody([
         { x: -3.4, w: 0.02, top: 0.2, bottom: 0.2, yc: 0, n: 2 },
-        { x: -2.2, w: 0.26, top: 0.4, bottom: 0.4, yc: -0.05, n: 2.3 },
-        { x: 0.0, w: 0.36, top: 0.5, bottom: 0.5, yc: -0.1, n: 2.4 },
-        { x: 1.8, w: 0.3, top: 0.46, bottom: 0.46, yc: -0.08, n: 2.3 },
+        { x: -2.2, w: 0.36, top: 0.4, bottom: 0.4, yc: -0.05, n: 2.3 },
+        { x: 0.0, w: 0.5, top: 0.5, bottom: 0.5, yc: -0.1, n: 2.4 },
+        { x: 1.8, w: 0.42, top: 0.46, bottom: 0.46, yc: -0.08, n: 2.3 },
         { x: 3.2, w: 0.02, top: 0.22, bottom: 0.22, yc: 0, n: 2 },
       ], { detail, step: 0.4 });
-      fixed.add('wing', setUV0(std(sp.geo.clone()), 0.0015, 0.0015), T(-0.6, -1.05, s * 1.78));
+      fixed.add('wing', setUV0(std(sp.geo.clone()), 0.0015, 0.0015), T(-0.6, -0.95, s * 1.62));
     }
     const prop = makeProPropeller({
       blades: 6, radius: 1.97, hubR: 0.2,

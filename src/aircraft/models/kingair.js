@@ -121,7 +121,7 @@ export function buildKingAir(spec, mats, detail) {
     if (HI) {
       for (const s of [-1, 1]) {
         ext.add('trim', roundedBox(0.16, 0.6, 0.5, 0.05), T(3.4, 0.05, s * 0.38));
-        ext.add('dark', roundedBox(0.7, 0.3, 0.5, 0.04), T(4.3, 0.22, s * 0.3));
+        ext.add('dark', roundedBox(0.5, 0.26, 0.3, 0.04), T(3.9, 0.2, s * 0.2));
       }
       for (const x of [-2.6, -0.6, 0.6]) ext.add('trim', roundedBox(0.24, 0.5, 1.0, 0.05), T(x, 0.0, 0));
     }

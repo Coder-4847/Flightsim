@@ -1,7 +1,7 @@
 # Flight Sim: memory
 
 ## Current status
-- Phase: 6 (Polish and publish) — release candidate 1.0.0-rc.1, code complete and verified headless and in the browser; Pages deploy pending confirmation (see the session log).
+- Phase: 6 (Polish and publish) — release candidate 1.0.0-rc.1, code complete, verified headless and in the browser, Pages deploy succeeded; waiting for the user's playtest.
 - Last completed: Phase 5 deployed (live). Phase 6 adds the intro and animated main menu, tabbed settings with accessibility options, keyboard and controller menu navigation, synthesized engine/wind/radio audio, adaptive resolution, an error overlay and a bug sweep.
 - Next step: user playtests the release candidate on the live URL. If it passes, the project is done (Definition of done, section 13 of the master prompt); otherwise fix what the playtest finds.
 - Live playtest / release URL: https://coder-4847.github.io/Flightsim/
@@ -122,7 +122,7 @@ Everything from Phases 1-5 still applies (see git history for the earlier checkl
 - CPU (software GL, so pessimistic): physics 0.05 ms per 120 Hz step, world update about 3 ms, render submit 5-9 ms per frame at 300-500 draw calls.
 
 ## Session log (newest first)
-- 2026-10-15 Phase 6 built: intro, animated menu, tabbed settings, accessibility, menu navigation, audio, adaptive resolution, error overlay, GPU memory fix, HUD default layout fixes. Pages deploy to be confirmed.
+- 2026-10-15 Phase 6 finished (release candidate 1.0.0-rc.1): intro, animated menu, tabbed settings, accessibility, menu navigation, audio, adaptive resolution, error overlay, GPU memory fix, HUD default layout fixes. Pushed; Pages run #19 (commit a584f62) deployed successfully. Release URL: https://coder-4847.github.io/Flightsim/
 - 2026-10-14 Phase 5 finished: saves, catalogue, economy, tracker, missions, VIP, emergency, mode runner and all screens. Pushed; Pages run #17 (commit ec928a8) deployed successfully.
 - 2026-10-14 Phase 4 finished: modes and toggles, systems and failures, ATC and AI traffic, HUD panels, controller menu, alerts; hub runway pair fix. Pushed; Pages run #15 (commit 39cfb54) deployed successfully.
 - 2026-10-14 Phase 3 finished: ten aircraft, jumbo fuel/CG model, hangar preview and spec sheet, runway-length warnings, baked AI traffic, nav-map airports, night cockpit/windows. Pushed to the branch; Pages run #10 (commit 30ebbe0) built and deployed successfully (runs #7/#8 failed only because Pages had a previous deployment still in progress; re-run or push again if that recurs).

@@ -1,7 +1,8 @@
 import { layoutAirport } from '../world/airportLayout.js';
 
 // Airfield geometry for ATC and AI traffic: active runway selection, taxi routes between stands
-// and runway ends, and the approach path. All coordinates are world metres.
+// and runway ends (a shortest path over the airport's taxi graph, built by airportLayout.js), and the
+// approach path. All coordinates are world metres.
 
 const DEG = Math.PI / 180;
 export const dirOf = (headingDeg) => ({ x: Math.sin(headingDeg * DEG), z: -Math.cos(headingDeg * DEG) });
@@ -50,90 +51,64 @@ export function approachFor(airport, endId) {
   };
 }
 
-/** Which runway edge side the taxiway sits on, and the connector positions along the runway axis. */
-function taxiPlan(airport, runway) {
-  const layout = layoutAirport(airport);
-  const t = layout.taxi;
-  const h = layout.heading; // heading of the main runway's first end
-  const main = airport.runways[0];
-  const origin = { x: airport.x, z: airport.z };
-  const d = dirOf(h);
-  const right = { x: -d.z, z: d.x };
-  const at = (along, perp) => ({ x: origin.x + d.x * along + right.x * perp, z: origin.z + d.z * along + right.z * perp });
-  if (!t) return { layout, at, d, right, h, t: null, main };
-  void runway;
-  return { layout, at, d, right, h, t, main };
-}
-
-const aligned = (runway, plan) => {
-  const diff = Math.abs(((runway.heading - plan.h + 540) % 360) - 180);
-  return diff < 1; // runway parallel to the main one, so the taxiways serve it
-};
-
-/** Perpendicular offsets (from the main axis) of the taxiway and the runway centreline for a runway. */
-function lanes(airport, runway, plan) {
-  const t = plan.t;
-  const rwIndex = airport.runways.indexOf(runway);
-  const perpTaxi = t.hasPair ? t.perp[rwIndex === 0 ? 0 : 1] : t.perp[0];
-  const rwPerp = t.hasPair ? (rwIndex === 0 ? -240 : 240) : 0;
-  const apronPerp = t.hasPair ? Math.sign(perpTaxi) * 85 : t.terminalSide * (runway.width / 2 + 95 + 12);
-  return { perpTaxi, rwPerp, apronPerp };
-}
+const standOf = (layout, i) => layout.stands[Math.max(0, Math.min(i, layout.stands.length - 1))];
 
 /**
- * Taxi route from a stand to the hold-short point of a runway end.
+ * Taxi route from a stand to the hold-short point of a runway end, over the airport's taxi graph.
  * Returns { points, hold, entry, heading } where `entry` is the runway centreline point reached after
  * the hold point.
  */
 export function departureRoute(airport, endId, standIndex = 0) {
-  const { runway, end, index } = findEnd(airport, endId);
-  const plan = taxiPlan(airport, runway);
-  const stand = plan.layout.stands[Math.min(standIndex, plan.layout.stands.length - 1)];
-  const pts = [{ x: stand.x, z: stand.z }];
-  const hw = runway.width / 2;
-  const d = dirOf(end.heading);
-  if (!plan.t || !aligned(runway, plan)) {
-    // Grass strips and cross runways have no taxiway: go straight to the threshold.
-    const entry = { x: end.threshold.x + d.x * 40, z: end.threshold.z + d.z * 40 };
-    const hold = { x: entry.x + -d.z * (hw + 30), z: entry.z + d.x * (hw + 30) };
-    pts.push(hold);
-    return { points: pts, hold, entry, heading: end.heading, runway, end };
+  const layout = layoutAirport(airport);
+  const { graph } = layout;
+  const { runway, end } = findEnd(airport, endId);
+  const stand = standOf(layout, standIndex);
+  const hn = graph.keys.get(`hold:${end.id}`);
+  const en = graph.keys.get(`entry:${end.id}`);
+  const route = hn != null && en != null && stand.node != null ? graph.path(stand.node, hn) : null;
+  if (route) {
+    const hold = { x: graph.nodes[hn].x, z: graph.nodes[hn].z };
+    const entry = { x: graph.nodes[en].x, z: graph.nodes[en].z };
+    return { points: route, hold, entry, heading: end.heading, runway, end };
   }
-  const { perpTaxi, rwPerp, apronPerp } = lanes(airport, runway, plan);
-  const connector = (index === 0 ? -1 : 1) * plan.t.len * 0.95;
-  const standLocal = (stand.x - airport.x) * plan.d.x + (stand.z - airport.z) * plan.d.z;
-  pts.push(plan.at(standLocal, apronPerp));
-  pts.push(plan.at(standLocal, perpTaxi));
-  pts.push(plan.at(connector, perpTaxi));
-  const towardRunway = Math.sign(rwPerp - perpTaxi) || -1;
-  const hold = plan.at(connector, rwPerp - towardRunway * (hw + 45));
-  pts.push(hold);
-  const entry = plan.at(connector, rwPerp);
-  return { points: pts, hold, entry, heading: end.heading, runway, end };
+  // No taxiway reaches this runway end (for example the far end of a cross runway): straight to a point beside the threshold.
+  const d = dirOf(end.heading);
+  const hw = runway.width / 2;
+  const entry = { x: end.threshold.x + d.x * 40, z: end.threshold.z + d.z * 40 };
+  const hold = { x: entry.x + -d.z * (hw + 30), z: entry.z + d.x * (hw + 30) };
+  return { points: [{ x: stand.park.x, z: stand.park.z }, hold], hold, entry, heading: end.heading, runway, end };
 }
 
 /** Taxi route from a runway exit to a stand, for arrivals that landed on `endId`. */
 export function arrivalRoute(airport, endId, standIndex = 0, touchdownAlong = 350) {
-  const { runway, end, index } = findEnd(airport, endId);
-  const plan = taxiPlan(airport, runway);
-  const stand = plan.layout.stands[Math.min(standIndex, plan.layout.stands.length - 1)];
-  const d = dirOf(end.heading);
-  if (!plan.t || !aligned(runway, plan)) {
-    const exit = { x: end.threshold.x + d.x * (touchdownAlong + 700), z: end.threshold.z + d.z * (touchdownAlong + 700) };
-    return { points: [exit, { x: stand.x, z: stand.z }], runway, end };
+  const layout = layoutAirport(airport);
+  const { graph } = layout;
+  const ap = approachFor(airport, endId);
+  const { runway, end } = ap;
+  const stand = standOf(layout, standIndex);
+  // candidate exits on this runway, ahead of the touchdown point
+  const cands = [];
+  for (const [key, idx] of graph.keys) {
+    if (!key.startsWith('exit:')) continue;
+    const who = key.split(':')[1];
+    if (who !== end.id && who !== 'mid') continue;
+    const n = graph.nodes[idx];
+    const loc = ap.local(n.x, n.z);
+    if (Math.abs(loc.lateral) > 4 || loc.along < touchdownAlong + 120 || loc.along > runway.length - 80) continue;
+    cands.push({ idx, along: loc.along });
   }
-  const { perpTaxi, rwPerp, apronPerp } = lanes(airport, runway, plan);
-  const len = plan.t.len;
-  const connectors = (plan.t.hasPair ? [-0.95, 0, 0.95] : [-0.95, 0.95]).map((c) => c * len);
-  // Along-axis coordinate of the touchdown point; the roll runs toward +along on the first end, -along on the second.
-  const dirSign = index === 0 ? 1 : -1;
-  const touchdown = -dirSign * (runway.length / 2) + dirSign * touchdownAlong;
-  const ahead = connectors.filter((c) => (c - touchdown) * dirSign > 0).sort((p, q) => (p - q) * dirSign);
-  let exit = ahead.find((c) => (c - touchdown) * dirSign > 650) ?? ahead[ahead.length - 1] ?? connectors[connectors.length - 1];
-  if (exit == null) exit = connectors[0];
-  const standLocal = (stand.x - airport.x) * plan.d.x + (stand.z - airport.z) * plan.d.z;
-  const points = [plan.at(exit, rwPerp), plan.at(exit, perpTaxi), plan.at(standLocal, perpTaxi), plan.at(standLocal, apronPerp), { x: stand.x, z: stand.z }];
-  return { points, runway, end, exitAlong: exit };
+  cands.sort((p, q) => p.along - q.along);
+  const pick = cands.find((c) => c.along - touchdownAlong > 650) ?? cands[cands.length - 1];
+  const route = pick && stand.node != null ? graph.path(pick.idx, stand.node) : null;
+  if (route && route.length > 1) {
+    // leave the runway by a straight chord to the first point clear of its edge, so "vacated" means off the pavement
+    let k = 1;
+    while (k < route.length - 1 && Math.abs(ap.local(route[k].x, route[k].z).lateral) < runway.width / 2 + 4) k++;
+    return { points: [route[0], ...route.slice(k)], runway, end, exitAlong: pick.along };
+  }
+  const d = dirOf(end.heading);
+  const exit = { x: end.threshold.x + d.x * (touchdownAlong + 700), z: end.threshold.z + d.z * (touchdownAlong + 700) };
+  return { points: [exit, { x: stand.park.x, z: stand.park.z }], runway, end };
 }
 
 /** Total length of a polyline. */

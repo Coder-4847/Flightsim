@@ -81,7 +81,6 @@ export function specWithLivery(aircraftId, liveryId) {
 
 // ---- upgrades -------------------------------------------------------------------------------------------------------------
 export const UPGRADES = [
-  { id: 'gps', name: 'Moving-map GPS', price: 4000, blurb: 'Adds the navigation map (M): airports, runways, navaids, traffic and your track.' },
   { id: 'approach', name: 'Approach assist', price: 6500, blurb: 'Adds the approach guide (F8): localiser and glide-path needles, runway distance and a live landing score.' },
   { id: 'gpws', name: 'Terrain awareness', price: 9000, blurb: 'Adds "TERRAIN — PULL UP" warnings with a voice call when the ground is rising towards you.' },
   { id: 'cabin', name: 'Cabin comfort pack', price: 15000, blurb: 'Quieter, better-damped cabins: passengers and VIPs tolerate 25% more rough handling and every passenger or VIP fare pays 20% more.' },

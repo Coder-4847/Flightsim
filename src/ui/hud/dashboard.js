@@ -156,12 +156,6 @@ export function createDashboard(hud) {
       const n = screen('NAVIGATION');
       const e = screen('ENGINE');
       ui.screens = [{ ...p, draw: (t) => pfd(p.ctx, p.w, p.h, t, spec) }, { ...n, draw: (t) => {
-        if (hud.perks && !hud.perks.has('gps')) {
-          n.ctx.fillStyle = '#04070a'; n.ctx.fillRect(0, 0, n.w, n.h);
-          n.ctx.fillStyle = COLORS.dim; n.ctx.font = 'bold 26px Arial'; n.ctx.textAlign = 'center';
-          n.ctx.fillText('NAV MAP', n.w / 2, n.h / 2 - 16); n.ctx.font = '20px Arial'; n.ctx.fillText('needs the GPS upgrade', n.w / 2, n.h / 2 + 22);
-          return;
-        }
         m.nav.range = null;
         mfdMap(n.ctx, n.w, n.h, t, m);
       } }, { ...e, draw: (t) => engineDisplay(e.ctx, e.w, e.h, t, spec) }];

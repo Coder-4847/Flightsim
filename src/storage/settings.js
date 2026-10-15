@@ -40,7 +40,6 @@ export const SETTINGS_SCHEMA = {
   sys_failures: { section: 'Game systems', label: 'Random failures', type: 'bool', default: false, hint: 'Engine, hydraulic, electrical, flap, gear, pitot, control and fuel failures during flight.' },
   sys_fullWeather: { section: 'Game systems', label: 'Full weather effects', type: 'bool', default: false, hint: 'Off: turbulence, wind shear and wet runways are strongly reduced.' },
   sys_damage: { section: 'Game systems', label: 'Damage', type: 'bool', default: true, hint: 'Off: overspeed, over-g and hard landings no longer destroy the aircraft (terrain still does).' },
-  sys_cockpitCam: { section: 'Game systems', label: 'Cockpit camera', type: 'bool', default: true },
   quality: {
     section: 'Display',
     label: 'Graphics quality',

@@ -82,15 +82,15 @@ export class ComfortMeter {
     let why = null;
     const note = (amount, text) => { if (amount > 0) { loss += amount; if (!why || amount > why.amount) why = { amount, text }; } };
     const dn = Math.abs(t.nz - 1);
-    note((dn - 0.2) * 20 + Math.max(0, dn - 0.5) * 60, dn > 0.5 ? 'hard pull' : 'turbulence');
-    note((Math.abs(t.bank) - 28) * 0.25, 'steep bank');
-    note((Math.abs(t.pitchRate) - 5) * 0.4, 'abrupt pitch change');
-    note((Math.abs(t.rollRate) - 12) * 0.25, 'abrupt roll');
-    note((-t.vsFpm - 2200) / 350, 'steep descent');
+    note((dn - 0.45) * 8 + Math.max(0, dn - 0.9) * 40, dn > 0.9 ? 'hard pull' : 'turbulence');
+    note((Math.abs(t.bank) - 40) * 0.15, 'steep bank');
+    note((Math.abs(t.pitchRate) - 9) * 0.2, 'abrupt pitch change');
+    note((Math.abs(t.rollRate) - 20) * 0.15, 'abrupt roll');
+    note((-t.vsFpm - 3000) / 450, 'steep descent');
     note(t.vsFpm > 4500 ? (t.vsFpm - 4500) / 600 : 0, 'steep climb');
-    if (t.stalled) note(10, 'stall');
-    else if (t.stallWarning) note(4, 'stall warning');
-    if (t.overspeed) note(3, 'overspeed buffet');
+    if (t.stalled) note(6, 'stall');
+    else if (t.stallWarning) note(1.5, 'stall warning');
+    if (t.overspeed) note(2, 'overspeed buffet');
     loss *= this.tolerance;
     if (loss > 0) {
       this.value = Math.max(0, this.value - loss * dt);
@@ -98,13 +98,13 @@ export class ComfortMeter {
       this.worstReason = why.text;
     } else {
       this.reason = null;
-      this.value = Math.min(100, this.value + 0.35 * dt);
+      this.value = Math.min(100, this.value + 0.9 * dt);
     }
   }
 
   /** One-off knock from the touchdown. */
   touchdown(grade) {
-    const hit = { Smooth: 0, Good: 3, Firm: 12, Hard: 30, 'Very hard': 60 }[grade] ?? 0;
+    const hit = { Smooth: 0, Good: 1, Firm: 6, Hard: 18, 'Very hard': 40 }[grade] ?? 0;
     this.value = Math.max(0, this.value - hit * this.tolerance);
     return hit;
   }

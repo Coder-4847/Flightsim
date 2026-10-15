@@ -528,7 +528,7 @@ export class FlightModel {
       dmg.overspeed += dt * Math.max(overspeed - 1, air.mach - (lim.mmo ?? 9)) * 2.5 + (overspeed > 1.2 ? 1 : 0);
     }
     if (dmg.overspeed >= 1) return this.#crash('Structural failure: overspeed');
-    if (vulnerable && (air.nz > lim.nzPos * 1.45 || air.nz < lim.nzNeg * 1.45)) {
+    if (vulnerable && (air.nz > lim.nzPos * 1.45 || air.nz < lim.nzNeg * 3.2)) { // negative g is very forgiving: the pilot has to try hard to break the airframe
       return this.#crash(air.nz > 0 ? 'Structural failure: wing overload' : 'Structural failure: negative g overload');
     }
 

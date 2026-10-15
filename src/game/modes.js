@@ -12,7 +12,6 @@ export const SYSTEMS = [
   { key: 'sys_failures', id: 'failures' },
   { key: 'sys_fullWeather', id: 'fullWeather' },
   { key: 'sys_damage', id: 'damage' },
-  { key: 'sys_cockpitCam', id: 'cockpitCam' },
   { key: 'sys_realism', id: 'realism' },
 ];
 

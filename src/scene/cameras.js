@@ -8,7 +8,7 @@ import { clamp } from '../flight/units.js';
 //   tower      fixed ground position that tracks the aircraft with a zoom lens
 // Free camera arrives with the maps in Phase 3.
 
-export const CAMERA_MODES = ['chase', 'cockpit', 'cinematic', 'tower'];
+export const CAMERA_MODES = ['chase', 'cinematic', 'tower'];
 
 const _pos = new THREE.Vector3();
 const _quat = new THREE.Quaternion();
@@ -32,7 +32,7 @@ export class CameraSystem {
     this.initialised = false;
     this.pose = { pos: new THREE.Vector3(), quat: new THREE.Quaternion() };
     this.aircraftRadius = 8;
-    this.cockpitAvailable = true;
+    this.cockpitAvailable = false; // the cockpit view was retired; chase, cinematic and tower remain
   }
 
   /** Called when the aircraft changes. `view` supplies the cockpit eye point and size. */

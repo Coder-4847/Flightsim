@@ -50,8 +50,6 @@ export class FlightSession {
   applySystems() {
     this.systems = getSystems(this.settings);
     this.controls.setSystems(this.systems);
-    this.cameras.cockpitAvailable = this.systems.cockpitCam;
-    if (this.view && !this.systems.cockpitCam && this.cameras.mode === 'cockpit') this.cycleCamera();
     if (this.model) {
       this.model.damageEnabled = this.systems.damage;
       this.model.world.setRealism?.(this.systems.fullWeather ? 1 : 0.3);

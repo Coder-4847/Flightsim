@@ -170,7 +170,6 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     hud.perks = mode?.perks ? new Set(mode.perks) : null;
     const perks = hud.perks;
     const gate = (panel, perk, reason) => { if (perks && !perks.has(perk)) hud.panels.lock(panel, reason); else hud.panels.unlock(panel); };
-    gate('nav', 'gps', 'Navigation map needs the Moving-map GPS upgrade (Shop)');
     gate('approach', 'approach', 'Approach guide needs the Approach assist upgrade (Shop)');
     crashRestart.textContent = mode?.retryLabel ?? 'Restart flight';
     crashSelect.textContent = mode?.selectLabel ?? 'Choose aircraft';

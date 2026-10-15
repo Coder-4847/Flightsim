@@ -33,6 +33,7 @@ Flight Sim is a browser 3D flight simulator: Three.js 0.186 + Vite 8, plain Java
   - **Jet trainer** (`trainer.js`): removed the soft black smear on the nose; intakes are real ducts (dark throat, compressor face with spinner and stator vanes) instead of flat black discs.
   - **Airliners and business jets** (`jetTextures.js`, `jetEngine.js`): radomes light grey instead of a dark cone; engine pylons slimmer and reaching into the wing; business jets no longer carry airline titles (registration only).
   - **Fighters** (`fighter.js`, `twinfighter.js`): the nose radome and anti-glare panel were soft dark blobs that looked like burn marks; they are now crisp-edged painted panels (the `extra` hook of `paintBody`).
+  - **Exhaust nozzles** (`jetkit.js` `nozzleParts`, used by the fighters and the trainer): the nozzle liner was single-sided and open, so the ground could be seen through the exit from behind (reported by the user in the F-16). The liner is now double-sided dark, with a turbine face and a centre cone deep inside.
 - Still approximate (ask the user which to pursue): trainer, F-16, Corsair and Warden silhouettes; glass is a tint with env-map reflection only; skins have panel-line normal maps but no rivets or baked ambient occlusion; gear wells have no interiors (doors overlay the belly); lights are sprites, not spot lights; airline names are invented. Texture memory is about 30 MB per aircraft type.
 
 ## Dashboard (added after the release candidate, rc.2)

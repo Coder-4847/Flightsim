@@ -34,7 +34,10 @@ export function nozzleParts(parts, { x, y = 0, z = 0, r0, r1, len, petals = 16, 
   parts.add('exhaust', std(g), m);
   // Inner liner (visible inside the exit) and the afterburner ring/flame-holder.
   if (liner) {
-    parts.add('black', revolve([[-len * 0.98, r1 * 0.97], [-len * 0.4, r0 * 0.95], [0, r0 * 0.9]], 20), m);
+    // Double-sided dark liner plus a turbine face deep inside, so nothing can be seen through the exit from behind.
+    parts.add('intake', revolve([[-len * 0.98, r1 * 0.97], [-len * 0.4, r0 * 0.95], [0, r0 * 0.9]], 20), m);
+    parts.add('intake', std(new THREE.CircleGeometry(r0 * 0.92, 20)), T(x - len * 0.12, y, z, 0, -Math.PI / 2, 0));
+    parts.add('steel', std(new THREE.ConeGeometry(r0 * 0.34, len * 0.34, 16).rotateZ(Math.PI / 2)), T(x - len * 0.2, y, z));
     if (detail > LOW) {
       parts.add('steel', revolve([[-len * 0.35, r0 * 0.78], [-len * 0.35, r0 * 0.62], [-len * 0.4, r0 * 0.62], [-len * 0.4, r0 * 0.78]], 16), m);
       parts.add('exhaust', std(new THREE.TorusGeometry(r1 * 0.92, r1 * 0.035, 6, 24).rotateY(Math.PI / 2)), T(x - len * 0.995, y, z));

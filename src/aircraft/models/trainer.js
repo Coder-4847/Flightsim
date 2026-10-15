@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {
-  HIGH, LOW, MEDIUM, Parts, T, bodyPatch, boxG, hingedSurface, loftBody, roundedBox, sectionAt, setUV0, std, tubeBetween, vec, wingSurface,
+  HIGH, LOW, MEDIUM, Parts, T, bodyPatch, boxG, hingedSurface, loftBody, roundedBox, sectionAt, setUV0, sphereG, std, tubeBetween, vec, wingSurface,
 } from './kit.js';
 import {
   bladeAntennaGeometry, glowLight, lensGeometry, makeProGearLeg, probeGeometry,
@@ -92,7 +92,6 @@ export function buildTrainer(spec, mats, detail) {
       regs: [{ x: -2.6, a: 18, size: 0.34, stretch: 1.0 }],
       stencils: [{ str: 'TUTOR T-39', x: 4.3, a: 8, size: 0.11 }, { str: 'NO STEP', x: -1.2, a: -34, size: 0.05, color: '#a02020' }, { str: 'DANGER  INTAKE', x: 1.6, a: -10, size: 0.045, color: '#a02020' }],
       blobs: [
-        { x: 4.2, a: 80, rx: 1.0, ry: 0.35, color: '#101214', alpha: 0.85 }, // anti-glare panel
         { x: -5.4, a: 0, rx: 1.0, ry: 0.4, color: '#3a2c22', alpha: 0.6 }, // jet-pipe heat stain
         { x: -5.0, a: 90, rx: 1.4, ry: 0.3, color: '#2d251d', alpha: 0.4 },
       ],
@@ -210,7 +209,12 @@ export function buildTrainer(spec, mats, detail) {
         { x: 1.75, w: 0.23, top: 0.26, bottom: 0.25, yc: 0.06, zc: s * 0.72, n: 2 },
       ], { detail, step: 0.3, segs: HI ? 28 : 12 });
       fixed.add('wing', setUV0(std(intake.geo.clone()), 0.0015, 0.0015));
-      fixed.add('intake', std(new THREE.CircleGeometry(1, 20)), T(1.74, 0.06, s * 0.72, 0, Math.PI / 2, 0, 0.215, 0.245, 1));
+      // Inside the duct: a dark throat, then the compressor face with its spinner and a ring of stator vanes.
+      fixed.add('intake', std(new THREE.CircleGeometry(1, 20)), T(1.0, 0.06, s * 0.7, 0, Math.PI / 2, 0, 0.26, 0.28, 1));
+      fixed.add('steel', std(new THREE.CircleGeometry(1, 28)), T(1.42, 0.06, s * 0.72, 0, Math.PI / 2, 0, 0.2, 0.235, 1));
+      fixed.add('dark', std(new THREE.RingGeometry(0.35, 0.37, 28)), T(1.425, 0.06, s * 0.72, 0, Math.PI / 2, 0, 0.2, 0.235, 1));
+      fixed.add('chrome', sphereG(1, 14, 8), T(1.46, 0.06, s * 0.72, 0, 0, 0, 0.1, 0.07, 0.07));
+      for (let k = 0; k < 14; k++) fixed.add('dark', boxG(0.004, 0.2, 0.012), T(1.43, 0.06, s * 0.72, (k / 14) * Math.PI, 0, 0));
       fixed.add('metal', std(new THREE.TorusGeometry(1, 0.06, 6, 24)), T(1.76, 0.06, s * 0.72, 0, Math.PI / 2, 0, 0.23, 0.26, 1));
       fixed.add('wing', boxG(1.1, 0.5, 0.012), T(1.2, 0.05, s * 0.5)); // boundary-layer splitter plate
     }

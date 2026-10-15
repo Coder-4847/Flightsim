@@ -231,13 +231,16 @@ function buildLiveryMaps(spec, cfg, fus) {
       }
     }
   }
-  // radome and nose tip (dark grey cone)
-  g.fillStyle = l.radome ?? '#6d737b';
+  // radome and nose tip
+  g.fillStyle = l.radome ?? '#b9bfc6'; // radomes are light grey, not the dark cone this used to paint
   g.fillRect(P.W * ((fus.xNose - (LV.radome ?? 0.8) - fus.xTail) / fus.length), 0, P.W, P.H);
-  const name = airlineFor(spec);
+  // Business jets carry no airline title (they are private or charter aircraft).
+  const name = spec.class === 'Business jet' ? '' : airlineFor(spec);
   for (const side of [1, -1]) {
-    g.fillStyle = LV.titleColor ?? shade(l.stripe, 0.75);
-    P.text(g, side, name, LV.title.xc, yc + LV.title.y, LV.title.size);
+    if (name) {
+      g.fillStyle = LV.titleColor ?? shade(l.stripe, 0.75);
+      P.text(g, side, name, LV.title.xc, yc + LV.title.y, LV.title.size);
+    }
     g.fillStyle = l.regColor ?? '#1a2230';
     P.text(g, side, spec.registration, LV.reg.xc, yc + LV.reg.y, LV.reg.size, { spacing: 0.03 });
   }

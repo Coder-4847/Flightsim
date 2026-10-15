@@ -123,7 +123,7 @@ export function buildPylon(e, J, parts, at, wing, z, detail, side = 1) {
   const yTop = f.p.y + f.rec.c * 0.0 - 0.1 + (wingLo - f.p.y) * 0 + 0.0;
   void yTop;
   const yBot = at.y + e.r * 0.55;
-  const yUp = wingLo + f.c.length() * f.t * 1.0 + 0.2;
+  const yUp = wingLo + f.c.length() * f.t * 1.0 + 0.5; // reaches well into the wing so there is no gap
   const xFront = at.x + e.len * 0.5 * (e.pylonFront ?? 0.1);
   const xRear = at.x - e.len * (e.pylonRear ?? 0.62);
   const mk = (y, le, te, t) => ({
@@ -131,9 +131,9 @@ export function buildPylon(e, J, parts, at, wing, z, detail, side = 1) {
   });
   const leTop = Math.max(f.p.x - 0.2, xFront + 0.6);
   const frames = [
-    mk(yBot, xFront, xRear, 0.09),
-    mk((yBot + yUp) / 2, (xFront + leTop) / 2, xRear + 0.05, 0.085),
-    mk(yUp, leTop, xRear + 0.15, 0.075),
+    mk(yBot, xFront, xRear, 0.075),
+    mk((yBot + yUp) / 2, (xFront + leTop) / 2, xRear + 0.05, 0.065),
+    mk(yUp, leTop, xRear + 0.15, 0.055),
   ];
   parts.add(J.wing, loftFrames(frames, { nChord: detail > 1 ? 16 : 8, capStart: false, capEnd: false, crease: 50 }));
   void side;

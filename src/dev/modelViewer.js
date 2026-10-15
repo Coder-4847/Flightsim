@@ -45,6 +45,7 @@ model.reset({ mode: 'runway' });
 if (q.get('gear') === '0' || air) { model.gear.extension = model.gear.target = 0; model.controls.gearDown = false; }
 const view = new AircraftView(spec, createCockpit);
 scene.add(view.root);
+window.__view = view;
 const cockpit = q.get('cockpit') === '1';
 view.setCockpitActive(cockpit);
 if (view.setNight) view.setNight(night);

@@ -95,6 +95,7 @@ export function paintPanel(rect, o) {
     }
     // Lower surface is dirtier.
     g.fillStyle = rgba('#3c3a33', 0.07 * dirt); g.fillRect(z0, -cmax, z1 - z0, cmax);
+    o.extra?.(g, rect);
     for (const t of o.text ?? []) {
       g.save();
       g.translate(t.z, t.upper === false ? -t.p : t.p);
@@ -118,4 +119,23 @@ export function paintAtlas(mats, base, panels, jobs, size = 2048, ratio = 0.5) {
   for (const [name, job] of Object.entries(jobs)) paintPanel(atlas.rects[name], job);
   attachMap(mats.wing, atlas.texture());
   return atlas;
+}
+
+/** Deterministic disruptive-camouflage blobs (for paintBody `blobs`) in two tones derived from the base colour. */
+export function camoBlobs(base, seed, n, [x0, x1], [a0, a1], size = [0.5, 1.6], amount = 0.12) {
+  const R = rng(seed);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const dark = R() < 0.55;
+    const rx = size[0] + R() * (size[1] - size[0]);
+    out.push({ x: x0 + R() * (x1 - x0), a: a0 + R() * (a1 - a0), rx, ry: rx * (0.12 + R() * 0.12), color: shade(base, dark ? -amount : amount), alpha: 0.85 });
+  }
+  return out;
+}
+
+/** Concentric roundel (fictional national marking). */
+export function roundel(g, cx, cy, r, colors = ['#27406e', '#d8dde2', '#a8322e'], alpha = 1) {
+  g.save(); g.globalAlpha = alpha;
+  colors.forEach((c, i) => { g.fillStyle = c; g.beginPath(); g.arc(cx, cy, r * (1 - i * 0.32), 0, Math.PI * 2); g.fill(); });
+  g.restore();
 }

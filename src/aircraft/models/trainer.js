@@ -168,10 +168,10 @@ export function buildTrainer(spec, mats, detail) {
   if (MID) {
     const tank = loftBody([
       { x: -1.45, w: 0.01, top: 0.01, bottom: 0.01, yc: 0, n: 2 },
-      { x: -1.1, w: 0.13, top: 0.13, bottom: 0.13, yc: 0, n: 2 },
-      { x: -0.3, w: 0.23, top: 0.23, bottom: 0.23, yc: 0, n: 2 },
-      { x: 0.6, w: 0.24, top: 0.24, bottom: 0.24, yc: 0, n: 2 },
-      { x: 1.3, w: 0.2, top: 0.2, bottom: 0.2, yc: 0, n: 2 },
+      { x: -1.1, w: 0.11, top: 0.11, bottom: 0.11, yc: 0, n: 2 },
+      { x: -0.3, w: 0.19, top: 0.19, bottom: 0.19, yc: 0, n: 2 },
+      { x: 0.6, w: 0.2, top: 0.2, bottom: 0.2, yc: 0, n: 2 },
+      { x: 1.3, w: 0.17, top: 0.17, bottom: 0.17, yc: 0, n: 2 },
       { x: 1.65, w: 0.1, top: 0.1, bottom: 0.1, yc: 0, n: 2 },
       { x: 1.8, w: 0.01, top: 0.01, bottom: 0.01, yc: 0, n: 2 },
     ], { detail, step: 0.3, segs: HI ? 24 : 10 });

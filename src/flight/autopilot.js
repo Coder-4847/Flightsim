@@ -25,6 +25,7 @@ export class Autopilot {
     this.vs = 0;
     this.ias = 120;
     this.nav = null; // { x, z, name }
+    this.target = null; // { airport, endId } of the captured approach
     this.out = { pitch: 0, roll: 0 };
     this.message = '';
     this.onEvent = null; // (text, level) => void
@@ -59,6 +60,7 @@ export class Autopilot {
     this.vert = 'ALT';
     this.appr = false;
     this.lastIas = tel.iasTrue;
+    this.vsInt = 0;
     this.#note('Autopilot engaged', 'info');
   }
 
@@ -66,7 +68,9 @@ export class Autopilot {
     if (!this.on) return;
     this.on = false;
     this.appr = false;
+    this.target = null;
     this.out.pitch = this.out.roll = 0;
+    this.vsInt = 0;
     this.#note(reason, level);
   }
 
@@ -84,7 +88,7 @@ export class Autopilot {
   /** Arm or cancel the approach mode. */
   toggleApproach() {
     this.appr = !this.appr;
-    if (!this.appr && (this.lat === 'LOC' || this.vert === 'GS')) { this.lat = 'HDG'; this.vert = 'ALT'; }
+    if (!this.appr && (this.lat === 'LOC' || this.vert === 'GS')) { this.lat = 'HDG'; this.vert = 'ALT'; this.target = null; }
     this.#note(this.appr ? 'Approach armed: it captures the localiser and glide slope' : 'Approach cancelled', 'info');
   }
 
@@ -110,9 +114,11 @@ export class Autopilot {
 
     // ---- approach logic ----
     let guide = null;
-    if (this.appr || this.lat === 'LOC') guide = computeApproach(model, model.nav.airports, null, tel);
+    // Once captured the autopilot stays on its own runway, however the aircraft is aligned later.
+    if (this.appr || this.lat === 'LOC') guide = computeApproach(model, model.nav.airports, this.lat === 'LOC' ? this.target : null, tel);
     if (this.appr && guide && this.lat !== 'LOC' && guide.distM < 28000 && Math.abs(guide.locDeg) < 3.5 && guide.headingDiff < 60) {
       this.lat = 'LOC';
+      this.target = { airport: guide.airport, endId: guide.end.id };
       this.#note(`Localiser captured: runway ${guide.end.id}`, 'info');
     }
     if (this.lat === 'LOC' && !guide) { this.lat = 'HDG'; this.hdg = Math.round(tel.heading); this.appr = false; this.#note('Localiser lost', 'warn'); }
@@ -134,7 +140,7 @@ export class Autopilot {
       hdgT = (Math.atan2(dx, -dz) / DEG + 360) % 360;
       if (Math.hypot(dx, dz) < 1200) { this.lat = 'HDG'; this.hdg = Math.round(hdgT) % 360; this.#note(`Reached ${this.nav.name ?? 'the waypoint'}`, 'info'); }
     } else if (this.lat === 'LOC' && guide) {
-      hdgT = guide.end.heading - clamp(guide.lateral * 0.012, -25, 25);
+      hdgT = guide.end.heading - clamp(guide.lateral * 0.03, -30, 30);
     }
     const err = angle(hdgT - tel.heading);
     const bankMax = this.lat === 'LOC' && tel.aglFt < 600 ? 12 : prof.bankMax;
@@ -147,7 +153,7 @@ export class Autopilot {
     if (this.vert === 'GS' && guide) {
       const gsFpm = -tel.groundSpeed * 0.514444 * 0.0524 / 0.00508; // sink for a 3 degree path
       const wantAlt = (guide.airport.elevation + 12 + Math.max(0, guide.distM) * Math.tan(3 * DEG)) * FT;
-      vsT = clamp(gsFpm + (wantAlt - alt) * 0.35, -1100, 500);
+      vsT = clamp(gsFpm + (wantAlt - alt) * 3, -1500, 600); // close a height error in about 20 s
     } else if (this.vert === 'VS') {
       vsT = clamp(this.vs, -prof.vsDown, prof.vsUp);
       const lead = Math.abs(vsT) * 0.12;
@@ -166,10 +172,12 @@ export class Autopilot {
     if (this.at) {
       let iasT = this.ias;
       if (this.vert === 'GS' && guide) iasT = spec.speeds.vapp + 5 + clamp((guide.distM - 6000) / 1000, 0, 6) * 4;
-      const rate = clamp((iasT - tel.iasTrue) * 0.012 - ((tel.iasTrue - (this.lastIas ?? tel.iasTrue)) / step) * 0.05, -0.25, 0.25);
+      // Throttle rate per second: proportional to the speed error, damped by the acceleration.
+      const accel = (tel.iasTrue - (this.lastIas ?? tel.iasTrue)) / step;
+      const rate = clamp((iasT - tel.iasTrue) * 0.03 - accel * 0.12, -0.3, 0.3);
       this.lastIas = tel.iasTrue;
       const cap = prof.fbw ? 0.85 : 1;
-      const target = clamp(controls.master + rate * step * 4, 0, cap);
+      const target = clamp(controls.master + rate * step, 0, cap);
       controls.setMaster(target);
     }
     return true;
@@ -183,7 +191,10 @@ export class Autopilot {
     if (prof.fbw) {
       this.out.pitch = clamp((vsT - tel.vsFpm) * 0.00025, -0.25, 0.3);
     } else {
-      const pT = clamp(tel.pitch + (vsT - tel.vsFpm) * 0.0022, -9, prof.pitchMax);
+      // The integral term removes the steady vertical-speed error a proportional pitch loop leaves.
+      const vsErr = vsT - tel.vsFpm;
+      if (!prof.heavy && Math.abs(vsErr) < 400) this.vsInt = clamp((this.vsInt ?? 0) + vsErr * 0.0008 * (1 / 120), -4, 4);
+      const pT = clamp(tel.pitch + (vsT - tel.vsFpm) * 0.0022 + this.vsInt, -9, prof.pitchMax);
       this.out.pitch = prof.heavy ? clamp((pT - tel.pitch) * 0.6 - tel.pitchRate * 0.5, -0.6, 0.6) : clamp((pT - tel.pitch) * 0.2 - tel.pitchRate * 0.6, -0.5, 0.6);
     }
   }

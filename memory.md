@@ -1,22 +1,21 @@
 # Flight Sim: memory
 
 ## Current status
-- Phase: 5 (Game modes and progression) — code complete, verified headless and in the browser, Pages deploy succeeded; waiting for the user's playtest.
-- Last completed: Phase 4 deployed (live). Phase 5 adds Free Flight, Career (37 missions), Emergency Landing (seeded), VIP Escort, economy/shop, three save slots with export/import and autosave.
-- Next step: user playtests Phase 5 on the live URL. Do NOT start Phase 6 (polish and publish) until this deploy is live and the checklist below passes.
-- Live playtest URL: https://coder-4847.github.io/Flightsim/
+- Phase: 6 (Polish and publish) — release candidate 1.0.0-rc.1, code complete and verified headless and in the browser; Pages deploy pending confirmation (see the session log).
+- Last completed: Phase 5 deployed (live). Phase 6 adds the intro and animated main menu, tabbed settings with accessibility options, keyboard and controller menu navigation, synthesized engine/wind/radio audio, adaptive resolution, an error overlay and a bug sweep.
+- Next step: user playtests the release candidate on the live URL. If it passes, the project is done (Definition of done, section 13 of the master prompt); otherwise fix what the playtest finds.
+- Live playtest / release URL: https://coder-4847.github.io/Flightsim/
 
-## What to test in this build (Phase 5)
-Phases 1-4 content (maps, 14 aircraft, ATC, HUD) still applies. New: Start flying opens the mode hub.
-1. Pilots: the pilot chip (top right of every mode screen) or "Pilots and saves" opens three save slots. Create a pilot (10,000 cr, only the Skyhawk 172 owned). Rename, Export (downloads a .json), Import into any slot, Delete (asks twice). Reload the page: the pilot, money and unlocks are still there. Autosave happens after every landing/mission, when you pause, on purchases and when you leave to the menu.
-2. Quick Flight is the old sandbox: everything unlocked, nothing earned, any paint scheme (Paint row in the hangar).
-3. Free Flight: needs a pilot and an aircraft you own (locked ones show their price). Take off, fly to another airport and land and stop: the Landing report pays for distance (the straight line between airports counts, circling does not), passengers or cargo, touchdown quality, landing fee and sights flown over (towns and lakes; each once per flight). Simulation preset pays 1.3x, Custom 1.1x. "Continue flying" starts a new leg. Crashing costs a repair bill and the leg's earnings.
-4. Career: 37 missions in five tiers (Flight school, Bush and turboprop, Jet age, Military, Airline) across all three maps and all 14 aircraft, each unlocking the next. The briefing shows route, conditions, fuel, bonus objectives (landing quality, time, fuel burn, sights, stop on runway) and, for some missions, a hard deadline or tight fuel. Stars: 1 for completing, +1 per met bonus (max 3); each bonus adds 15 percent. Replays pay half. Aircraft are loaned in Career, Emergency and VIP.
-5. Emergency Landing: pick a seed (type one, "Today's challenge", Random) and a difficulty (by seed / easy / hard / extreme). Failures start 6-18 s in and are staggered; the Mission panel (F9) lists suitable airports with bearing and distance. The same seed always gives the same aircraft, place, weather and failures at the same times. Score 0-100 (landing at a suitable airport, touchdown quality, stopping on the runway, airframe intact, quick decision) becomes grade S-F and hazard pay; your best per seed is kept.
-6. VIP Escort: 10 contracts. The comfort meter (Mission panel) drops with turbulence, hard pulls, steep banks, abrupt pitch/roll, steep descents and stalls and slowly recovers. The touchdown sets the share of the fare: Smooth 100, Good 80, Firm 55, Hard 25, Very hard 0 percent. Comfort at zero ends the flight. Some contracts want you down within a time or the fare drops 15 percent.
-7. Shop: Aircraft (prices 18,000 to 1,200,000 cr), Liveries (5 civil or 3 military fictional paint schemes per aircraft), Upgrades: Moving-map GPS (the M map), Approach assist (F8 approach guide), Terrain awareness (terrain and sink-rate warnings), Cabin pack (+20 percent passenger/VIP pay, VIPs tolerate more), Cargo pack (+20 percent cargo pay), Hull insurance (repair bills -75 percent). Without GPS or Approach assist those panels stay locked in the save-based modes and a toast says why.
-8. F9 (or the toolbar) opens the Mission panel: objectives, route, timer, comfort or suitable airports. After a result the Debrief shows each payout line and offers Next mission / Retry / Continue.
-9. Console should be clean.
+## What to test in this build (Phase 6, release candidate)
+Everything from Phases 1-5 still applies (see git history for the earlier checklists). New:
+1. Intro: the title plays for about 3 s on every page load; any key, click or controller button skips it. Then the animated main menu (sunset sky, drifting clouds, four mountain layers, an airliner with a contrail now and then). Buttons: Fly, Continue as <pilot> (when a pilot exists), Settings, Controls (opens the bindings), How to play and about, Fullscreen.
+2. Settings is now tabbed: Gameplay, Display, Audio, Controls, Accessibility, Data. Controls has the controller sliders and a filterable binding table with a reset button per action. Data has Pilots and saves, Reset settings and Erase all game data (asks twice).
+3. Accessibility: Text and menu size (Normal, Large, Extra large; scales menus and the HUD), High contrast, Colour-blind friendly colours (blue/yellow/orange instead of red/green; also the instruments), Radio subtitles on/off, Reduce motion (also stops the menu animation, blinking warnings and transitions; it defaults to your operating system's setting).
+4. Menus without a mouse: arrow keys or D-pad/left stick move to the nearest control, Enter/Space or A selects, Esc or B goes back, Start presses the primary button (Resume on the pause screen), Left/Right on a slider changes it. Works on every screen, the debrief and the crash card. A small hint bar appears when a controller is in use.
+5. Audio (click once first; browsers need a gesture): engines per aircraft type (piston, turboprop, turbofan, afterburner), airflow that grows with speed, tyre rumble, flap/gear motors, stall buffet, touchdown chirp and crash. Cockpit camera muffles everything. Radio blips and squelch on ATC messages. Volumes in Settings > Audio: master, engines and wind, radio and call-outs, warnings, menu clicks. Pausing silences the engines.
+6. Graphics quality Auto (default) lowers the render resolution when the frame rate drops below about 44 fps and raises it again; the FPS counter shows the current resolution percentage. Low/Medium/High are fixed.
+7. If anything throws, an overlay offers Reload, Back to the menu or Dismiss (the flight pauses first). If the browser blocks storage, pilots work for the session and the game says so.
+8. Console should be clean.
 
 ## Decisions
 - 2026-10-14 Plain JavaScript (ES modules), no TypeScript. Three.js WebGL2 only. Vite `base: './'`.
@@ -53,6 +52,10 @@ Phases 1-4 content (maps, 14 aircraft, ATC, HUD) still applies. New: Start flyin
 - 2026-10-14 VIP comfort: loss per second from turbulence (|nz - 1| above 0.2 g), hard pulls (above 0.5 g, steeper), bank over 28 degrees, pitch rate over 5 deg/s, roll rate over 12 deg/s, descent faster than 2,200 fpm, climbs over 4,500 fpm, stall warning/stall, overspeed; recovery 0.35/s; touchdown knocks Firm 12, Hard 30, Very hard 60. Weather alone costs almost nothing (checked at 4 minutes in every sky). The cabin pack scales losses by 0.75.
 - 2026-10-14 Saves: localStorage keys `flightsim:save:1..3` and `flightsim:activeSlot`, version 1, `sanitizeSave` repairs or rejects anything imported. Export files contain `{game:'flightsim', ...save}`.
 
+- 2026-10-15 Phase 6: menu navigation is `ui/navigation.js` (spatial focus search over focusable elements inside the active screen, the crash card or the error overlay; polled on a 33 ms timer, not per frame, so it works when the 3D view is slow; while a menu owns the controller `Input.uiCapture` keeps buttons from reaching the aircraft). Audio is one shared `AudioContext` (`audio/audioBus.js`) with fx/voice/alert/ui buses driven by the volume settings; `EngineSound` rebuilds its voices per flight; everything is synthesized (oscillators, looped white/brown noise, filters). UI scale uses CSS `zoom` on `.screen` with `--ui-zoom` and `--vh = 100dvh / zoom` for heights; the HUD multiplies its own scale by the text size. Colour-blind mode swaps CSS variables (`--good`, `--warn`, `--danger`) and the canvas instrument `COLORS`.
+- 2026-10-15 Menu backdrop is a 2D canvas (`ui/menuBackground.js`, 30 fps, one still frame with Reduce motion), moving only on the main menu. Adaptive resolution (`scene/adaptiveQuality.js`) scales the pixel ratio between 0.55 and 1 of its maximum in steps with cooldowns. `Terrain.update` skips the quadtree selection while nothing is pending and the camera moved under 20 m horizontally / 12 m vertically.
+- 2026-10-15 Aircraft GPU resources are released when a flight ends (`aircraft/dispose.js`; textures marked `userData.shared` are kept). Checked over six start/quit cycles: texture and geometry counts stay flat.
+
 ## Known bugs / limits
 - Not verified on a real GPU: all browser testing uses software rendering (about 5-15 fps). A hub view is about 700 draw calls and 0.5M triangles; the frame rate on target hardware needs the user's check.
 - AI traffic is decorative: no landing/takeoff circuits, no collision with the player (Phase 4 ATC will replace it).
@@ -62,7 +65,9 @@ Phases 1-4 content (maps, 14 aircraft, ATC, HUD) still applies. New: Start flyin
 - ATC taxi guidance is text only: the player picks their own taxi route, the tower detects the hold-short point. AI aircraft do not use taxiways beyond the generated path and do not give way to the player on the ground.
 - Cross runways have no taxiway connectors; AI and the hold-short point fall back to a straight line there.
 - No autopilot or FMS; vectors are given by heading and altitude only.
-- Free camera still not implemented. Tower view uses each airport's tower. Gamepad cannot navigate menus yet (Phase 6).
+- Free camera still not implemented. Tower view uses each airport's tower.
+- Audio is synthesized and tuned by reasoning, not by ear on real speakers: levels may need a nudge (Settings > Audio). The ATC voice uses the browser's speech synthesis and so depends on the installed voices.
+- Frame rate on a real GPU is still unmeasured; Auto quality is the safety net. Touch screens are not supported.
 - Free Flight payloads are only for pay: passengers and cargo do not change the aircraft's weight.
 - Emergency scenarios are not guaranteed survivable at the highest difficulty (it is the player's job); only engine-out singles are placed within glide range.
 - Locking a panel (map, approach) closes it and the closed state is remembered for later Quick Flights.
@@ -82,17 +87,18 @@ Phases 1-4 content (maps, 14 aircraft, ATC, HUD) still applies. New: Start flyin
 - src/traffic/: fleet (shared baked models, gear-up variants), parked, airTraffic
 - src/atc/: controller (player ATC), aiTraffic (AI departures and arrivals), geometry (runways, taxi routes), phraseology (spoken numbers and callsigns), voice (speech synthesis)
 - src/game/: session, startPoints (incl. gate), modes (presets and toggles), failures, checklists, warnings, approachGuide
-- src/audio/alerts.js: master chime, caution, stall horn, call-outs
+- src/audio/: audioBus (shared context, buses, one-shot sounds), engineSound (engines, wind, tyres, servos), alerts (warning sounds and call-outs)
 - src/progress/: saves (slots, export/import, purchases), catalog (prices, economy table, liveries, upgrades)
 - src/modes/: economy (pure pay arithmetic), tracker (takeoff/touchdown/landed/sights), missions (37 career contracts), vip (contracts, comfort meter), emergency (seeded scenarios, scoring), freeflight, contract (career + VIP), runner
 - src/flight/systems.js: electrics, APU, hydraulics, pitot, jam, leak, fire, dump
 - src/game/: session (one flight), startPoints (runway / final / air spawns)
-- src/ui/: menus, settings, mapSelect, flightSetup (hangar, paint, ownership), aircraftPreview, flightHud, hud/ (panels, radio, engines, controls, systems, checklist, instrument panels, pad menu, mission panel), modeSelect, savesScreen, shopScreen, contractScreen, emergencyScreen, debrief, pilotBar
+- src/ui/: menus (mainMenu, intro, menuBackground, aboutScreen), navigation (keyboard and controller focus), errorOverlay, settings (tabbed), mapSelect, flightSetup (hangar, paint, ownership), aircraftPreview, flightHud, hud/ (panels, radio, engines, controls, systems, checklist, instrument panels, pad menu, mission panel), modeSelect, savesScreen, shopScreen, contractScreen, emergencyScreen, debrief, pilotBar
 - src/util/: noise (Perlin), random (seeded)
 - scripts/: simtest (headless flight checks), authority (pitch authority at approach), kbtest (keyboard pilot), modetest (Phase 5), bench-terrain, inspect-maps
 
 ## How to run, test, deploy
 - Install: `npm ci` (Node 22). Dev: `npm run dev`. Build: `npm run build`. Preview: `npm run preview`.
+- Phase 6 checks are Playwright scripts kept out of the repo (menu navigation with a fake gamepad, audio level via an analyser tap `__flightsim.audio.level()`, all-aircraft console sweep, memory/leak cycle, CPU profile of update/render). `window.__flightsim` also exposes `audio` and `engineSound`.
 - Phase 5: `node scripts/modetest.mjs` (catalogue, saves, economy, all 37 missions and 10 VIP contracts resolve, 300 emergency seeds repeat, scripted landings through Free Flight, Career, Emergency, VIP and a full takeoff-to-landing leg). `DEBUG=1` prints a trace.
 - Physics: `node scripts/simtest.mjs [id]` (takeoff, cruise per assist level, stalls, landing, hard landing), `node scripts/kbtest.mjs [id]`, `node scripts/authority.mjs [id]`.
 - Browser tests: Playwright + system Chromium with `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`; `window.__flightsim` exposes state/session/settings. `startFlight({aircraftId, mapId, airportCode, endId, startMode, hour, sky})` runs a flight.
@@ -111,7 +117,12 @@ Phases 1-4 content (maps, 14 aircraft, ATC, HUD) still applies. New: Start flyin
 - Headless (`scripts/modetest.mjs`): catalogue/liveries, save slots (create, reload, purchases persist, export/import, repair of bad data), economy ordering (smooth beats hard, circling does not pay, VIP tiers fall 100/80/55/25/0), 37 missions resolve with valid airports, runway lengths, fuel and fair deadlines, 10 VIP contracts, 300 seeds deterministic with spawns above terrain and engine-out singles within glide, sightseeing, deadline failure, and scripted landings paid through each mode including a whole VPAS to VPLA leg with takeoff detection.
 - Browser (headless Chromium, scripted pilot driving the real UI): create a pilot, Free Flight with locked aircraft, full leg and Debrief, "Continue flying", upgrade gating toast, pause autosave, Quick Flight unlocked, Career c01 (3 stars, 780 cr, next mission unlocked and preselected), crash in a mission (repair bill on the crash card), Emergency seed repeat (same failures at the same times after Retry), Emergency success debrief (grade A, best score stored), VIP comfort bar and escort payout, shop purchases (upgrade, livery), export/import, reload persistence; no console errors.
 
+## Verification record (Phase 6)
+- Browser (headless Chromium): intro and menu screenshots, tabbed settings with Extra large text + high contrast + colour-blind on, menu navigation by arrow keys and by a fake gamepad (D-pad, A, B, Start; slider adjust; pause screen; crash card), audio graph produces signal for piston/turboprop/turbofan/afterburner and is silent when paused or when the effects volume is 0, all 14 aircraft started on rotating maps, start modes, presets and skies with panels, cameras and pause exercised and no console errors, six start/quit cycles with flat GPU memory, storage-blocked browser still works, Phase 5 flows re-run (Free Flight leg, Career c01, Emergency, VIP) with no regressions.
+- CPU (software GL, so pessimistic): physics 0.05 ms per 120 Hz step, world update about 3 ms, render submit 5-9 ms per frame at 300-500 draw calls.
+
 ## Session log (newest first)
+- 2026-10-15 Phase 6 built: intro, animated menu, tabbed settings, accessibility, menu navigation, audio, adaptive resolution, error overlay, GPU memory fix, HUD default layout fixes. Pages deploy to be confirmed.
 - 2026-10-14 Phase 5 finished: saves, catalogue, economy, tracker, missions, VIP, emergency, mode runner and all screens. Pushed; Pages run #17 (commit ec928a8) deployed successfully.
 - 2026-10-14 Phase 4 finished: modes and toggles, systems and failures, ATC and AI traffic, HUD panels, controller menu, alerts; hub runway pair fix. Pushed; Pages run #15 (commit 39cfb54) deployed successfully.
 - 2026-10-14 Phase 3 finished: ten aircraft, jumbo fuel/CG model, hangar preview and spec sheet, runway-length warnings, baked AI traffic, nav-map airports, night cockpit/windows. Pushed to the branch; Pages run #10 (commit 30ebbe0) built and deployed successfully (runs #7/#8 failed only because Pages had a previous deployment still in progress; re-run or push again if that recurs).

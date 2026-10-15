@@ -6,7 +6,7 @@ Live build: https://coder-4847.github.io/Flightsim/
 
 Project status, decisions and the file map live in [`memory.md`](memory.md).
 
-Current build (Phase 5): three generated 120 km maps (grasslands, desert, snow) with 11-13 airports each, 14 flyable aircraft with cockpits, weather and day/night, arcade / simulation / custom modes, ATC with AI airport traffic, failures and checklists, a full mouse- and controller-operable HUD, and the game modes: Quick Flight, Free Flight, a 37-mission Career, seeded Emergency Landing scenarios and VIP Escort, with an economy (aircraft, liveries and upgrades), three save slots and JSON export/import.
+Release candidate 1.0.0-rc.1 (Phase 6). Highlights: three generated 120 km maps (grasslands, desert, snow) with 11-13 airports each, 14 flyable aircraft with cockpits, weather and day/night, arcade / simulation / custom modes, ATC with AI airport traffic, failures and checklists, a full mouse- and controller-operable HUD, and the game modes: Quick Flight, Free Flight, a 37-mission Career, seeded Emergency Landing scenarios and VIP Escort, with an economy (aircraft, liveries and upgrades), three save slots and JSON export/import. Full keyboard, mouse and controller control (menus included), complete remapping, synthesized audio, accessibility options (text size, high contrast, colour-blind colours, subtitles, reduced motion) and adaptive resolution.
 
 ```
 npm ci

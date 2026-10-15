@@ -17,6 +17,7 @@ import { SaveManager } from './progress/saves.js';
 import { createContractScreen } from './ui/contractScreen.js';
 import { createDebrief } from './ui/debrief.js';
 import { createEmergencyScreen } from './ui/emergencyScreen.js';
+import { installErrorHandling } from './ui/errorOverlay.js';
 import { createFlightHud } from './ui/flightHud.js';
 import { createFlightSetup } from './ui/flightSetup.js';
 import { createAboutScreen } from './ui/aboutScreen.js';
@@ -324,6 +325,12 @@ function boot() {
     setTimeout(() => { if (state.is(GameState.FLYING) && runner.result === res) showDebrief(res); }, res.success ? 1500 : 900);
   });
   window.addEventListener('pagehide', () => saves.autosave('close'));
+  let warnedStorage = false;
+  saves.on('saved', ({ ok }) => {
+    if (ok || warnedStorage) return;
+    warnedStorage = true;
+    flightHud.showToast('Could not save: browser storage is unavailable. Export your pilot from Pilots and saves to keep it.');
+  });
 
   // ---- state transitions ---------------------------------------------------
   state.on('change', async ({ to }) => {
@@ -440,6 +447,11 @@ function boot() {
   }, { passive: false });
   window.addEventListener('resize', () => flightScene.resize());
 
+  installErrorHandling({
+    root: uiRoot, canvas,
+    onError: () => { saves.autosave('error'); if (state.is(GameState.FLYING)) state.go(GameState.PAUSED); },
+    onMenu: () => { if (!state.is(GameState.MENU)) state.go(GameState.MENU); },
+  });
   loop.start();
 
   // Handle for debugging and automated playtests.

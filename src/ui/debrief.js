@@ -13,7 +13,7 @@ export function createDebrief() {
   const notes = h('ul.debrief-notes');
   const saved = h('p.debrief-saved');
   const actions = h('div.debrief-actions');
-  const el = h('section.debrief-screen', h('div.debrief-card', title, subtitle, badge, goals, lines, notes, saved, actions));
+  const el = h('section.debrief-screen', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Flight report' }, h('div.debrief-card', title, subtitle, badge, goals, lines, notes, saved, actions));
 
   /** @param result from ModeRunner; @param buttons [{label, primary?, run}] */
   el.show = (result, buttons, savedText = '') => {

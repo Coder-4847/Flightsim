@@ -36,6 +36,8 @@ export function createNavigator({ ui, screens, input, settings, audio }) {
 
   /** The element that currently owns navigation: the active screen, or the crash card while flying. */
   function context() {
+    const err = ui.querySelector('.error-overlay:not([hidden])');
+    if (err) return err;
     if (screens.current) {
       const el = ui.querySelector(`.screen.active`);
       if (el) return el;
@@ -121,6 +123,7 @@ export function createNavigator({ ui, screens, input, settings, audio }) {
     const ctx = context();
     if (!ctx) return false;
     if (ctx.matches('.crash-card')) return false;
+    if (ctx.matches('.error-overlay')) { ctx.querySelector('button:last-child')?.click(); return true; }
     const btn = [...ctx.querySelectorAll('button')].find((b) => visible(b) && /^(back|close|resume)$/i.test(b.textContent.trim()));
     if (btn) { btn.click(); audio?.click?.(); return true; }
     return false;

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { AircraftView } from '../aircraft/aircraftView.js';
 import { createCockpit } from '../aircraft/cockpit/index.js';
+import { disposeObject } from '../aircraft/dispose.js';
 import { h } from './dom.js';
 
 // A small turntable of the selected aircraft for the hangar screen. It has its own WebGL context
@@ -29,7 +30,7 @@ export function createAircraftPreview() {
   function dispose() {
     if (!view) return;
     scene.remove(view.root);
-    view.root.traverse((o) => { o.geometry?.dispose?.(); });
+    disposeObject(view.root);
     view = null;
   }
 

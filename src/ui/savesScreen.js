@@ -17,6 +17,7 @@ function download(name, text) {
 export function createSavesScreen({ saves, onBack, onPicked }) {
   const list = h('div.slot-list');
   const notice = h('p.notice');
+  const storageWarn = h('p.help.warn', { hidden: true }, 'This browser is not letting the game store data (private window or blocked site data). Pilots work for this session only: use Export to keep one.');
   const fileInput = h('input', { type: 'file', accept: 'application/json,.json', hidden: true });
   let importSlot = 0;
   let confirmDelete = 0;
@@ -66,6 +67,7 @@ export function createSavesScreen({ saves, onBack, onPicked }) {
   }
 
   function paint() {
+    storageWarn.hidden = !saves.storageFailed;
     list.replaceChildren(...saves.list().map(slotCard));
   }
 
@@ -74,7 +76,7 @@ export function createSavesScreen({ saves, onBack, onPicked }) {
       h('header.settings-head', h('h2', 'Pilots and saves'), h('div.head-actions', h('button.btn.small', { onclick: onBack }, 'Back'))),
       h('div.select-body',
         h('p.help', `${SLOT_COUNT} pilots are stored in this browser. The game saves after every landing and mission, when you pause, and when you buy something. Export a file to keep a backup or move to another device.`),
-        list, notice, fileInput),
+        storageWarn, list, notice, fileInput),
     ),
   );
   el.refresh = () => { confirmDelete = 0; editing = 0; notice.textContent = ''; paint(); };

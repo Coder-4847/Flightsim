@@ -2,6 +2,9 @@ import { Emitter } from '../core/events.js';
 import { loadJSON, saveJSON } from './store.js';
 
 const STORAGE_KEY = 'settings';
+
+// First-run defaults follow the operating system's accessibility preferences.
+const prefers = (query) => typeof matchMedia === 'function' && matchMedia(query).matches;
 const VERSION = 1;
 
 // Single source of truth for settings. The settings screen is generated from
@@ -140,7 +143,7 @@ export const SETTINGS_SCHEMA = {
     hint: 'Scales menus and the flight HUD (HUD scale in Display still applies on top).',
   },
   highContrast: {
-    section: 'Accessibility', label: 'High contrast', type: 'bool', default: false,
+    section: 'Accessibility', label: 'High contrast', type: 'bool', default: prefers('(prefers-contrast: more)'),
     hint: 'Black backgrounds, white text, strong borders and thicker focus outlines.',
   },
   colorblind: {
@@ -152,7 +155,7 @@ export const SETTINGS_SCHEMA = {
     hint: 'Shows each ATC message on screen as it is spoken (the radio panel transcript is always available).',
   },
   reduceMotion: {
-    section: 'Accessibility', label: 'Reduce motion', type: 'bool', default: false,
+    section: 'Accessibility', label: 'Reduce motion', type: 'bool', default: prefers('(prefers-reduced-motion: reduce)'),
     hint: 'Disables the animated menu background, the auto-orbiting camera, blinking warnings and interface transitions.',
   },
 };

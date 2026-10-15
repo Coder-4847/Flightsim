@@ -5,7 +5,7 @@ import { h } from '../dom.js';
 // info() returns and redraws when that changes.
 
 export function createMissionPanel(hud) {
-  const panel = hud.panels.create({ id: 'mission', title: 'Mission', x: 16, y: 150, width: 300, hint: 'F9' });
+  const panel = hud.panels.create({ id: 'mission', title: 'Mission', x: 16, y: Math.max(316, window.innerHeight - 340), width: 300, hint: 'F9' });
   const head = h('div.ms-head');
   const goals = h('ul.ms-goals');
   const rows = h('dl.ms-rows');

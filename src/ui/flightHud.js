@@ -33,8 +33,8 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   };
   const strip = h('div.strip', Object.values(cells).map((c) => c.el));
   const status = h('div.status');
-  const warnings = h('div.warnings');
-  const toast = h('div.toast');
+  const warnings = h('div.warnings', { role: 'alert', 'aria-live': 'assertive', 'aria-atomic': 'false' });
+  const toast = h('div.toast', { role: 'status', 'aria-live': 'polite' });
   const info = h('div.cam-info');
   const hint = h('div.flight-hint');
   const touchdown = h('div.touchdown');
@@ -48,7 +48,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   const crashRestart = h('button.btn.primary', { onclick: onRestart }, 'Restart flight');
   const crashSelect = h('button.btn', { onclick: onSelect }, 'Choose aircraft');
   const crashMenu = h('button.btn', { onclick: onMenu }, 'Main menu');
-  const crash = h('div.crash-card', { hidden: true }, crashTitle, crashReason, crashNote, h('div.crash-actions', crashRestart, crashSelect, crashMenu));
+  const crash = h('div.crash-card', { hidden: true, role: 'alertdialog', 'aria-label': 'Flight ended' }, crashTitle, crashReason, crashNote, h('div.crash-actions', crashRestart, crashSelect, crashMenu));
 
   const el = h('div.flight-hud', warnings, info, toast, touchdown, subtitle, hint, strip, status, panelRoot, toolbar, crash);
 
@@ -187,7 +187,8 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     // First time on this device: open a sensible set of panels for the chosen mode.
     if (!localStorage.getItem('hudpanels')) {
       const sim = settings.get('preset') !== 'arcade';
-      const open = sim ? ['pfd', 'engines', 'radio'] : [];
+      // Small windows get fewer panels so nothing sits on top of anything else.
+      const open = sim ? (window.innerWidth >= 1250 ? ['pfd', 'engines', 'radio'] : ['radio']) : [];
       for (const id of open) hud.panels.get(id).open();
     }
     el.refreshSystems();

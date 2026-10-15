@@ -38,6 +38,7 @@ export function getPanelBump() {
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(3, 2);
+  tex.userData.shared = true;
   panelBump = tex;
   return tex;
 }
@@ -111,6 +112,7 @@ function getGlowTexture() {
   g.fillStyle = grad;
   g.fillRect(0, 0, 64, 64);
   glowTexture = new THREE.CanvasTexture(c);
+  glowTexture.userData.shared = true;
   return glowTexture;
 }
 

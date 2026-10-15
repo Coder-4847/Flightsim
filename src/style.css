@@ -633,3 +633,10 @@ body.high-contrast .row, body.high-contrast .bind-row { border-bottom-color: #4d
 input[type=range].nav-focus { outline-offset: 6px; border-radius: 4px; }
 .nav-hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 6px 14px; font-size: 12px; color: var(--muted); background: rgba(11, 15, 20, 0.85); border: 1px solid var(--line); border-radius: 16px; pointer-events: none !important; z-index: 50; }
 .nav-hint[hidden] { display: none; }
+
+.error-overlay { position: absolute; inset: 0; z-index: 200; display: grid; place-items: center; padding: var(--gap); background: rgba(5, 8, 12, 0.8); }
+.error-overlay[hidden] { display: none; }
+.error-card { width: min(460px, 100%); display: flex; flex-direction: column; gap: 14px; padding: 26px 28px; background: var(--panel); border: 1px solid #5a2a2a; border-top: 3px solid var(--danger); border-radius: var(--radius); }
+.error-card h2 { color: var(--danger); }
+.error-detail { color: var(--muted); line-height: 1.5; font-size: 14px; word-break: break-word; }
+.error-actions { display: flex; flex-direction: column; gap: 8px; }

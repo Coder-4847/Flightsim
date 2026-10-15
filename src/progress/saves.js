@@ -82,6 +82,7 @@ export class SaveManager extends Emitter {
   constructor() {
     super();
     this.slots = [];
+    this.storageFailed = false; // true once a write was refused (private window, blocked site data, full disk)
     this.activeSlot = null;
     this.active = null;
     this.reload();
@@ -143,6 +144,7 @@ export class SaveManager extends Emitter {
     if (!this.active) return false;
     this.active.updated = Date.now();
     const ok = saveJSON(SLOT_KEY(this.activeSlot), this.active);
+    if (!ok) this.storageFailed = true;
     this.lastSave = { reason, time: Date.now(), ok };
     this.emit('saved', this.lastSave);
     return ok;
@@ -151,7 +153,9 @@ export class SaveManager extends Emitter {
   #write(slot, save) {
     save.updated = Date.now();
     this.slots[slot - 1] = save;
-    return saveJSON(SLOT_KEY(slot), save);
+    const ok = saveJSON(SLOT_KEY(slot), save);
+    if (!ok) this.storageFailed = true;
+    return ok;
   }
 
   // ---- export and import -----------------------------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { AircraftView } from '../aircraft/aircraftView.js';
+import { disposeObject } from '../aircraft/dispose.js';
 import { createCockpit } from '../aircraft/cockpit/index.js';
 import { specWithLivery } from '../progress/catalog.js';
 import { buildMap, getAirport } from '../world/mapBuilder.js';
@@ -200,9 +201,7 @@ export class FlightSession {
     this.voice?.cancel();
     if (!this.view) return;
     this.flightScene.scene.remove(this.view.root);
-    this.view.root.traverse((o) => {
-      o.geometry?.dispose?.();
-    });
+    disposeObject(this.view.root);
     this.view = null;
     this.model = null;
   }

@@ -51,7 +51,7 @@ export function createPauseMenu({ onResume, onRestart, onSettings, onQuit }) {
   const context = h('p.pause-context');
   const restart = h('button.btn', { onclick: onRestart }, 'Restart flight');
   const quit = h('button.btn.danger', { onclick: onQuit }, 'Quit to menu');
-  const el = h('section.pause-screen',
+  const el = h('section.pause-screen', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Paused' },
     h('div.menu-card.compact',
       h('h2', 'Paused'),
       context,

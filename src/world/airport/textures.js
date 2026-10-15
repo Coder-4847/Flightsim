@@ -491,10 +491,10 @@ export function groundTexture(kind) {
       let r; let g; let bl;
       if (kind === 'grass') {
         const stripe = Math.floor(x / (S / 4)) % 2 ? 1.0 : 0.88; // 3 m mowing bands
-        const v = (0.55 + (a[i] - 0.5) * 0.25 + (b[i] - 0.5) * 0.22 + (rnd() - 0.5) * 0.18) * stripe;
-        r = 78 * v + 10; g = 112 * v + 12; bl = 40 * v + 6;
+        const v = (0.95 + (a[i] - 0.5) * 0.25 + (b[i] - 0.5) * 0.22 + (rnd() - 0.5) * 0.18) * stripe;
+        r = 112 * v; g = 148 * v; bl = 62 * v;
       } else if (kind === 'dirt') {
-        const v = 0.62 + (a[i] - 0.5) * 0.3 + (b[i] - 0.5) * 0.2 + (rnd() - 0.5) * 0.2;
+        const v = 0.9 + (a[i] - 0.5) * 0.3 + (b[i] - 0.5) * 0.2 + (rnd() - 0.5) * 0.2;
         r = 170 * v; g = 140 * v; bl = 100 * v;
         if (rnd() < 0.01) { r *= 0.6; g *= 0.6; bl *= 0.6; }
       } else {

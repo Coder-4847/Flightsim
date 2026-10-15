@@ -376,8 +376,8 @@ export function layoutAirport(a) {
     } else {
       const small = cls === 'small';
       const opts = small
-        ? { dep: 55, holdFromRunway: mainInfo.W / 2 + 28, exitStretch: 2.0, exitFracs: [[0.5, 0.75], [0.55, 0.8]], midConnector: true }
-        : { dep: 110, holdFromRunway: 65, exitStretch: 2.2, exitFracs: [[0.3, 0.55, 0.75], [0.36, 0.62]], midConnector: false };
+        ? { dep: 55, holdFromRunway: mainInfo.W / 2 + 28, exitStretch: 2.0, exitFracs: [[0.55, 0.8], [0.55, 0.8]], midConnector: true }
+        : { dep: 110, holdFromRunway: 65, exitStretch: 2.2, exitFracs: [[0.3, 0.55, 0.79], [0.51, 0.75]], midConnector: false };
       const A = serveRunway(mainInfo, vt, plan.holdV, 'A', opts);
       serve = [A];
       const half = plan.taxiHalf;

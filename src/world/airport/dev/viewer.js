@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildMap } from '../../mapBuilder.js';
 import { Environment } from '../../../scene/environment.js';
 import { AirportManager } from '../../airportBuilder.js';
+import { layoutAirport } from '../../airportLayout.js';
 
 // Developer-only airport viewer (not part of the build): /src/world/airport/dev/viewer.html
 // Loads the airport data of a map without terrain, puts it on a flat plane, and exposes window.view().
@@ -32,6 +33,7 @@ let current = null;
 
 window.show = (code) => {
   current = map.airports.find((a) => a.code === code) ?? map.airports.find((a) => a.cls === code) ?? map.airports[0];
+  layoutAirport(current);
   ground.position.set(current.x, current.elevation - 0.02, current.z);
   return current.code;
 };

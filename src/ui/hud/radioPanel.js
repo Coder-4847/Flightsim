@@ -44,8 +44,9 @@ export function createRadioPanel(hud) {
     transcript.append(line);
     while (transcript.children.length > 60) transcript.firstChild.remove();
     transcript.scrollTop = transcript.scrollHeight;
+    if (msg.who !== 'ATC') hud.audio?.radioKey();
     if (msg.who === 'ATC') {
-      hud.audio?.chime();
+      hud.audio?.radio(msg);
       hud.showSubtitle?.(msg);
       if (!panel.isOpen && hud.autoOpenRadio) panel.open();
     }

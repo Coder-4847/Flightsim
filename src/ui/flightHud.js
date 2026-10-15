@@ -1,4 +1,5 @@
 import { AlertAudio } from '../audio/alerts.js';
+import { getAudio } from '../audio/audioBus.js';
 import { computeApproach } from '../game/approachGuide.js';
 import { evaluate as evaluateWarnings } from '../game/warnings.js';
 import { h } from './dom.js';
@@ -52,7 +53,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   const el = h('div.flight-hud', warnings, info, toast, touchdown, subtitle, hint, strip, status, panelRoot, toolbar, crash);
 
   // ---- shared context for the panels ----------------------------------------------------------------------------
-  const audio = new AlertAudio(settings);
+  const audio = new AlertAudio(settings, getAudio(settings));
   const hud = {
     panels: new PanelManager(panelRoot),
     audio,
@@ -123,6 +124,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   };
 
   function showSubtitle(msg) {
+    if (settings.get('subtitles') === false) return;
     // Subtitles for the controller voice: always shown when the transcript panel is closed.
     subtitle.replaceChildren(h('b', `${msg.station ?? 'ATC'}: `), msg.text);
     subtitle.classList.add('show');

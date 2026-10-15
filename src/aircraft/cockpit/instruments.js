@@ -7,6 +7,13 @@ export const COLORS = {
   green: '#37d67a', yellow: '#f2c230', red: '#ef4b4b', cyan: '#4cc2ff', sky: '#2f78c2', ground: '#7a5a34', amber: '#ffb000',
 };
 
+const NORMAL_COLORS = { green: COLORS.green, yellow: COLORS.yellow, red: COLORS.red, amber: COLORS.amber };
+const CVD_COLORS = { green: '#56b4e9', yellow: '#f0e442', red: '#ff8a3d', amber: '#f0e442' };
+/** Swap the red/green status colours of every instrument for a colour-blind safe set (and back). */
+export function setColorBlind(on) {
+  Object.assign(COLORS, on ? CVD_COLORS : NORMAL_COLORS);
+}
+
 const polar = (cx, cy, r, deg) => [cx + r * Math.sin(deg * DEG), cy - r * Math.cos(deg * DEG)];
 
 export function bezel(ctx, cx, cy, r) {

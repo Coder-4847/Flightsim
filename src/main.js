@@ -3,11 +3,14 @@ import { GameLoop } from './core/loop.js';
 import { GameState, StateMachine } from './core/stateMachine.js';
 import { watchModes } from './game/modes.js';
 import { FlightSession } from './game/session.js';
+import { setColorBlind } from './aircraft/cockpit/instruments.js';
 import { Input } from './input/input.js';
 import { FlightScene } from './scene/flightScene.js';
 import { Keybinds } from './storage/keybinds.js';
 import { Settings } from './storage/settings.js';
 import { h } from './ui/dom.js';
+import { getAudio } from './audio/audioBus.js';
+import { EngineSound } from './audio/engineSound.js';
 import { ModeRunner } from './modes/runner.js';
 import { SaveManager } from './progress/saves.js';
 import { createContractScreen } from './ui/contractScreen.js';
@@ -16,6 +19,7 @@ import { createEmergencyScreen } from './ui/emergencyScreen.js';
 import { createFlightHud } from './ui/flightHud.js';
 import { createFlightSetup } from './ui/flightSetup.js';
 import { createMapSelect } from './ui/mapSelect.js';
+import { createNavigator } from './ui/navigation.js';
 import { createModeSelect } from './ui/modeSelect.js';
 import { createSavesScreen } from './ui/savesScreen.js';
 import { createShopScreen } from './ui/shopScreen.js';
@@ -53,6 +57,8 @@ function boot() {
   const session = new FlightSession(flightScene, input, settings);
   const saves = new SaveManager();
   const runner = new ModeRunner({ session, saves, settings });
+  const audio = getAudio(settings);
+  const engineSound = new EngineSound(audio);
   let selection = null;
   let menuScreen = 'main'; // which menu screen to land on when a flight ends
   let pendingDebrief = false;
@@ -101,6 +107,7 @@ function boot() {
   };
   const restartFlight = () => {
     session.restart();
+    engineSound.attach(session.model);
     if (runner.active) runner.attach();
     flightHud.setCrash(null);
     flightHud.bind(session);
@@ -115,7 +122,7 @@ function boot() {
   };
 
   const settingsScreen = createSettingsScreen({
-    settings, bindings, input, onBack: () => screens.show(settingsReturn),
+    settings, bindings, input, onBack: () => screens.show(settingsReturn), onPilots: () => openSaves('settings'),
   });
   const mapScreen = createMapSelect({
     onSelect: (mapId) => { setupScreen.setMap(mapId); openScreen('setup'); },
@@ -168,6 +175,7 @@ function boot() {
   screens.register('pause', pauseMenu);
   screens.register('settings', settingsScreen);
   screens.show('main');
+  createNavigator({ ui: uiRoot, screens, input, settings, audio });
 
   session.onToast = (text) => flightHud.showToast(text);
   session.onSystemsChanged = () => flightHud.refreshSystems();
@@ -178,7 +186,19 @@ function boot() {
     switch (key) {
       case 'quality': flightScene.setQuality(value); break;
       case 'showFps': hud.setFpsVisible(value); break;
-      case 'hudScale': hud.setScale(value); flightHud.style.setProperty('--hud-scale', value); break;
+      case 'hudScale': case 'textSize': {
+        const text = Number(settings.get('textSize'));
+        const scale = settings.get('hudScale') * text;
+        hud.setScale(scale);
+        flightHud.style.setProperty('--hud-scale', scale);
+        document.documentElement.style.setProperty('--ui-zoom', String(text));
+        break;
+      }
+      case 'highContrast': document.body.classList.toggle('high-contrast', value); break;
+      case 'colorblind':
+        document.body.classList.toggle('colorblind', value);
+        setColorBlind(value);
+        break;
       case 'hudOpacity': hud.setOpacity(value); flightHud.style.setProperty('--hud-opacity', value); break;
       case 'reduceMotion':
         document.body.classList.toggle('reduce-motion', value);
@@ -187,7 +207,7 @@ function boot() {
       default: break; // masterVolume / preset are consumed by later phases
     }
   };
-  ['quality', 'showFps', 'hudScale', 'hudOpacity', 'reduceMotion'].forEach(applySetting);
+  ['quality', 'showFps', 'hudScale', 'textSize', 'hudOpacity', 'reduceMotion', 'highContrast', 'colorblind'].forEach(applySetting);
   settings.on('change', ({ key }) => applySetting(key));
 
   // ---- game loop -----------------------------------------------------------
@@ -222,7 +242,9 @@ function boot() {
   const WIND_TEXT = { calm: '', breeze: 'WIND 8 kt headwind', crosswind: 'WIND 14 kt crosswind', gusty: 'WIND 12 kt gusting 18' };
   function updateHud() {
     const m = session.model;
-    flightHud.update(m.telemetry, {
+    const tel = m.telemetry;
+    engineSound.update(0.05, tel, session.cameras.mode === 'cockpit');
+    flightHud.update(tel, {
       fixedGear: !m.spec.gear.retractable,
       assist: settings.get('flightAssist'),
       gearSpeed: m.spec.speeds.vapp * 1.4,
@@ -235,9 +257,9 @@ function boot() {
     if (!events.length) return;
     runner.handleEvents(events);
     for (const e of events) {
-      if (e.type === 'touchdown') flightHud.showTouchdown(e);
+      if (e.type === 'touchdown') { flightHud.showTouchdown(e); audio.touchdown(e.sink ?? 0); }
       else if (e.type === 'strike') flightHud.showToast('Airframe strike! Check your pitch attitude');
-      else if (e.type === 'crash') { flightHud.setCrash(e.reason); input.releaseAll(); }
+      else if (e.type === 'crash') { flightHud.setCrash(e.reason); input.releaseAll(); audio.crash(); }
       else if (e.type === 'failure') flightHud.onFailure(e);
     }
   }
@@ -283,6 +305,8 @@ function boot() {
     flightHud.setVisible(inFlight);
     flightHud.setPaused(to === GameState.PAUSED);
     session.paused = to === GameState.PAUSED;
+    audio.setFlying(to === GameState.FLYING);
+    if (to === GameState.MENU || to === GameState.LOADING) engineSound.stopAll();
     if (to !== GameState.FLYING) input.releaseAll();
     if (to !== GameState.FLYING && document.pointerLockElement) document.exitPointerLock();
 
@@ -311,6 +335,7 @@ function boot() {
           break;
         }
         flightHud.setCrash(null);
+        engineSound.attach(session.model);
         if (runner.active) {
           runner.attach();
           flightHud.setMode({
@@ -389,5 +414,5 @@ function boot() {
   loop.start();
 
   // Handle for debugging and automated playtests.
-  window.__flightsim = { state, settings, bindings, input, scene: flightScene, session, setupScreen, startFlight, hud: flightHud, saves, runner, launch, screens, openScreen, showDebrief };
+  window.__flightsim = { state, settings, bindings, input, scene: flightScene, session, setupScreen, startFlight, hud: flightHud, saves, runner, launch, screens, openScreen, showDebrief, audio, engineSound };
 }

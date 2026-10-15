@@ -13,7 +13,7 @@ export class AtcVoice {
       const u = new SpeechSynthesisUtterance(text.replace(/\s+/g, ' '));
       u.rate = 1.12;
       u.pitch = 0.85;
-      u.volume = Math.min(1, this.settings.get('masterVolume') ?? 0.8);
+      u.volume = Math.min(1, (this.settings.get('masterVolume') ?? 0.8) * (this.settings.get('voiceVolume') ?? 0.9));
       const voices = window.speechSynthesis.getVoices();
       const en = voices.find((v) => v.lang?.startsWith('en')) ?? null;
       if (en) u.voice = en;

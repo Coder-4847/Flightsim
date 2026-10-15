@@ -27,3 +27,17 @@ export function removeKey(key) {
     /* ignore */
   }
 }
+
+/** Remove every key this game has stored (settings, bindings, saves, panel layout...). */
+export function clearAll() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(PREFIX)) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* ignore */
+  }
+}

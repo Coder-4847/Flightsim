@@ -43,11 +43,13 @@ export const SETTINGS_SCHEMA = {
     label: 'Graphics quality',
     type: 'options',
     options: [
+      ['auto', 'Auto'],
       ['low', 'Low'],
       ['medium', 'Medium'],
       ['high', 'High'],
     ],
-    default: 'medium',
+    default: 'auto',
+    hint: 'Auto lowers the render resolution when the frame rate drops and raises it again when there is headroom.',
   },
   showFps: { section: 'Display', label: 'FPS counter', type: 'bool', default: false },
   hudScale: {
@@ -116,9 +118,42 @@ export const SETTINGS_SCHEMA = {
     section: 'Audio', label: 'Master volume', type: 'range',
     min: 0, max: 1, step: 0.05, default: 0.8, format: (v) => `${Math.round(v * 100)}%`,
   },
+  effectsVolume: {
+    section: 'Audio', label: 'Engine and wind volume', type: 'range',
+    min: 0, max: 1, step: 0.05, default: 0.7, format: (v) => `${Math.round(v * 100)}%`,
+    hint: 'Synthesized engines, airflow and tyre noise. Set to 0 to silence them.',
+  },
+  voiceVolume: {
+    section: 'Audio', label: 'Radio and call-out volume', type: 'range',
+    min: 0, max: 1, step: 0.05, default: 0.9, format: (v) => `${Math.round(v * 100)}%`,
+    hint: 'Radio squelch, the ATC voice and ground-proximity call-outs.',
+  },
+  alertVolume: {
+    section: 'Audio', label: 'Warning volume', type: 'range',
+    min: 0, max: 1, step: 0.05, default: 0.9, format: (v) => `${Math.round(v * 100)}%`,
+    hint: 'Master warning chime, caution beep and the stall horn.',
+  },
+  uiSounds: { section: 'Audio', label: 'Menu click sounds', type: 'bool', default: true },
+  textSize: {
+    section: 'Accessibility', label: 'Text and menu size', type: 'options',
+    options: [['1', 'Normal'], ['1.2', 'Large'], ['1.4', 'Extra large']], default: '1',
+    hint: 'Scales menus and the flight HUD (HUD scale in Display still applies on top).',
+  },
+  highContrast: {
+    section: 'Accessibility', label: 'High contrast', type: 'bool', default: false,
+    hint: 'Black backgrounds, white text, strong borders and thicker focus outlines.',
+  },
+  colorblind: {
+    section: 'Accessibility', label: 'Colour-blind friendly colours', type: 'bool', default: false,
+    hint: 'Replaces red and green status colours with blue, yellow and orange. Warnings always carry text as well.',
+  },
+  subtitles: {
+    section: 'Accessibility', label: 'Radio subtitles', type: 'bool', default: true,
+    hint: 'Shows each ATC message on screen as it is spoken (the radio panel transcript is always available).',
+  },
   reduceMotion: {
     section: 'Accessibility', label: 'Reduce motion', type: 'bool', default: false,
-    hint: 'Disables the auto-orbiting camera and interface animation.',
+    hint: 'Disables the animated menu background, the auto-orbiting camera, blinking warnings and interface transitions.',
   },
 };
 

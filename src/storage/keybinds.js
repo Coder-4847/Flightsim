@@ -74,7 +74,7 @@ export const ACTIONS = [
   a('panel_mission', 'Mission panel', 'HUD', ['F9']),
   a('hud_toggle', 'Toggle HUD', 'HUD', ['KeyH']),
   a('dashboard_toggle', 'Collapse or open the dashboard', 'HUD', ['F10']),
-  a('map_toggle', 'Toggle map', 'HUD', ['KeyM']),
+  a('map_toggle', 'Open the chart (pauses)', 'HUD', ['KeyM']),
   a('checklist_toggle', 'Toggle checklist', 'HUD', ['KeyK']),
 
   a('screenshot', 'Save a screenshot', 'Game', ['PrintScreen', 'F12']),

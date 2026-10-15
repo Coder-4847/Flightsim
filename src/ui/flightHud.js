@@ -9,7 +9,7 @@ import { createDashboard } from './hud/dashboard.js';
 import { createEnginePanel } from './hud/enginePanel.js';
 import { createMissionPanel } from './hud/missionPanel.js';
 import { createAutopilotPanel } from './hud/autopilotPanel.js';
-import { createApproachPanel, createNavPanel, createPfdPanel } from './hud/instrumentPanels.js';
+import { createApproachPanel, createPfdPanel } from './hud/instrumentPanels.js';
 import { createPadMenu } from './hud/padMenu.js';
 import { PanelManager, button } from './hud/panels.js';
 import { createRadioPanel } from './hud/radioPanel.js';
@@ -38,7 +38,12 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   const warnings = h('div.warnings', { role: 'alert', 'aria-live': 'assertive', 'aria-atomic': 'false' });
   const toast = h('div.toast', { role: 'status', 'aria-live': 'polite' });
   const info = h('div.cam-info');
-  const timeChip = h('div.time-chip', { hidden: true });
+  const timeText = h('span.time-text');
+  const timeChip = h('div.time-chip',
+    h('button.time-btn', { type: 'button', title: 'Slower (Numpad −)', onclick: () => hud.controls?.perform('time_slower') }, '−'),
+    timeText,
+    h('button.time-btn', { type: 'button', title: 'Faster (Numpad +)', onclick: () => hud.controls?.perform('time_faster') }, '+'));
+  timeChip.addEventListener('mousedown', (e) => e.preventDefault());
   const hint = h('div.flight-hint');
   const touchdown = h('div.touchdown');
   const subtitle = h('div.subtitle', { 'aria-live': 'polite' });
@@ -83,7 +88,6 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   const controlsPanel = createControlsPanel(hud);
   const systemsPanel = createSystemsPanel(hud);
   const pfd = createPfdPanel(hud);
-  const nav = createNavPanel(hud);
   const approach = createApproachPanel(hud);
   const missionPanel = createMissionPanel(hud);
   const autopilotPanel = createAutopilotPanel(hud);
@@ -95,7 +99,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   const TOOLBAR = [
     ['radio', 'Radio', 'R', 'Radio and ATC (R)'],
     ['checklist', 'Checklist', 'K', 'Checklists (K)'],
-    ['nav', 'Map', 'M', 'Navigation map (M)'],
+    ['map', 'Map', 'M', 'Open the chart: pauses the flight (M)'],
     ['pfd', 'Display', 'F2', 'Flight display (F2)'],
     ['engines', 'Engines', 'F3', 'Engines and throttle levers (F3)'],
     ['controls', 'Controls', 'F4', 'Flaps, gear, trim and more (F4)'],
@@ -106,7 +110,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   ];
   const toolButtons = {};
   for (const [id, label, key, tooltip] of TOOLBAR) {
-    toolButtons[id] = button(h('span', h('span.tb-key', key), label), { onClick: () => hud.panels.get(id).toggle(), tooltip, className: 'tool' });
+    toolButtons[id] = button(h('span', h('span.tb-key', key), label), { onClick: () => (id === 'map' ? hud.openMap?.() : hud.panels.get(id).toggle()), tooltip, className: 'tool' });
     toolbar.append(toolButtons[id]);
   }
   hud.panels.onToggle = (id, open) => toolButtons[id]?.classList.toggle('on', open);
@@ -229,7 +233,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
 
   // ---- panel and key actions --------------------------------------------------------------------------------------------------
   const ACTION_PANEL = {
-    radio_menu: 'radio', checklist_toggle: 'checklist', map_toggle: 'nav', panel_pfd: 'pfd', panel_engines: 'engines',
+    radio_menu: 'radio', checklist_toggle: 'checklist', panel_pfd: 'pfd', panel_engines: 'engines',
     panel_controls: 'controls', panel_systems: 'systems', panel_approach: 'approach', panel_mission: 'mission', panel_autopilot: 'autopilot',
   };
   el.handleAction = (action) => {
@@ -237,6 +241,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     if (action === 'checklist_toggle' && !hud.systems.checklists) return el.showToast('Checklists are off (turn them on in Settings or the setup screen)');
     if (action === 'panel_mission' && !hud.modeInfo) return el.showToast('Missions are part of Free Flight, Career, Emergency and VIP modes');
     if (action === 'dashboard_toggle') return dashboard.toggleCollapsed();
+    if (action === 'map_toggle') return hud.openMap?.();
     if (action === 'hud_toggle') hud.toggleHud();
     else if (action === 'hud_menu') padMenu.toggle();
     else if (ACTION_PANEL[action]) hud.panels.get(ACTION_PANEL[action]).toggle();
@@ -293,12 +298,12 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     const ctl = hud.controls;
     const ap = ctl?.autopilot;
     const scale = ctl?.time.scale ?? 1;
-    timeChip.hidden = !(scale > 1 || ap?.on);
-    timeChip.textContent = [ap?.on ? `AP ${ap.status}` : '', scale > 1 ? `TIME ×${scale}` : ''].filter(Boolean).join('   ');
+    timeText.textContent = [ap?.on ? `AP ${ap.status}` : '', `TIME ×${scale}`].filter(Boolean).join('   ');
     timeChip.classList.toggle('fast', scale > 1);
     const showDash = settings.get('dashboard') !== false && extra.cameraMode !== 'cockpit' && !hud.panels.hidden;
     el.classList.toggle('has-dash', showDash);
     if (!model) return;
+    t.wpt = hud.controls?.waypoints.to(model) ?? null; // the compass dials mark the active waypoint
     dashboard.update(t, showDash);
     refreshWarnings(t, model, now);
 
@@ -313,7 +318,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
       model.nav.hdgBug = atc?.enabled ? atc.ctx?.hdg ?? null : null;
       model.nav.traffic = session.collectTraffic();
     }
-    for (const p of [pfd, nav, approach, engines, controlsPanel, systemsPanel, checklist, missionPanel, autopilotPanel]) p.update(t);
+    for (const p of [pfd, approach, engines, controlsPanel, systemsPanel, checklist, missionPanel, autopilotPanel]) p.update(t);
   };
 
   el.setVisible = (visible) => { el.classList.toggle('active', visible); };

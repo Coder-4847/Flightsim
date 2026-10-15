@@ -7,6 +7,7 @@ import { buildMap, getAirport } from '../world/mapBuilder.js';
 import { FlightModel } from '../flight/flightModel.js';
 import { FlightControls } from '../input/flightControls.js';
 import { CameraSystem } from '../scene/cameras.js';
+import { CrashFx } from '../scene/crashFx.js';
 import { AtcController } from '../atc/controller.js';
 import { AtcVoice } from '../atc/voice.js';
 import { FailureManager } from './failures.js';
@@ -98,6 +99,8 @@ export class FlightSession {
     this.atc.on('message', (msg) => { if (msg.who === 'ATC') this.voice.speak(msg.spoken); });
     this.view = new AircraftView(spec, createCockpit);
     this.flightScene.scene.add(this.view.root);
+    this.crashFx?.dispose();
+    this.crashFx = new CrashFx(this.flightScene.scene, (x, z) => this.model.world.groundHeight(x, z));
     this.cameras.setAircraft(this.view);
     this.cameras.setMode('chase');
     this.cameras.applyLens();
@@ -123,6 +126,8 @@ export class FlightSession {
   }
 
   place(startMode = this.startMode) {
+    this.endCrash();
+    if (this.model?.nav) this.model.nav.trail = [];
     const map = this.flightScene.map;
     this.model.world.setWeather(this.#weather());
     this.model.world.setSky(this.options?.sky ?? 'clear');
@@ -155,11 +160,34 @@ export class FlightSession {
     return mode;
   }
 
+  /** The aircraft has crashed: break it up, light the fire and swing the camera round the wreck. */
+  beginCrash() {
+    if (!this.model || !this.view || this.crashFx.active) return;
+    this.view.root.updateMatrixWorld(true);
+    const centre = this.crashFx.start(this.view, this.model);
+    this.cameras.startCrash(centre, this.view.chaseDistance / 2, (x, z) => this.model.world.groundHeight(x, z));
+  }
+
+  endCrash() {
+    if (!this.crashFx?.active) return;
+    this.crashFx.clear();
+    if (this.view) this.view.root.visible = true;
+    this.cameras.endCrash();
+  }
+
+  #pushTrail() {
+    const trail = (this.model.nav.trail ??= []);
+    const last = trail[trail.length - 1];
+    if (!last || Math.hypot(last[0] - this.model.pos.x, last[1] - this.model.pos.z) > 250) trail.push([this.model.pos.x, this.model.pos.z]);
+    if (trail.length > 400) trail.shift();
+  }
+
   /** Fixed-step simulation. */
   update(dt) {
     if (!this.model) return;
     this.controls.update(dt);
     this.model.step(dt);
+    if ((this.trailTick = (this.trailTick ?? 0) + 1) % 360 === 0) this.#pushTrail();
     // Emergency scenarios schedule their own failures, so the random ones stay off to keep seeds repeatable.
     this.failures?.update(dt, this.systems.failures && !this.options?.scripted);
   }
@@ -170,6 +198,7 @@ export class FlightSession {
     this.clock += frameDt;
     const dt = this.paused ? 0 : frameDt;
     this.view.update(this.model, alpha, frameDt, this.clock);
+    if (this.crashFx?.active && !this.paused) this.crashFx.update(frameDt);
     this.view.setNight(this.flightScene.env.night);
     this.cameras.update(frameDt, this.view.root.position, this.view.root.quaternion, this.controls.look);
     this.model.world.wind(this.view.root.position, this.model.time, this.windAtCamera);
@@ -198,6 +227,8 @@ export class FlightSession {
   dispose() {
     this.atc?.dispose();
     this.voice?.cancel();
+    this.crashFx?.dispose();
+    this.crashFx = null;
     if (!this.view) return;
     this.flightScene.scene.remove(this.view.root);
     disposeObject(this.view.root);

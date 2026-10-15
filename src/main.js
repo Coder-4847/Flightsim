@@ -23,6 +23,7 @@ import { createFlightSetup } from './ui/flightSetup.js';
 import { createAboutScreen } from './ui/aboutScreen.js';
 import { createIntro } from './ui/intro.js';
 import { createMapSelect } from './ui/mapSelect.js';
+import { createMapScreen } from './ui/mapScreen.js';
 import { createMenuBackground } from './ui/menuBackground.js';
 import { createNavigator } from './ui/navigation.js';
 import { createModeSelect } from './ui/modeSelect.js';
@@ -111,11 +112,19 @@ function boot() {
     menuScreen = screen ?? (runner.active ? modeScreenFor() : 'main');
     state.go(GameState.MENU);
   };
+  // The crash menu waits while the wreck burns and the camera circles it.
+  let crashTimer = 0;
+  const showCrash = (reason, note = '') => {
+    clearTimeout(crashTimer);
+    crashTimer = setTimeout(() => flightHud.setCrash(reason, note), 4800);
+  };
+  const clearCrash = () => { clearTimeout(crashTimer); flightHud.setCrash(null); };
   const restartFlight = () => {
+    clearTimeout(crashTimer);
     session.restart();
     engineSound.attach(session.model);
     if (runner.active) runner.attach();
-    flightHud.setCrash(null);
+    clearCrash();
     flightHud.bind(session);
     announceStart();
     if (state.is(GameState.PAUSED)) state.go(GameState.FLYING);
@@ -190,6 +199,16 @@ function boot() {
     onQuit: () => leaveToMenu(),
   });
   screens.register('pause', pauseMenu);
+  // The chart: a full-screen map that pauses the flight; closing it resumes.
+  const chart = createMapScreen({ getSession: () => session, onClose: () => { screens.show(null); state.go(GameState.FLYING); } });
+  screens.register('chart', chart);
+  flightHud.hud.openMap = () => {
+    if (!state.is(GameState.FLYING) || !session.model) return;
+    input.releaseAll();
+    state.go(GameState.PAUSED);
+    screens.show('chart');
+    chart.openChart();
+  };
   screens.register('settings', settingsScreen);
   // Animated backdrop behind the menus: moving on the main menu, a still frame behind the others.
   const menuBg = createMenuBackground({ settings });
@@ -290,7 +309,7 @@ function boot() {
     for (const e of events) {
       if (e.type === 'touchdown') { flightHud.showTouchdown(e); audio.touchdown(e.sink ?? 0); }
       else if (e.type === 'strike') flightHud.showToast('Airframe strike! Check your pitch attitude');
-      else if (e.type === 'crash') { flightHud.setCrash(e.reason); input.releaseAll(); audio.crash(); }
+      else if (e.type === 'crash') { session.beginCrash(); showCrash(e.reason); input.releaseAll(); audio.crash(); }
       else if (e.type === 'failure') flightHud.onFailure(e);
     }
   }
@@ -319,7 +338,7 @@ function boot() {
   runner.on('result', (res) => {
     if (res.crash) {
       const money = res.total < 0 ? `Repair bill ${Math.abs(res.total).toLocaleString('en-US')} cr.` : '';
-      flightHud.setCrash(res.subtitle, money);
+      showCrash(res.subtitle, money);
       input.releaseAll();
       return;
     }
@@ -353,7 +372,7 @@ function boot() {
         runner.clear();
         flightHud.setMode(null);
         pauseMenu.setContext();
-        flightHud.setCrash(null);
+        clearCrash();
         session.dispose();
         openScreen(menuScreen);
         menuScreen = 'main';
@@ -371,7 +390,7 @@ function boot() {
           if (state.is(GameState.LOADING)) state.go(GameState.MENU);
           break;
         }
-        flightHud.setCrash(null);
+        clearCrash();
         engineSound.attach(session.model);
         if (runner.active) {
           runner.attach();

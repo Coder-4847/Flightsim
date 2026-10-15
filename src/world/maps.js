@@ -1,7 +1,7 @@
 // Static definitions of the three maps. The builders (mapBuilder.js) turn these into worlds.
 // Every map is an 80 km x 80 km square centred on the origin, generated from a fixed seed.
 
-export const MAP_HALF = 40000; // metres from the centre to each edge
+export const MAP_HALF = 30000; // metres from the centre to each edge
 export const MAP_SIZE_KM = (MAP_HALF * 2) / 1000;
 
 export const MAPS = {

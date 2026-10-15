@@ -149,6 +149,20 @@ export class CameraSystem {
       return;
     }
 
+    if (this.mode === 'crash') {
+      // Slow orbit around the wreck, rising a little, then holding.
+      this.crashTime += dt;
+      const r = this.crashRadius * (1.1 - Math.min(this.crashTime, 6) * 0.04);
+      const a = this.crashAngle + this.crashTime * 0.28;
+      _pos.set(this.crashTarget.x + Math.cos(a) * r, this.crashTarget.y + this.crashRadius * (0.25 + Math.min(this.crashTime, 6) * 0.03), this.crashTarget.z + Math.sin(a) * r);
+      const g = this.groundAt?.(_pos.x, _pos.z);
+      if (g != null && _pos.y < g + 3) _pos.y = g + 3;
+      cam.position.copy(_pos);
+      _m.lookAt(_pos, this.crashTarget, _up);
+      cam.quaternion.setFromRotationMatrix(_m);
+      return;
+    }
+
     if (this.mode === 'cinematic') {
       if (!this.reduceMotion) this.cinematicAngle += dt * 0.22;
       const r = this.aircraftRadius * 3.4;
@@ -168,6 +182,28 @@ export class CameraSystem {
     const wantFov = clamp((2 * Math.atan(this.aircraftRadius * 3 / Math.max(dist, 1)) * 180) / Math.PI, 4, 65);
     cam.fov += (wantFov - cam.fov) * (1 - Math.exp(-dt * 4));
     cam.updateProjectionMatrix();
+  }
+
+  /** Orbit the wreck at `target` (world position); `radius` is about the aircraft size. */
+  startCrash(target, radius, groundAt) {
+    this.previousMode = this.mode;
+    this.mode = 'crash';
+    this.crashTarget = this.crashTarget ?? new THREE.Vector3();
+    this.crashTarget.copy(target);
+    this.crashRadius = Math.max(radius * 2.2, 40);
+    this.crashAngle = Math.atan2(this.camera.position.z - target.z, this.camera.position.x - target.x);
+    this.crashTime = 0;
+    this.groundAt = groundAt;
+    this.camera.near = 0.5;
+    this.camera.fov = 55;
+    this.camera.updateProjectionMatrix();
+  }
+
+  endCrash() {
+    if (this.mode !== 'crash') return;
+    this.mode = this.previousMode ?? 'chase';
+    this.initialised = false;
+    this.applyLens();
   }
 
   /** Restore the standard lens when leaving tower/cockpit. */

@@ -156,7 +156,15 @@ export function headingDial(ctx, cx, cy, r, t) {
     min: 0, max: 350, a0: 0, a1: 350, major: 10, minor: 5, labelEvery: 3, len: 0.1,
     label: (v) => ({ 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[v] ?? v / 10), font: `bold ${Math.round(r * 0.15)}px Arial`,
   });
+  if (t.wpt) {
+    // The active waypoint rides the compass card as a magenta bug.
+    ctx.rotate(t.wpt.brg * DEG);
+    ctx.fillStyle = '#ff5dd0'; ctx.strokeStyle = '#2a0020'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, -r * 0.99); ctx.lineTo(r * 0.09, -r * 0.8); ctx.lineTo(0, -r * 0.7); ctx.lineTo(-r * 0.09, -r * 0.8); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -r * 0.7); ctx.lineTo(0, -r * 0.35); ctx.stroke();
+  }
   ctx.restore();
+  if (t.wpt) { ctx.fillStyle = '#ff5dd0'; ctx.font = `bold ${Math.round(r * 0.13)}px Arial`; ctx.textAlign = 'center'; ctx.fillText(`${t.wpt.name} ${(t.wpt.dist / 1852).toFixed(1)}nm`, cx, cy + r * 0.5); }
   ctx.fillStyle = COLORS.amber;
   ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.28); ctx.lineTo(cx - 9, cy + r * 0.12); ctx.lineTo(cx, cy + r * 0.05); ctx.lineTo(cx + 9, cy + r * 0.12); ctx.fill();
   ctx.fillStyle = COLORS.white; ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.97); ctx.lineTo(cx - 5, cy - r * 0.85); ctx.lineTo(cx + 5, cy - r * 0.85); ctx.fill();
@@ -274,6 +282,13 @@ export function pfd(ctx, w, h, t, spec) {
     ctx.beginPath(); ctx.moveTo(x, h * 0.9); ctx.lineTo(x, h * (hd % 10 === 0 ? 0.925 : 0.915)); ctx.stroke();
     if (hd % 10 === 0) ctx.fillText(hd % 90 === 0 ? 'NESW'[hd / 90] : String(hd / 10).padStart(2, '0'), x, h * 0.955);
   }
+  if (t.wpt) {
+    let rel = ((t.wpt.brg - t.heading + 540) % 360) - 180;
+    const lim = 29; const edge = Math.abs(rel) > lim; rel = Math.max(-lim, Math.min(lim, rel));
+    const bx = cx + rel * ppd;
+    ctx.fillStyle = '#ff5dd0'; ctx.beginPath(); ctx.moveTo(bx, h * 0.9); ctx.lineTo(bx - 7, h * 0.93); ctx.lineTo(bx + 7, h * 0.93); ctx.closePath(); ctx.fill();
+    if (edge) ctx.fillRect(bx - 1, h * 0.9, 2, h * 0.1);
+  }
   ctx.restore();
   ctx.fillStyle = COLORS.yellow; ctx.beginPath(); ctx.moveTo(cx, h * 0.9); ctx.lineTo(cx - 6, h * 0.885); ctx.lineTo(cx + 6, h * 0.885); ctx.fill();
   // Vertical speed and mode text.
@@ -340,6 +355,11 @@ export function mfdMap(ctx, w, h, t, model) {
     const r = range * pxPerM;
     ctx.beginPath(); ctx.moveTo(-8, -r); ctx.lineTo(8, -r); ctx.stroke();
     ctx.restore();
+  }
+  if (t.wpt) {
+    // Route leg to the active waypoint (the map is track-up, so world offsets are drawn in the rotated frame).
+    ctx.strokeStyle = '#ff5dd0'; ctx.lineWidth = 2.5; ctx.setLineDash([10, 6]);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo((t.wpt.x - px) * pxPerM, (t.wpt.z - pz) * pxPerM); ctx.stroke(); ctx.setLineDash([]);
   }
   ctx.restore();
   // Labels stay upright: rotate each anchor into screen space.

@@ -1,5 +1,5 @@
 // Time compression: the simulation runs 2x to 16x faster to shorten long legs. It is only allowed where it is safe:
-// high up with nothing wrong. Above 2x the autopilot must be flying (keys act per simulated second, so a human pilot
+// high up with nothing wrong. Above 4x the autopilot must be flying (keys act per simulated second, so a human pilot
 // cannot control the aircraft at those speeds). When a condition is lost the speed drops back to 1x with a message.
 
 export const TIME_SCALES = [1, 2, 4, 8, 16];
@@ -23,7 +23,7 @@ export class TimeControl {
     if (tel.aglFt < MIN_AGL_FT) return { max: 1, reason: `Real time below ${MIN_AGL_FT} ft` };
     if (tel.stallWarning || tel.stalled) return { max: 1, reason: 'Stall warning: back to real time' };
     if (model.engines.some((e) => e.fire)) return { max: 1, reason: 'Engine fire: back to real time' };
-    if (!autopilot.on) return { max: 2, reason: 'Engage the autopilot (2) for more than 2x' };
+    if (!autopilot.on) return { max: 4, reason: 'Engage the autopilot (\\) for more than 4x' };
     if (this.#terrainAhead(model, tel)) return { max: 1, reason: 'Terrain ahead: back to real time' };
     return { max: 16 };
   }

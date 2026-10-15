@@ -36,7 +36,7 @@ export function createPadMenu(hud, input) {
     items.push({ label: 'Systems', sub: () => systemItems() });
     items.push({ label: 'Panels', sub: () => [
       toggleAction('Flight display', 'pfd'), toggleAction('Engines', 'engines'), toggleAction('Controls', 'controls'),
-      toggleAction('Fuel and systems', 'systems'), toggleAction('Checklist', 'checklist'), toggleAction('Map', 'nav'),
+      toggleAction('Fuel and systems', 'systems'), toggleAction('Checklist', 'checklist'), { label: 'Map (pauses)', run: () => hud.openMap?.() },
       toggleAction('Approach guide', 'approach'), toggleAction('Autopilot', 'autopilot'), toggleAction('Radio', 'radio'), toggleAction('Mission', 'mission'),
     ] });
     items.push({ label: hud.panels.hidden ? 'Show HUD' : 'Hide HUD', run: () => hud.toggleHud() });

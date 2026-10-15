@@ -1,6 +1,7 @@
 import { Engine } from '../flight/engine.js';
 import { Autopilot } from '../flight/autopilot.js';
 import { TimeControl } from '../game/timeScale.js';
+import { Waypoints } from '../game/waypoints.js';
 import { approach, clamp } from '../flight/units.js';
 
 // Turns input actions (keyboard, gamepad) into flight-model controls every frame.
@@ -27,6 +28,8 @@ export class FlightControls {
     this.autoGearState = true;
     this.autopilot = new Autopilot();
     this.time = new TimeControl();
+    this.waypoints = new Waypoints();
+    this.waypoints.onReach = (w) => this.#toast(`${w.name} reached${this.waypoints.active ? `, next ${this.waypoints.active.name}` : ''}`);
     this.watchTimer = 0;
     this.look = { x: 0, y: 0 }; // analog look (right stick in cockpit view)
     this.onToast = null; // (text) => void
@@ -45,6 +48,7 @@ export class FlightControls {
     this.autopilot.at = false;
     this.autopilot.appr = false;
     this.time.reset();
+    this.waypoints.clear();
     this.autopilot.onEvent = (text, level) => this.#toast(text, level);
     this.time.onChange = (scale, reason) => this.#toast(reason ?? `Time ×${scale}`);
   }
@@ -304,6 +308,8 @@ export class FlightControls {
       if (pad.axes.leftX !== 0) roll = pad.axes.leftX;
       if (pad.axes.rightX !== 0) yaw = pad.axes.rightX;
     }
+    this.waypoints.update(m);
+    if (this.waypoints.active) this.autopilot.nav = this.waypoints.active; // NAV mode follows the route
     // The autopilot flies the stick while it is engaged (the pilot's stick only disconnects it).
     if (this.autopilot.update(dt, m, this, input)) { pitch = this.autopilot.out.pitch; roll = this.autopilot.out.roll; }
     c.pitch = clamp(pitch, -1, 1);

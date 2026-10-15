@@ -138,7 +138,7 @@ export class Autopilot {
       const dx = this.nav.x - model.pos.x;
       const dz = this.nav.z - model.pos.z;
       hdgT = (Math.atan2(dx, -dz) / DEG + 360) % 360;
-      if (Math.hypot(dx, dz) < 1200) { this.lat = 'HDG'; this.hdg = Math.round(hdgT) % 360; this.#note(`Reached ${this.nav.name ?? 'the waypoint'}`, 'info'); }
+      if (Math.hypot(dx, dz) < 700) { this.lat = 'HDG'; this.hdg = Math.round(hdgT) % 360; this.#note(`Reached ${this.nav.name ?? 'the waypoint'}`, 'info'); }
     } else if (this.lat === 'LOC' && guide) {
       hdgT = guide.end.heading - clamp(guide.lateral * 0.03, -30, 30);
     }

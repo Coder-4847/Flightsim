@@ -6,7 +6,10 @@ import { h } from './dom.js';
 
 const PREVIEW = 176;
 
-function drawPreview(canvas, map) {
+/** Relief, water, roads and towns drawn from the generated world. `size` is the canvas size in pixels; airports are only marked on the small preview. */
+export function drawPreview(canvas, map, size = PREVIEW) {
+  const PREVIEW = size; // eslint-disable-line no-shadow
+  const K = size / 176;
   const ctx = canvas.getContext('2d');
   canvas.width = PREVIEW;
   canvas.height = PREVIEW;
@@ -49,18 +52,18 @@ function drawPreview(canvas, map) {
   ctx.fillStyle = map.cfg.biome === 'snow' ? '#cfe3f5' : '#4a90c8';
   for (const l of map.lakes) { ctx.beginPath(); ctx.arc(px(l.x), px(l.z), Math.max(1.5, l.radius / (MAP_HALF * 2) * PREVIEW), 0, Math.PI * 2); ctx.fill(); }
   ctx.strokeStyle = map.cfg.biome === 'snow' ? '#cfe3f5' : '#4a90c8';
-  ctx.lineWidth = 1.2;
+  ctx.lineWidth = 1.2 * K;
   for (const line of map.riverLines) { ctx.beginPath(); line.points.forEach((p, i) => (i ? ctx.lineTo(px(p.x), px(p.z)) : ctx.moveTo(px(p.x), px(p.z)))); ctx.stroke(); }
   ctx.strokeStyle = 'rgba(40,40,44,0.55)';
-  ctx.lineWidth = 0.7;
+  ctx.lineWidth = 0.7 * K;
   for (const road of map.roads) { ctx.beginPath(); road.points.forEach((p, i) => (i ? ctx.lineTo(px(p.x), px(p.z)) : ctx.moveTo(px(p.x), px(p.z)))); ctx.stroke(); }
   for (const c of map.cities) {
     ctx.fillStyle = 'rgba(60,60,66,0.85)';
-    ctx.beginPath(); ctx.arc(px(c.x), px(c.z), c.kind === 'major' ? 4 : c.kind === 'town' ? 2.4 : 1.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(px(c.x), px(c.z), (c.kind === 'major' ? 4 : c.kind === 'town' ? 2.4 : 1.4) * K, 0, Math.PI * 2); ctx.fill();
   }
-  for (const a of map.airports) {
+  if (size === 176) for (const a of map.airports) {
     ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#0b0f14';
+    ctx.strokeStyle = '#0c0b0a';
     ctx.lineWidth = 1;
     const r = a.cls === 'hub' ? 4 : a.cls === 'regional' ? 3 : 2;
     ctx.beginPath(); ctx.moveTo(px(a.x), px(a.z) - r); ctx.lineTo(px(a.x) + r, px(a.z)); ctx.lineTo(px(a.x), px(a.z) + r); ctx.lineTo(px(a.x) - r, px(a.z)); ctx.closePath(); ctx.fill(); ctx.stroke();

@@ -17,8 +17,10 @@ registerPro(['cessna172'], 'rivet');
 
 const S = (x, w, yTop, yBot, n = 2.4) => ({ x, w, top: (yTop - yBot) / 2, bottom: (yTop - yBot) / 2, yc: (yTop + yBot) / 2, n });
 const STATIONS = [
-  S(-5.72, 0.03, 0.30, 0.16, 2),
-  S(-5.40, 0.075, 0.36, 0.10, 2.2),
+  S(-5.80, 0.003, 0.25, 0.21, 2),
+  S(-5.74, 0.026, 0.275, 0.185, 2),
+  S(-5.62, 0.052, 0.31, 0.15, 2.1),
+  S(-5.40, 0.08, 0.36, 0.10, 2.2),
   S(-4.60, 0.135, 0.41, -0.02, 2.2),
   S(-3.70, 0.235, 0.47, -0.20, 2.3),
   S(-2.90, 0.37, 0.55, -0.37, 2.4),
@@ -185,6 +187,13 @@ export function buildCessna172(spec, mats, detail) {
   root.add(exterior);
   rig.fuselage = exterior;
 
+  // Plain painted fairings (wheel pants, dorsal fillet) must not carry the fuselage's windows and stripes.
+  if (!mats.plain) {
+    mats.plain = mats.skin.clone();
+    mats.plain.map = null;
+    mats.plain.color = new THREE.Color(spec.livery.base);
+    mats.__envMats?.push(mats.plain);
+  }
   const body = loftBody(STATIONS, { detail, step: 0.2 });
   if (!mats.__painted) {
     mats.__painted = { skin: paintFuselage(mats, body, spec), atlas: paintLifting(mats, spec) };
@@ -245,6 +254,9 @@ export function buildCessna172(spec, mats, detail) {
   root.add(rud.pivot);
   rig.rudders.push({ pivot: rud.pivot, axis: rud.axis });
 
+  // Dorsal fillet blending the cabin roof into the fin: a long, flat half-ellipsoid.
+  if (MID) fixed.add('plain', sphereG(1, HI ? 20 : 10, HI ? 12 : 6), T(-3.5, 0.53, 0, 0, 0, 0.1, 0.95, 0.14, 0.055));
+
   // ---- struts, fairings and wing details ------------------------------------------------------------------------
   if (MID) {
     for (const s of [1, -1]) {
@@ -270,10 +282,10 @@ export function buildCessna172(spec, mats, detail) {
   // ---- engine installation ---------------------------------------------------------------------------------------
   const propX = 2.335;
   if (MID) {
-    // Cowl inlets either side of the spinner and the cooling-air outlet under the cowl.
+    // Cowl inlets either side of the spinner: oval openings on the nose face, a dark lip around each, and the cooling-air outlet under the cowl.
     for (const s of [1, -1]) {
-      const q = s > 0 ? [[2.295, -32], [2.328, -32], [2.328, 32], [2.295, 32]] : [[2.295, 148], [2.328, 148], [2.328, 212], [2.295, 212]];
-      fixed.add('intake', bodyPatch(body, rad(q), { lift: 0.003, p: 2.4, nu: 10, nv: 8 }));
+      fixed.add('black', std(new THREE.CircleGeometry(1, 24)), T(2.336, -0.035, s * 0.2, 0, Math.PI / 2, 0, 0.1, 0.075, 1));
+      fixed.add('trim', std(new THREE.RingGeometry(0.93, 1.08, 24)), T(2.334, -0.035, s * 0.2, 0, Math.PI / 2, 0, 0.1, 0.075, 1));
       fixed.add('black', roundedBox(0.5, 0.012, 0.22, 0.004), T(1.4, -0.545, s * 0.12));
     }
     // Exhaust tailpipe (right lower side, bent aft) and the oil door.
@@ -352,7 +364,7 @@ export function buildCessna172(spec, mats, detail) {
         { x: 0.42, w: 0.07, top: 0.2, bottom: 0.12, yc: 0.04, n: 2.1 },
         { x: 0.52, w: 0.006, top: 0.02, bottom: 0.02, yc: 0.0, n: 2 },
       ], { detail, step: 0.2, segs: HI ? 28 : 12 });
-      lp.add('skin', pant.geo, T(0, 0.02, 0, 0, 0, 0));
+      lp.add('plain', pant.geo, T(0, -0.01, 0, 0, 0, 0));
     }
     lp.build(lower);
     leg.add(lower);

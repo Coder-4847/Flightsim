@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createNoise } from '../../util/noise.js';
+import { createProMaterials, isPro, proTile } from './skins.js';
 
 // Procedural geometry kit for aircraft. Everything is built in the aircraft body frame:
 // +X forward, +Y up, +Z right wing, origin at the centre of gravity, metres.
 
-export const HIGH = 2;
-export const MEDIUM = 1;
-export const LOW = 0;
+import { HIGH, MEDIUM, LOW } from './lod.js';
+
+export { HIGH, MEDIUM, LOW };
 
 const CREASE = (55 * Math.PI) / 180;
 
@@ -117,7 +118,8 @@ function getGlowTexture() {
 }
 
 // ---- materials -------------------------------------------------------------------------
-export function makeMaterials(spec) {
+export function makeMaterials(spec, opts = {}) {
+  if (isPro(spec.id)) return createProMaterials(spec, { quality: opts.quality ?? 1, tile: proTile(spec.id) });
   const livery = spec.livery;
   const bump = getPanelBump();
   const skin = new THREE.MeshStandardMaterial({

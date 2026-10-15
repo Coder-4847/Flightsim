@@ -13,6 +13,7 @@ import {
 import { buildSurfaces } from './airport/surfaces.js';
 import * as TX from './airport/textures.js';
 import { VehicleField, disposeVehicleAssets } from './airport/vehicles.js';
+import { setFleetNight } from '../traffic/fleet.js';
 
 // Builds the 3D airport for a map's airport record. The group sits at (x, elevation, z) in the world; its
 // child `frame` is rotated so that local +X runs along the main runway heading and +Z to its right, which
@@ -186,6 +187,7 @@ export class AirportManager {
     const night = this.env.night;
     lm.uniforms.uNight.value = night;
     ambientBoost.value = 0.24 * (1 - night);
+    setFleetNight(Math.round(night * 20) / 20);
     lm.uniforms.uTime.value = performance.now() / 1000;
     let builtThisFrame = 0;
     for (const a of this.map.airports) {

@@ -21,42 +21,96 @@ const VARIANTS = {
 
 const cache = new Map();
 
-/** Position, normal and uv only, non-indexed, in the group's local space: mergeable with any other. */
-function bakedGeometry(mesh) {
+// Plain-colour parts of every aircraft (paint, engines, struts, tyres, intakes ...) are merged into two shared
+// vertex-coloured materials, so a baked aircraft needs about five draw calls instead of twenty. Textured skin,
+// transparent glass and glowing windows keep their own materials.
+let flatMat = null; let flatMetalMat = null; let glassMat = null; let windowMat = null;
+function flatMaterials() {
+  if (!flatMat) {
+    glassMat = new THREE.MeshStandardMaterial({ color: 0x28435c, roughness: 0.05, metalness: 0.7, transparent: true, opacity: 0.55, depthWrite: false });
+    windowMat = new THREE.MeshStandardMaterial({ color: 0x1a2531, roughness: 0.1, metalness: 0.6, emissive: 0xffd9a0, emissiveIntensity: 0 });
+    glassMat.userData.shared = true; windowMat.userData.shared = true;
+    flatMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.12, side: THREE.DoubleSide });
+    flatMetalMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.8, side: THREE.DoubleSide });
+    flatMat.userData.shared = true; flatMetalMat.userData.shared = true;
+  }
+  return [flatMat, flatMetalMat, glassMat, windowMat];
+}
+
+/** Cabin windows of every baked aircraft glow after dark (0 = day .. 1 = night). */
+export function setFleetNight(level) { flatMaterials(); windowMat.emissiveIntensity = 0.9 * level; }
+
+const glows = (m) => m.emissive && m.emissive.getHex() !== 0;
+const isPlain = (m) => !m.map && !m.transparent && !glows(m) && !m.alphaTest && m.color;
+
+/** Position, normal and uv (plus the material colour for plain parts) in the group's local space: mergeable with any other. */
+function bakedGeometry(mesh, withColor) {
   const g = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
   for (const name of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
   if (!g.attributes.normal) g.computeVertexNormals();
   if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
   g.applyMatrix4(mesh.matrixWorld);
+  if (withColor) {
+    const c = mesh.material.color; const n = g.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+  }
   return g;
 }
 
 /**
- * Collapse one LOD level (a rigged hierarchy of dozens of meshes) into one mesh per material, plus
- * its light sprites. AI aircraft never animate, so this cuts draw calls by an order of magnitude.
+ * Collapse one LOD level (a rigged hierarchy of dozens of meshes) into a few meshes, plus its light
+ * sprites. AI aircraft never animate, so this cuts draw calls by an order of magnitude.
  */
 function bakeLevel(level, withSprites) {
   level.updateMatrixWorld(true);
-  const byMaterial = new Map();
+  const groups = new Map(); // key (material or 'flat'/'metal') -> geometries
   const sprites = [];
+  const [flat, flatMetal, glass, windowM] = flatMaterials();
   level.traverse((o) => {
     if (o.isSprite) { if (withSprites) sprites.push(o); }
     else if (o.isMesh && o.visible) {
-      if (!byMaterial.has(o.material)) byMaterial.set(o.material, []);
-      byMaterial.get(o.material).push(bakedGeometry(o));
+      const m = o.material;
+      let key = m; let color = false;
+      if (isPlain(m)) { key = m.metalness >= 0.5 ? flatMetal : flat; color = true; }
+      else if (m.transparent) key = glass;
+      else if (glows(m)) key = windowM;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(bakedGeometry(o, color));
     }
   });
   const out = new THREE.Group();
-  for (const [material, geos] of byMaterial) {
+  for (const [material, geos] of groups) {
     const merged = mergeGeometries(geos);
     if (!merged) continue;
     merged.computeBoundingSphere();
     out.add(new THREE.Mesh(merged, material));
   }
-  for (const sprite of sprites) {
-    const copy = sprite.clone();
-    sprite.matrixWorld.decompose(copy.position, copy.quaternion, copy.scale);
-    out.add(copy);
+  // light sprites become one Points object (one draw call instead of one per light)
+  if (sprites.length) {
+    const pos = new Float32Array(sprites.length * 3); const col = new Float32Array(sprites.length * 3);
+    const p = new THREE.Vector3(); const sc = new THREE.Vector3(); const q = new THREE.Quaternion();
+    let size = 0;
+    sprites.forEach((sp, i) => {
+      sp.matrixWorld.decompose(p, q, sc);
+      pos.set([p.x, p.y, p.z], i * 3);
+      const c = sp.material.color ?? new THREE.Color(1, 1, 1);
+      col.set([c.r, c.g, c.b], i * 3);
+      size = Math.max(size, sc.x);
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const src = sprites[0].material;
+    const m = new THREE.PointsMaterial({
+      size: size * 1.7, sizeAttenuation: true, vertexColors: true, map: src.map, transparent: true, depthWrite: false,
+      blending: src.blending ?? THREE.AdditiveBlending,
+    });
+    m.userData.shared = true;
+    const pts = new THREE.Points(g, m);
+    pts.frustumCulled = false;
+    out.add(pts);
   }
   return out;
 }

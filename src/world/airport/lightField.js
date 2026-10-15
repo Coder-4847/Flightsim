@@ -27,8 +27,9 @@ const VERT = /* glsl */`
     float dist = max(-mvPosition.z, 0.5);
     float scale = uViewport.y * 0.5 * projectionMatrix[1][1];
     float rawPx = aParam.x * scale / dist;
-    gl_PointSize = clamp(rawPx, uMinPx, uMaxPx);
-    float fall = clamp(sqrt(rawPx / uMinPx), 0.5, 1.0);
+    float minPx = uMinPx * max(aExtra.w, 1.0);
+    gl_PointSize = clamp(rawPx, minPx, uMaxPx);
+    float fall = clamp(sqrt(rawPx / minPx), 0.5, 1.0);
     vec3 toCam = cameraPosition - wp.xyz;
     float dcam = max(length(toCam), 0.001);
     vec3 v = toCam / dcam;
@@ -85,7 +86,7 @@ const FRAG = /* glsl */`
     if (r > 1.0) discard;
     float core = 1.0 - r;
     float a = core * core;
-    vec3 col = vColor * (a * 1.7) + vec3(1.0) * pow(core, 7.0) * 0.9;
+    vec3 col = vColor * (a * 1.2 + pow(core, 5.0) * 1.1) + mix(vColor, vec3(1.0), 0.5) * pow(core, 9.0) * 0.5;
     #ifdef USE_FOG
       float f = smoothstep(fogNear, fogFar, vFogDepth);
       col *= 1.0 - 0.85 * f;
@@ -102,7 +103,7 @@ export function lightMaterial() {
   sharedMat = new THREE.ShaderMaterial({
     vertexShader: VERT, fragmentShader: FRAG, fog: true,
     uniforms: {
-      uViewport: { value: new THREE.Vector2(1280, 720) }, uTime: { value: 0 }, uNight: { value: 0 }, uMinPx: { value: 2.2 }, uMaxPx: { value: 56 },
+      uViewport: { value: new THREE.Vector2(1280, 720) }, uTime: { value: 0 }, uNight: { value: 0 }, uMinPx: { value: 3.2 }, uMaxPx: { value: 64 },
       uDetail: { value: 1 },
       ...THREE.UniformsLib.fog,
     },
@@ -129,7 +130,7 @@ export class LightSet {
     const d = o.dir ?? [0, 0, 0];
     this.pos.push(x, y, z); this.col.push(c[0], c[1], c[2]); this.dir.push(d[0], d[1], d[2]);
     this.par.push(o.size ?? 0.35, o.int ?? 1, o.k ?? 0, o.mode ?? 0);
-    this.ext.push(o.day ?? 0.2, o.phase ?? 0, o.thr ?? 0, 0);
+    this.ext.push(o.day ?? 0.2, o.phase ?? 0, o.thr ?? 0, o.minK ?? 1);
     this.n++;
   }
 

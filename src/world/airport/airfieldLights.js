@@ -49,13 +49,13 @@ export function addAirfieldLights(set, { a, layout }) {
       // threshold (green, facing the approach) and end (red, facing the runway) rows
       for (let t = -W / 2 + 1; t <= W / 2 - 0.9; t += cls === 'hub' ? 2.5 : 3.5) {
         const g = ptST(B, 0.8, t); const r = ptST(B, -1.2, t);
-        set.add(g.x, 0.3, g.z, { color: 'green', size: 0.32, int: 1.2, day: 0.3, dir: out3, k: 2.2 });
+        set.add(g.x, 0.3, g.z, { color: 'green', size: 0.32, int: 1.2, day: 0.3, dir: out3, k: 2.2, minK: 1.3 });
         set.add(r.x, 0.3, r.z, { color: 'red', size: 0.3, int: 1.0, day: 0.25, dir: in3, k: 2.2 });
       }
       // threshold wing bars outside the edges
       for (const sd of [-1, 1]) for (let k = 0; k < 4; k++) {
         const g = ptST(B, 0.8, sd * (W / 2 + 3 + k * 1.6));
-        set.add(g.x, 0.3, g.z, { color: 'green', size: 0.32, int: 1.2, day: 0.3, dir: out3, k: 2.2 });
+        set.add(g.x, 0.3, g.z, { color: 'green', size: 0.32, int: 1.2, day: 0.3, dir: out3, k: 2.2, minK: 1.3 });
       }
       // approach lighting
       if (spec.approachLights && end.ils) {
@@ -65,7 +65,7 @@ export function addAirfieldLights(set, { a, layout }) {
           const bar = s === 300 || s === 150 || s === 600;
           for (let t = -2; t <= 2; t += 1) {
             const p = ptST(B, -s, t);
-            set.add(p.x, 1.3, p.z, { color: 'white', size: 0.34, int: 1.5, day: 0.55, dir: out3, k: 1.6 });
+            set.add(p.x, 1.3, p.z, { color: 'white', size: 0.34, int: 1.5, day: 0.55, dir: out3, k: 1.6, minK: 1.3 });
           }
           if (cls === 'hub' && (s === 300 || s === 150)) {
             for (let t = -14; t <= 14; t += 1.6) if (Math.abs(t) > 2.5) {
@@ -79,7 +79,7 @@ export function addAirfieldLights(set, { a, layout }) {
           }
           if (s >= 60 && (cls === 'hub' || s >= 120)) {
             const p = ptST(B, -s, 0);
-            set.add(p.x, 1.8, p.z, { color: 'strobe', size: 0.55, int: 1.0, day: 0.9, dir: out3, k: 1.2, mode: MODE.SEQ, phase: idx });
+            set.add(p.x, 1.8, p.z, { color: 'strobe', size: 0.55, int: 1.0, day: 0.9, dir: out3, k: 1.2, mode: MODE.SEQ, phase: idx, minK: 2.0 });
           }
           void bar;
         }
@@ -88,7 +88,7 @@ export function addAirfieldLights(set, { a, layout }) {
         // runway end identifier lights
         for (const sd of [-1, 1]) {
           const p = ptST(B, -2, sd * (W / 2 + 9));
-          set.add(p.x, 0.9, p.z, { color: 'strobe', size: 0.5, int: 1, day: 0.9, dir: out3, k: 1.5, mode: MODE.SYNC });
+          set.add(p.x, 0.9, p.z, { color: 'strobe', size: 0.5, int: 1, day: 0.9, dir: out3, k: 1.5, mode: MODE.SYNC, minK: 2.0 });
         }
       }
       // PAPI: four units, left of the runway as the pilot sees it, 300 m from the threshold
@@ -100,7 +100,7 @@ export function addAirfieldLights(set, { a, layout }) {
           const p = ptST(B, 300, t);
           const thr = gs + [-0.5, -0.17, 0.17, 0.5][k];
           // k = 0 is the outermost unit (lowest angle); the one nearest the runway needs the highest
-          set.add(p.x, 0.75, p.z, { color: 'white', size: 0.95, int: 2.6, day: 1, dir: [-B.dir.x, 0, -B.dir.z], k: 0, mode: MODE.PAPI, thr });
+          set.add(p.x - B.dir.x * 1.1, 0.8, p.z - B.dir.z * 1.1, { color: 'white', size: 0.95, int: 1.5, day: 1, dir: [-B.dir.x, 0, -B.dir.z], k: 0, mode: MODE.PAPI, thr, minK: 2.6 });
           units.push({ x: p.x, z: p.z, dirx: -B.dir.x, dirz: -B.dir.z });
         }
         out.papi.push({ units, B });

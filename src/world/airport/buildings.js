@@ -35,7 +35,7 @@ const BUILD = {
   fuel: (ctx, s) => fuelPump(ctx, s),
 };
 
-const redLight = (ctx, x, y, z, size = 0.5) => ctx.lights.add(x, y, z, { color: 'red', size, int: 1.4, day: 0.45 });
+const redLight = (ctx, x, y, z, size = 0.5) => ctx.lights.add(x, y, z, { color: 'red', size, int: 1.4, day: 0.45, minK: 1.5 });
 
 // ---------------------------------------------------------------------------------------------------------------------
 function towerBig(ctx, s) {
@@ -71,8 +71,8 @@ function towerBig(ctx, s) {
   redLight(ctx, u + 7.9, h + 5.4, v, 0.45);
   redLight(ctx, u - 7.9, h + 5.4, v, 0.45);
   // rotating beacon pair (white / green) on the roof
-  lights.add(u + 0.8, h + 8.8, v + 2.5, { color: 'strobe', size: 0.9, int: 2.4, day: 0.85, mode: 2, phase: 0 });
-  lights.add(u + 0.8, h + 8.8, v + 2.5, { color: 'green', size: 0.9, int: 2.4, day: 0.85, mode: 2, phase: PI });
+  lights.add(u + 0.8, h + 8.8, v + 2.5, { color: 'strobe', size: 0.9, int: 2.4, day: 0.85, mode: 2, phase: 0, minK: 2.5 });
+  lights.add(u + 0.8, h + 8.8, v + 2.5, { color: 'green', size: 0.9, int: 2.4, day: 0.85, mode: 2, phase: PI, minK: 2.5 });
   ctx.towerCab = { u, v, h };
   void style;
 }
@@ -89,8 +89,8 @@ function towerSmall(ctx, s) {
   bufs.get('white').sphere(u + 1.5, h + 1.0, v - 0.8, 1.1, 10, 6, { half: true });
   st.cyl(u - 1.3, h + 1.0, v + 1.2, 0.06, 0.08, 5.5, 6, { ao: 0 });
   redLight(ctx, u - 1.3, h + 6.7, v + 1.2, 0.55);
-  lights.add(u + 0.5, h + 1.9, v + 1.8, { color: 'strobe', size: 0.8, int: 2.2, day: 0.8, mode: 2, phase: 0 });
-  lights.add(u + 0.5, h + 1.9, v + 1.8, { color: 'green', size: 0.8, int: 2.2, day: 0.8, mode: 2, phase: PI });
+  lights.add(u + 0.5, h + 1.9, v + 1.8, { color: 'strobe', size: 0.8, int: 2.2, day: 0.8, mode: 2, phase: 0, minK: 2.5 });
+  lights.add(u + 0.5, h + 1.9, v + 1.8, { color: 'green', size: 0.8, int: 2.2, day: 0.8, mode: 2, phase: PI, minK: 2.5 });
   ctx.towerCab = { u, v, h };
 }
 

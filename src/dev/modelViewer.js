@@ -7,6 +7,7 @@ import { SimWorld } from '../flight/world.js';
 
 // Developer tool (not part of the game build): view one aircraft model in a studio setting.
 // /models.html?id=jumbo&yaw=35&pitch=12&dist=1.5&cockpit=1&night=1&gear=0&look=0.3
+// More: d=<metres> tx/ty/tz=<look-at point> fov=<deg> lod=0|1|2 (force LOW/MEDIUM/HIGH) flaps=<stage> sun=<azimuth deg>
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
@@ -23,6 +24,7 @@ const night = num('night', 0);
 scene.background = new THREE.Color(night ? 0x05070d : 0x9db8d6);
 const sun = new THREE.DirectionalLight(0xfff1d8, night ? 0.3 : 3.0);
 sun.position.set(-40, 70, 30);
+if (q.has('sun')) { const a = (num('sun', 0) * Math.PI) / 180; sun.position.set(Math.cos(a) * 60, 55, Math.sin(a) * 60); }
 scene.add(sun, new THREE.HemisphereLight(0xcfe3ff, 0x4a4f45, night ? 0.25 : 1.1));
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshStandardMaterial({ color: 0x57674a, roughness: 1 }));
 ground.rotation.x = -Math.PI / 2;
@@ -33,6 +35,11 @@ model.reset({ mode: 'runway' });
 if (q.get('gear') === '0') { model.gear.extension = model.gear.target = 0; model.controls.gearDown = false; }
 const view = new AircraftView(spec, createCockpit);
 scene.add(view.root);
+if (q.has('lod')) {
+  const want = 2 - num('lod', 2); // lod=2 -> HIGH (levels[0])
+  view.lod.autoUpdate = false;
+  view.lod.levels.forEach((l, i) => { l.object.visible = i === want; });
+}
 ground.position.y = view.root.position.y; // set after first update
 const cockpit = q.get('cockpit') === '1';
 view.setCockpitActive(cockpit);
@@ -46,7 +53,7 @@ view.root.quaternion.identity();
 ground.position.y = -(spec.gear.mainLeft.y - 0.0) * -1; // ground sits at the gear contact height
 ground.position.y = spec.gear.mainLeft.y;
 
-const camera = new THREE.PerspectiveCamera(cockpit ? 75 : 40, innerWidth / innerHeight, 0.1, 5000);
+const camera = new THREE.PerspectiveCamera(cockpit ? 75 : num('fov', 40), innerWidth / innerHeight, 0.1, 5000);
 if (cockpit) {
   const e = view.cockpit.eye;
   camera.position.copy(e);
@@ -64,6 +71,12 @@ if (cockpit) {
 let frames = 0;
 function frame() {
   renderer.render(scene, camera);
+  if (frames === 2) {
+    let tris = 0;
+    let meshes = 0;
+    view.lod.levels.forEach((l) => { if (!l.object.visible) return; l.object.traverse((o) => { if (o.isMesh && o.visible) { meshes++; tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; } }); });
+    window.__info = { calls: renderer.info.render.calls, tris: Math.round(renderer.info.render.triangles), sceneTris: Math.round(tris), meshes };
+  }
   if (++frames === 3) document.title = 'ready';
   requestAnimationFrame(frame);
 }

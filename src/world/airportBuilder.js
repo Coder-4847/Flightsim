@@ -1,245 +1,176 @@
 import * as THREE from 'three';
 import { addParkedTraffic } from '../traffic/parked.js';
-import { makeGrassStripTexture, makeRunwayTexture, makeTaxiTexture } from '../scene/textures.js';
+import { Rng } from '../util/random.js';
 import { layoutAirport } from './airportLayout.js';
+import { addAirfieldLights } from './airport/airfieldLights.js';
+import { addBuildings } from './airport/buildings.js';
+import { LightSet, disposeLightMaterial, lightMaterial } from './airport/lightField.js';
+import { airportStyle, ambientBoost, decalMaterial, lift, paintMaterial, surfaceMaterial } from './airport/materials.js';
+import { BufSet } from './airport/mesh.js';
+import {
+  addFence, addMasts, addNavaids, addPools, addRoadsAndLots, addSiteVehicles, addTrees, addWindsocks, finalizeSigns,
+} from './airport/props.js';
+import { buildSurfaces } from './airport/surfaces.js';
+import * as TX from './airport/textures.js';
+import { VehicleField, disposeVehicleAssets } from './airport/vehicles.js';
+import { setFleetNight } from '../traffic/fleet.js';
 
-// Builds the 3D airport for a map's airport record: surfaces, buildings, lights, PAPI, windsock.
-// Local frame: origin at the airport reference point on the flat pad, +Y up. The group is
-// positioned at (x, elevation, z) in the world.
+// Builds the 3D airport for a map's airport record. The group sits at (x, elevation, z) in the world; its
+// child `frame` is rotated so that local +X runs along the main runway heading and +Z to its right, which
+// is the coordinate system of airportLayout.js. Content is split into LOD sets (`userData.lod`) that the
+// manager shows and hides by distance.
 
 const DEG = Math.PI / 180;
-const UP = new THREE.Vector3(0, 1, 0);
-const dirOf = (h) => ({ x: Math.sin(h * DEG), z: -Math.cos(h * DEG) });
-const FLAT = -Math.PI / 2;
 
-const shared = {};
-function sharedMaterials() {
-  if (shared.ready) return shared;
-  shared.ready = true;
-  shared.taxiTex = makeTaxiTexture();
-  shared.apron = new THREE.MeshStandardMaterial({ color: 0x6d7076, roughness: 0.95 });
-  shared.wall = new THREE.MeshStandardMaterial({ color: 0xd8d5ce, roughness: 0.85 });
-  shared.wallDark = new THREE.MeshStandardMaterial({ color: 0x8a9099, roughness: 0.8 });
-  shared.roof = new THREE.MeshStandardMaterial({ color: 0x4a5560, roughness: 0.7 });
-  shared.glass = new THREE.MeshStandardMaterial({ color: 0x1b2a38, roughness: 0.15, metalness: 0.4, emissive: 0xffc46b, emissiveIntensity: 0 });
-  shared.tank = new THREE.MeshStandardMaterial({ color: 0xe5e7ea, roughness: 0.6, metalness: 0.2 });
-  shared.metal = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.4, metalness: 0.7 });
-  shared.discGeo = new THREE.CircleGeometry(0.55, 8);
-  shared.sphereGeo = new THREE.SphereGeometry(0.4, 6, 4);
-  // Light materials: colour is per-instance, brightness is set globally from the time of day.
-  shared.lightDisc = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
-  shared.lightSphere = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
-  return shared;
+const UV_TILE = {
+  wall: [4, 3], wall2: [4, 3], accent: [4, 3], glass: [18, 9], punched: [28.8, 10.8], metal: [2, 2], metalH: [2, 2], roof: [3, 3],
+  roofLight: [3, 3], carpark: [8, 4], cab: [4, 2], bridge: [2, 2],
+};
+
+export function setLightBrightness() {}
+
+function buildingMaterials(style, mk, signTexture) {
+  const std = (o) => lift(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, ...o }));
+  const pre = TX.precastPanel(); const curtain = TX.curtainWall(); const punched = TX.punchedFacade(); const metal = TX.metalCladding(); const metalH = TX.metalCladdingH();
+  const roof = TX.roofSheet(); const cp = TX.carParkFacade(); const cab = TX.cabGlass();
+  const night = [];
+  const nm = (key, m, k) => { mk(key, m); night.push({ mat: m, k }); return m; };
+  mk('wall', std({ map: pre, color: style.wall }));
+  mk('wall2', std({ map: pre, color: style.wall2 }));
+  mk('accent', std({ map: pre, color: style.accent, roughness: 0.7 }));
+  mk('plain', std({ color: 0xb3b1aa, roughness: 1 }));
+  nm('glass', std({ map: curtain.map, emissiveMap: curtain.emissive, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.22, metalness: 0.3, color: 0xffffff }), 1.0);
+  nm('cab', std({ map: cab, emissive: 0xffc27a, emissiveIntensity: 0, roughness: 0.2, metalness: 0.2, color: 0xffffff }), 0.55);
+  nm('punched', std({ map: punched.map, emissiveMap: punched.emissive, emissive: 0xffffff, emissiveIntensity: 0, color: style.wall2 }), 1.0);
+  mk('metal', std({ map: metal, color: style.hangar, roughness: 0.6, metalness: 0.15 }));
+  mk('metalH', std({ map: metalH, color: new THREE.Color(style.hangar).multiplyScalar(0.8), roughness: 0.6, metalness: 0.15 }));
+  mk('roof', std({ map: roof, color: style.roof, roughness: 0.75 }));
+  mk('roofLight', std({ map: roof, color: 0xdadde0, roughness: 0.7 }));
+  nm('carpark', std({ map: cp.map, emissiveMap: cp.emissive, emissive: 0xffffff, emissiveIntensity: 0, color: 0xffffff }), 0.9);
+  mk('steel', std({ color: 0x6a7077, roughness: 0.45, metalness: 0.5 }));
+  mk('dark', std({ color: 0x1a1c1f, roughness: 0.6 }));
+  mk('tank', std({ color: 0xdfe3e6, roughness: 0.5, metalness: 0.2 }));
+  mk('bridge', std({ map: metal, color: 0xc7cbcf, roughness: 0.55, metalness: 0.2 }));
+  mk('white', std({ color: 0xe8ebee, roughness: 0.55 }));
+  mk('red', std({ color: 0xa32420, roughness: 0.6 }));
+  mk('wood', std({ color: 0x6e4f35, roughness: 1 }));
+  if (signTexture) nm('signs', std({ map: signTexture, emissiveMap: signTexture, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.5 }), 0.85);
+  const fence = std({ map: TX.fenceTexture(), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.4, depthWrite: true });
+  mk('fence', fence);
+  mk('sock', lift(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, side: THREE.DoubleSide })));
+  return night;
 }
 
-export function setLightBrightness(level) {
-  const m = sharedMaterials();
-  m.lightDisc.color.setScalar(level);
-  m.lightSphere.color.setScalar(level);
-}
-
-/** Instanced lights: `items` of {x, y, z, color, facing?} -> disc (directional) or sphere (omni). */
-function lightSet(items, directional) {
-  const geo = directional ? shared.discGeo : shared.sphereGeo;
-  const mesh = new THREE.InstancedMesh(geo, directional ? shared.lightDisc : shared.lightSphere, items.length);
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
-  const s = new THREE.Vector3(1, 1, 1);
-  const c = new THREE.Color();
-  items.forEach((it, i) => {
-    if (directional) {
-      q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(it.facing.x, it.facing.y ?? 0.1, it.facing.z).normalize());
-    } else q.identity();
-    m.compose(new THREE.Vector3(it.x, it.y, it.z), q, s);
-    mesh.setMatrixAt(i, m);
-    mesh.setColorAt(i, c.set(it.color));
-  });
-  mesh.instanceMatrix.needsUpdate = true;
-  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  mesh.frustumCulled = false;
-  return mesh;
-}
-
-function box(w, h, d, mat, x, y, z) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  m.position.set(x, y, z);
-  return m;
-}
-
-export function buildAirport(a) {
-  const mats = sharedMaterials();
+export function buildAirport(a, { biome = 'grass' } = {}) {
   const layout = layoutAirport(a);
+  const rng = new Rng(layout.seed ^ 0x51ed);
+  const style = airportStyle(rng, biome);
   const group = new THREE.Group();
   group.position.set(a.x, a.elevation, a.z);
-  const anim = { windsock: null, papi: [], beacon: null, windowMats: [mats.glass] };
-  const Y_GROUND = 0.04;
+  const frame = new THREE.Group();
+  frame.rotation.y = Math.PI / 2 - a.runways[0].heading * DEG;
+  group.add(frame);
+  const disposables = [];
+  const mats = {};
+  const mk = (key, m) => { mats[key] = m; disposables.push(m); return m; };
+  const anim = { windsocks: [], night: [], pools: null };
 
-  // ---- surfaces: aprons and taxiways, then runways on top --------------------------------------
-  for (const r of layout.rects) {
-    if (r.kind === 'runway') continue;
-    const len = r.hl * 2;
-    const wid = r.hw * 2;
-    const geo = new THREE.PlaneGeometry(wid, len).rotateX(FLAT);
-    let mat;
-    if (r.kind === 'taxiway') {
-      const tex = mats.taxiTex.clone();
-      tex.needsUpdate = true;
-      tex.repeat.set(1, Math.max(1, len / 40));
-      mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    } else {
-      mat = r.surface === 'grass'
-        ? new THREE.MeshStandardMaterial({ color: 0x8b8a6a, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })
-        : mats.apron;
-    }
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(r.cx - a.x, Y_GROUND + (r.kind === 'apron' ? 0.0 : 0.01), r.cz - a.z);
-    mesh.rotation.y = Math.PI - r.heading * DEG;
-    group.add(mesh);
+  const groundKind = { grass: 'grass', desert: 'dirt', snow: 'snow' }[biome] ?? 'grass';
+  mk('asphalt', surfaceMaterial('asphalt', style.asphaltTint));
+  mk('concrete', surfaceMaterial('concrete', new THREE.Color(...style.concreteTint)));
+  mk('gravel', surfaceMaterial('dirt', 0.8));
+  mk('infield', surfaceMaterial(groundKind, groundKind === 'grass' ? new THREE.Color(0.8, 0.95, 0.72) : groundKind === 'dirt' ? new THREE.Color(1.3, 1.2, 1.1) : 1));
+  mk('strip', surfaceMaterial(groundKind, groundKind === 'grass' ? new THREE.Color(1.05, 1.15, 0.8) : groundKind === 'snow' ? 0.95 : 1.1));
+  mk('paintW', paintMaterial(0xf2f2ee));
+  mk('paintY', paintMaterial(0xe8b712));
+  mk('paintR', paintMaterial(0xb01e22));
+  mk('glyphW', paintMaterial(0xf2f2ee, { glyph: true }));
+  mk('glyphY', paintMaterial(0xe8b712, { glyph: true }));
+  mk('rubber', decalMaterial(TX.rubberTexture(), 0x08080a));
+  mk('streak', decalMaterial(TX.streakTexture(), 0x0a0a0a, { opacity: 0.9 }));
+  const poolMat = mk('pool', new THREE.MeshBasicMaterial({ map: TX.lightPoolTexture(), color: 0x000000, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, vertexColors: true }));
+
+  // ---- shared context ---------------------------------------------------------------------------------------------------------------
+  const mainBufs = new BufSet();
+  const detailBufs = new BufSet();
+  const lights = new LightSet();
+  const vf = new VehicleField();
+  const term = layout.sites.find((s) => s.type === 'terminal');
+  const ctx = {
+    a, layout, rng, style, biome, cls: a.cls, lights, vf, banners: [], pools: [], mats, disposables, anim,
+    bufs: mainBufs, surf: null,
+    faceDist: (st) => (term.variant === 'hub' ? Math.abs(st.S.v) - term.concourse.half : Math.abs(st.S.v - (term.v + term.face * term.d / 2))),
+  };
+
+  // surfaces and markings
+  const surf = buildSurfaces({ a, layout, rng, style, biome });
+  ctx.surf = surf.bufs;
+
+  // lights
+  const lightInfo = addAirfieldLights(lights, { a, layout });
+
+  // buildings (main set), then props (detail set)
+  addBuildings(ctx);
+  ctx.bufs = detailBufs;
+  addNavaids(ctx, lightInfo);
+  addMasts(ctx);
+  addRoadsAndLots(ctx);
+  addFence(ctx);
+  addSiteVehicles(ctx);
+  const detailGroup = new THREE.Group();
+  const treeGroup = addTrees(ctx);
+  detailGroup.add(treeGroup);
+  const atlas = finalizeSigns(ctx);
+  addPools(ctx, detailBufs.get('pool'));
+
+  // parked traffic and its equipment
+  addParkedTraffic(group, a, vf);
+
+  // materials that depend on the atlas
+  anim.night = buildingMaterials(style, mk, atlas?.texture ?? null);
+  if (atlas) disposables.push({ dispose: () => atlas.texture.dispose() });
+  addWindsocks(ctx, detailGroup, anim);
+
+  // ---- meshes --------------------------------------------------------------------------------------------------------------------------
+  const surfaceGroup = new THREE.Group(); const paintGroup = new THREE.Group(); const mainGroup = new THREE.Group();
+  frame.add(surfaceGroup, paintGroup, mainGroup, detailGroup);
+  const keep = (list) => { for (const m of list) disposables.push({ dispose: () => m.geometry.dispose() }); };
+  const surfMeshes = surf.bufs.build(mats, null);
+  for (const m of surfMeshes) {
+    const paint = m.name.startsWith('paint') || m.name.startsWith('glyph') || m.name === 'rubber' || m.name === 'streak';
+    if (m.name === 'rubber' || m.name === 'streak') m.renderOrder = 2;
+    if (m.name.startsWith('paint') || m.name.startsWith('glyph')) m.renderOrder = 3;
+    (paint ? paintGroup : surfaceGroup).add(m);
   }
+  keep(surfMeshes);
+  const mainMeshes = mainBufs.build(mats, mainGroup, { uvTile: UV_TILE });
+  keep(mainMeshes);
+  const detailMeshes = detailBufs.build(mats, detailGroup, { uvTile: UV_TILE });
+  for (const m of detailMeshes) if (m.name === 'pool') { m.renderOrder = 4; m.frustumCulled = false; }
+  keep(detailMeshes);
+  const vehicles = vf.build();
+  detailGroup.add(vehicles);
+  vehicles.traverse((o) => { if (o.isInstanceMesh || o.isMesh) o.userData.sharedGeometry = true; });
+  treeGroup.traverse((o) => { if (o.isMesh) disposables.push({ dispose: () => { o.geometry.dispose(); o.material.dispose(); } }); });
+  vehicles.traverse((o) => { if (o.isInstancedMesh) disposables.push({ dispose: () => o.dispose() }); });
+  void poolMat;
 
-  // ---- runways with markings -------------------------------------------------------------------------
-  const lightsOmni = [];
-  const lightsDisc = [];
-  for (const rw of a.runways) {
-    const [endA, endB] = rw.ends;
-    const geo = new THREE.PlaneGeometry(rw.width, rw.length).rotateX(FLAT);
-    const tex = rw.surface === 'grass'
-      ? makeGrassStripTexture({ widthM: rw.width, lengthM: rw.length, northNumber: endA.id, southNumber: endB.id })
-      : makeRunwayTexture({ widthM: rw.width, lengthM: rw.length, northNumber: endA.id, southNumber: endB.id });
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
-    mesh.position.set(rw.cx - a.x, Y_GROUND + 0.03, rw.cz - a.z);
-    mesh.rotation.y = Math.PI - rw.heading * DEG;
-    group.add(mesh);
+  const lightPoints = lights.build();
+  if (lightPoints) { frame.add(lightPoints); disposables.push({ dispose: () => lightPoints.geometry.dispose() }); }
 
-    const d = dirOf(rw.heading);
-    const side = { x: -d.z, z: d.x };
-    const lx = rw.cx - a.x;
-    const lz = rw.cz - a.z;
-    const at = (along, perp, y = 0.5) => ({ x: lx + d.x * along + side.x * perp, y, z: lz + d.z * along + side.z * perp });
-    if (rw.surface === 'grass') {
-      // Marker cones instead of electric lights.
-      for (let al = -rw.length / 2; al <= rw.length / 2; al += 80) for (const sd of [-1, 1]) lightsOmni.push({ ...at(al, sd * (rw.width / 2 + 1), 0.3), color: 0xfff4d0 });
-      continue;
-    }
-    // Edge lights: white, amber on the last 600 m of the runway.
-    for (let al = -rw.length / 2; al <= rw.length / 2 + 0.1; al += 60) {
-      const amber = Math.abs(al) > rw.length / 2 - 600;
-      for (const sd of [-1, 1]) lightsOmni.push({ ...at(al, sd * (rw.width / 2 + 1.8), 0.45), color: amber ? 0xffc23a : 0xfff4e0 });
-    }
-    // Threshold (green, facing approach) and runway-end (red, facing along the runway) rows.
-    for (const [end, sgn] of [[endA, -1], [endB, 1]]) {
-      const faceOut = { x: d.x * sgn, z: d.z * sgn, y: 0.12 }; // away from the runway = toward an arriving pilot
-      const faceIn = { x: -d.x * sgn, z: -d.z * sgn, y: 0.12 };
-      for (let p = -rw.width / 2; p <= rw.width / 2; p += 3) {
-        lightsDisc.push({ ...at(sgn * (rw.length / 2 - 1), p, 0.3), color: 0x35e07a, facing: faceOut });
-        lightsDisc.push({ ...at(sgn * (rw.length / 2 + 1.5), p, 0.3), color: 0xff3030, facing: faceIn });
-      }
-      // Approach lights: centreline every 30 m, crossbars every 150 m, facing the arriving aircraft.
-      if (a.spec.approachLights && end.ils) {
-        const reach = a.cls === 'hub' ? 900 : 600;
-        for (let al = 60; al <= reach; al += 30) {
-          lightsDisc.push({ ...at(sgn * (rw.length / 2 + al), 0, 1.4), color: al % 150 === 0 ? 0xffffff : 0xfff0c8, facing: { x: faceOut.x, z: faceOut.z, y: 0.25 } });
-          if (al % 150 === 0) for (let p = -9; p <= 9; p += 3) if (p) lightsDisc.push({ ...at(sgn * (rw.length / 2 + al), p, 1.4), color: 0xffffff, facing: { x: faceOut.x, z: faceOut.z, y: 0.25 } });
-        }
-      }
-      // PAPI: four lamps 300 m past the threshold, left of the runway as the arriving pilot sees it.
-      // Lamp 0 is the outermost one and needs the lowest angle to show white (2.5 deg ... 3.5 deg).
-      if (a.spec.papi) {
-        const lamps = [];
-        let pos = null;
-        for (let k = 0; k < 4; k++) {
-          const perp = sgn * (rw.width / 2 + 16 + (3 - k) * 9);
-          const p = at(sgn * (rw.length / 2 - 300), perp, 0.5);
-          const lamp = box(1.4, 0.9, 1.4, new THREE.MeshBasicMaterial({ color: 0xff2a2a, toneMapped: false }), p.x, p.y, p.z);
-          group.add(lamp);
-          lamps.push(lamp);
-          if (k === 1) pos = p;
-        }
-        anim.papi.push({ lamps, pos: { x: a.x + pos.x, y: a.elevation + 0.6, z: a.z + pos.z }, approachDir: { x: -d.x * sgn, z: -d.z * sgn } });
-      }
-    }
-  }
-
-  // Taxiway edge lights (blue).
-  for (const r of layout.rects.filter((q) => q.kind === 'taxiway')) {
-    for (let al = -r.hl; al <= r.hl; al += 45) for (const sd of [-1, 1]) {
-      lightsOmni.push({
-        x: r.cx - a.x + r.ux * al + -r.uz * sd * (r.hw + 1), y: 0.3, z: r.cz - a.z + r.uz * al + r.ux * sd * (r.hw + 1), color: 0x3a7bff,
-      });
-    }
-  }
-  if (lightsOmni.length) group.add(lightSet(lightsOmni, false));
-  if (lightsDisc.length) group.add(lightSet(lightsDisc, true));
-
-  // ---- buildings --------------------------------------------------------------------------------------------
-  for (const b of layout.buildings) {
-    const g = new THREE.Group();
-    g.position.set(b.x - a.x, 0, b.z - a.z);
-    g.rotation.y = Math.PI - b.heading * DEG - Math.PI / 2; // local +X runs along the runway
-    if (b.type === 'terminal') {
-      g.add(box(b.w, b.h, b.d, mats.wall, 0, b.h / 2, 0));
-      const glass = box(b.w * 0.96, b.h * 0.42, b.d + 0.4, mats.glass, 0, b.h * 0.55, 0);
-      g.add(glass);
-      g.add(box(b.w * 1.02, 1.2, b.d * 1.06, mats.roof, 0, b.h + 0.6, 0));
-      if (b.size === 'large') {
-        // Concourse fingers with jet bridges toward the apron.
-        for (let i = -3; i <= 3; i++) {
-          const x = i * (b.w / 8);
-          g.add(box(7, 6, 70, mats.wallDark, x, 3, -(b.d / 2 + 35)));
-          g.add(box(1.4, 1.4, 22, mats.metal, x + 5, 4.2, -(b.d / 2 + 78)));
-        }
-      }
-    } else if (b.type === 'hangar') {
-      g.add(box(b.w, b.h, b.d, mats.wall, 0, b.h / 2, 0));
-      const shape = new THREE.Shape([new THREE.Vector2(-b.w / 2, b.h), new THREE.Vector2(b.w / 2, b.h), new THREE.Vector2(0, b.h + b.h * 0.3)]);
-      const gable = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: b.d + 0.6, bevelEnabled: false }), mats.roof);
-      gable.position.z = -(b.d + 0.6) / 2;
-      g.add(gable);
-      g.add(box(b.w * 0.7, b.h * 0.7, 0.4, mats.wallDark, 0, b.h * 0.35, b.d / 2 + 0.1));
-    } else if (b.type === 'tower') {
-      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.6, b.h, 16), mats.wall);
-      shaft.position.y = b.h / 2;
-      const cab = new THREE.Mesh(new THREE.CylinderGeometry(6, 4.4, 6, 16), mats.glass);
-      cab.position.y = b.h + 3;
-      const cabRoof = new THREE.Mesh(new THREE.CylinderGeometry(6.8, 6.8, 0.8, 16), mats.roof);
-      cabRoof.position.y = b.h + 6.4;
-      g.add(shaft, cab, cabRoof);
-      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), new THREE.MeshBasicMaterial({ color: 0x35e07a, toneMapped: false }));
-      beacon.position.y = b.h + 8.4;
-      g.add(beacon);
-      anim.beacon = beacon;
-    } else if (b.type === 'tanks') {
-      for (let i = 0; i < 4; i++) {
-        const t = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 14, 20), mats.tank);
-        t.position.set(i * 26 - 39, 7, 0);
-        g.add(t);
-      }
-    }
-    group.add(g);
-  }
-
-  // ---- windsock near the touchdown zone of the main runway ---------------------------------------------------
-  const main = a.runways[0];
-  const md = dirOf(main.heading);
-  const wsPos = { x: main.cx - a.x + md.x * 280 + -md.z * (main.width / 2 + 45), z: main.cz - a.z + md.z * 280 + md.x * (main.width / 2 + 45) };
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 8, 8), mats.metal);
-  pole.position.set(wsPos.x, 4, wsPos.z);
-  const sockPivot = new THREE.Group();
-  sockPivot.position.set(wsPos.x, 7.7, wsPos.z);
-  const sock = new THREE.Mesh(new THREE.ConeGeometry(0.85, 3.6, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0xff7a1a, side: THREE.DoubleSide, roughness: 0.8 }));
-  sock.rotation.z = -Math.PI / 2; // cone axis along +X, narrow end pointing downwind
-  sock.position.x = 1.8;
-  sockPivot.add(sock);
-  group.add(pole, sockPivot);
-  anim.windsock = { pivot: sockPivot, sock };
-
-  addParkedTraffic(group, a);
   group.userData.anim = anim;
   group.userData.airport = a;
+  group.userData.frame = frame;
+  group.userData.disposables = disposables;
+  group.userData.lightInfo = lightInfo;
+  group.userData.lod = { detail: detailGroup, paint: paintGroup, tier: 0 };
+  group.userData.pools = poolMat;
   return group;
 }
 
-/** Streams airports in and out around the camera and animates windsocks and PAPI lamps. */
+const LOD_DETAIL = 5200; const LOD_PAINT = 13000;
+
+/** Streams airports in and out around the camera, applies distance LOD and animates windsocks and night lighting. */
 export class AirportManager {
   constructor(scene, map, env) {
     this.scene = scene;
@@ -248,53 +179,68 @@ export class AirportManager {
     this.built = new Map();
     this.buildRadius = 28000;
     this.dropRadius = 42000;
+    this.nightLevel = -1;
   }
 
-  /** `wind`: Vector3 of the wind velocity at the camera (m/s). */
   update(camPos, wind) {
+    const lm = lightMaterial();
+    const night = this.env.night;
+    lm.uniforms.uNight.value = night;
+    ambientBoost.value = 0.24 * (1 - night);
+    setFleetNight(Math.round(night * 20) / 20);
+    lm.uniforms.uTime.value = performance.now() / 1000;
     let builtThisFrame = 0;
     for (const a of this.map.airports) {
       const d = Math.hypot(camPos.x - a.x, camPos.z - a.z);
       const have = this.built.get(a.code);
       if (!have && d < this.buildRadius && builtThisFrame < 1) {
-        const g = buildAirport(a);
+        const g = buildAirport(a, { biome: this.map.cfg.biome });
         this.scene.add(g);
         this.built.set(a.code, g);
+        this.#applyNight(g, night);
         builtThisFrame++;
       } else if (have && d > this.dropRadius) {
-        this.scene.remove(have);
-        have.traverse((o) => { o.geometry?.dispose?.(); });
+        this.#drop(have);
         this.built.delete(a.code);
       }
     }
-    // Lights glow brighter at night; dim by day.
-    setLightBrightness(0.3 + 0.7 * this.env.night);
-    const night = this.env.night;
-    sharedMaterials().glass.emissiveIntensity = night * 0.9;
-    const speed = Math.hypot(wind.x, wind.z);
-    for (const g of this.built.values()) {
-      const anim = g.userData.anim;
-      if (anim.windsock) {
-        const heading = Math.atan2(wind.x, wind.z); // direction the wind blows toward, in the XZ plane
-        anim.windsock.pivot.rotation.y = heading - Math.PI / 2;
-        anim.windsock.sock.rotation.z = -Math.PI / 2 + Math.max(0, 1 - speed / 8) * 1.1; // droops in light wind
+    const speed = wind ? Math.hypot(wind.x, wind.z) : 0;
+    const nightChanged = Math.abs(night - this.nightLevel) > 0.004;
+    for (const [code, g] of this.built) {
+      const a = g.userData.airport;
+      const d = Math.hypot(camPos.x - a.x, camPos.z - a.z);
+      const lod = g.userData.lod;
+      const wantDetail = d < LOD_DETAIL + (lod.detail.visible ? 400 : -400);
+      const wantPaint = d < LOD_PAINT + (lod.paint.visible ? 600 : -600);
+      if (lod.detail.visible !== wantDetail) lod.detail.visible = wantDetail;
+      if (lod.paint.visible !== wantPaint) lod.paint.visible = wantPaint;
+      if (nightChanged) this.#applyNight(g, night);
+      if (wind && speed > 0.2 && lod.detail.visible) {
+        const th = Math.atan2(-wind.z, wind.x) - g.userData.frame.rotation.y;
+        const droop = -Math.max(0, 1 - speed / 8) * 1.1;
+        for (const w of g.userData.anim.windsocks) { w.pivot.rotation.y = th; w.sock.rotation.z = droop; }
       }
-      if (anim.beacon) anim.beacon.material.color.setHex(Math.sin(performance.now() / 700) > 0 ? 0x35e07a : 0xffffff);
-      for (const p of anim.papi) {
-        const dx = camPos.x - p.pos.x;
-        const dz = camPos.z - p.pos.z;
-        const along = dx * p.approachDir.x + dz * p.approachDir.z; // metres out on the approach side
-        const angle = along > 50 ? Math.atan2(camPos.y - p.pos.y, along) / DEG : 0;
-        p.lamps.forEach((lamp, k) => {
-          const threshold = [2.5, 2.83, 3.17, 3.5][k];
-          lamp.material.color.setHex(angle > threshold ? 0xffffff : 0xff2a2a);
-        });
-      }
+      void code;
     }
+    this.nightLevel = night;
+  }
+
+  #applyNight(g, night) {
+    for (const { mat, k } of g.userData.anim.night) mat.emissiveIntensity = night * k;
+    const p = g.userData.pools;
+    if (p) p.color.setRGB(1.0, 0.72, 0.4).multiplyScalar(night * 0.55);
+  }
+
+  #drop(g) {
+    this.scene.remove(g);
+    for (const d of g.userData.disposables ?? []) d.dispose?.();
   }
 
   dispose() {
-    for (const g of this.built.values()) this.scene.remove(g);
+    for (const g of this.built.values()) this.#drop(g);
     this.built.clear();
+    TX.disposeAirportTextures();
+    disposeLightMaterial();
+    disposeVehicleAssets();
   }
 }

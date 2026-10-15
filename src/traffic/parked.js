@@ -1,16 +1,18 @@
 import { Rng } from '../util/random.js';
 import { createTrafficModel, setHeading } from './fleet.js';
-import { layoutAirport } from '../world/airportLayout.js';
+import { layoutAirport, standPlacement } from '../world/airportLayout.js';
+import { equipStand } from '../world/airport/gse.js';
 
-// Aircraft parked on the stands of each airport, chosen by airport size.
+// Aircraft parked nose-in on the stands of each airport, chosen by airport size and stand type.
+// Positions come from the stand's nose-gear stop mark, so every aircraft type sits correctly at its
+// jet bridge or tie-down regardless of its length.
 
 const POOLS = {
-  hub: [['narrowbody', 5], ['regional', 3], ['bizjet', 2], ['turboprop72', 1], ['widebody', 2], ['jumbo', 1]],
-  regional: [['turboprop72', 3], ['regional', 3], ['narrowbody', 1], ['citation', 2], ['kingair', 1]],
+  hub: [['narrowbody', 6], ['regional', 3], ['bizjet', 1], ['widebody', 3], ['jumbo', 1]],
+  regional: [['turboprop72', 3], ['regional', 3], ['narrowbody', 1], ['citation', 1], ['kingair', 1]],
   small: [['cessna172', 4], ['caravan', 2], ['kingair', 1], ['citation', 1]],
   strip: [['cessna172', 3], ['caravan', 1]],
 };
-// Wide aircraft take over the neighbouring stand as well.
 const WIDE = new Set(['widebody', 'jumbo']);
 
 function pickWeighted(rng, pool) {
@@ -21,28 +23,37 @@ function pickWeighted(rng, pool) {
 }
 
 /** Adds parked aircraft to an airport group (positioned at the airport's origin). */
-export function addParkedTraffic(group, airport) {
+export function addParkedTraffic(group, airport, vehicles = null) {
   const layout = layoutAirport(airport);
   let seed = 0;
   for (const ch of airport.code) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
   const rng = new Rng(seed ^ 0x5eed);
-  const fill = { hub: 0.7, regional: 0.65, small: 0.6, strip: 0.5 }[airport.cls];
-  let skip = false;
+  const fill = { hub: 0.78, regional: 0.7, small: 0.62, strip: 0.5 }[airport.cls];
+  const playerStand = Math.floor(layout.stands.length / 2); // the gate start position: keep it free
+  const blocked = new Set([playerStand]);
+  const placed = [];
   layout.stands.forEach((stand, i) => {
-    if (skip) { skip = false; return; }
+    if (blocked.has(i)) return;
     if (!rng.chance(fill)) return;
-    const id = pickWeighted(rng, POOLS[airport.cls]);
+    let id = pickWeighted(rng, POOLS[airport.cls]);
+    // wide-body aircraft need the neighbouring stand on the same side to stay empty
+    if (WIDE.has(id)) {
+      const next = i + 2;
+      if (next >= layout.stands.length || blocked.has(next) || placed.includes(i - 2)) id = 'narrowbody';
+      else blocked.add(next);
+    }
+    // jet bridges and the regional stands serve airliners; remote and tie-down stands take the rest
     const variant = rng.int(0, 7);
     const { root, spec } = createTrafficModel(id, variant);
-    setHeading(root, stand.heading);
-    // Nosewheel/mainwheel contact height plus the struts' static compression.
-    root.position.set(stand.x - airport.x, -spec.gear.mainLeft.y - 0.1, stand.z - airport.z);
+    const p = standPlacement(stand, spec);
+    setHeading(root, p.heading);
+    root.position.set(p.x - airport.x, -spec.gear.mainLeft.y - 0.1, p.z - airport.z);
     root.userData.traffic = id;
     root.userData.stand = i;
     root.userData.variant = variant;
     group.add(root);
+    if (vehicles) equipStand(vehicles, stand, spec, id, rng);
+    placed.push(i);
     (group.userData.parked ??= []).push({ stand: i, id, root, spec });
-    if (WIDE.has(id) && airport.cls === 'hub') skip = true;
-    void i;
   });
 }

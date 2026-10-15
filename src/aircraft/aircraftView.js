@@ -44,7 +44,7 @@ export class AircraftView {
     this.spec = spec;
     this.createCockpit = createCockpit;
     this.root = new THREE.Group();
-    this.mats = makeMaterials(spec);
+    this.mats = makeMaterials(spec, { quality: createCockpit ? 1 : 0.5 });
     this.lod = new THREE.LOD();
     this.rigs = [];
     const length = spec.geometry.length;
@@ -58,7 +58,7 @@ export class AircraftView {
     this.root.add(this.lod);
     // Exterior glass would block the view from inside, so it is hidden in cockpit mode.
     this.glassMeshes = [];
-    this.root.traverse((o) => { if (o.isMesh && o.material === this.mats.glass) this.glassMeshes.push(o); });
+    this.root.traverse((o) => { if (o.isMesh && (o.material === this.mats.glass || o.userData.exteriorOnly)) this.glassMeshes.push(o); });
     this.chaseDistance = length * 1.9 + 4;
     this.cockpit = { eye: new THREE.Vector3(spec.cockpit.eye.x, spec.cockpit.eye.y, spec.cockpit.eye.z) };
     this.cockpitGroup = null;
@@ -85,6 +85,7 @@ export class AircraftView {
     if (level === this._night) return;
     this._night = level;
     this.mats.window.emissiveIntensity = 0.9 * level;
+    this.mats.setNight?.(level);
     setCockpitNight(level);
   }
 

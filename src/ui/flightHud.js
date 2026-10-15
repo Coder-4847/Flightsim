@@ -5,6 +5,7 @@ import { evaluate as evaluateWarnings } from '../game/warnings.js';
 import { h } from './dom.js';
 import { createChecklistPanel } from './hud/checklistPanel.js';
 import { createControlsPanel } from './hud/controlsPanel.js';
+import { createDashboard } from './hud/dashboard.js';
 import { createEnginePanel } from './hud/enginePanel.js';
 import { createMissionPanel } from './hud/missionPanel.js';
 import { createApproachPanel, createNavPanel, createPfdPanel } from './hud/instrumentPanels.js';
@@ -55,6 +56,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   // ---- shared context for the panels ----------------------------------------------------------------------------
   const audio = new AlertAudio(settings, getAudio(settings));
   const hud = {
+    root: el,
     panels: new PanelManager(panelRoot),
     audio,
     settings,
@@ -84,6 +86,8 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   const missionPanel = createMissionPanel(hud);
   const padMenu = createPadMenu(hud, input);
   el.append(padMenu.el);
+  const dashboard = createDashboard(hud);
+  el.append(dashboard.el);
 
   const TOOLBAR = [
     ['radio', 'Radio', 'R', 'Radio and ATC (R)'],
@@ -181,6 +185,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     checklist.reset();
     engines.rebuild();
     systemsPanel.rebuild();
+    dashboard.rebuild();
     activeWarnings.clear();
     audio.stall(false);
     session.atc?.on('violation', (v) => el.showToast(`ATC: ${v.text}`));
@@ -188,7 +193,8 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     if (!localStorage.getItem('hudpanels')) {
       const sim = settings.get('preset') !== 'arcade';
       // Small windows get fewer panels so nothing sits on top of anything else.
-      const open = sim ? (window.innerWidth >= 1250 ? ['pfd', 'engines', 'radio'] : ['radio']) : [];
+      const dash = settings.get('dashboard') !== false; // the dashboard already has the instruments and levers
+      const open = sim ? (window.innerWidth >= 1250 && !dash ? ['pfd', 'engines', 'radio'] : ['radio']) : [];
       for (const id of open) hud.panels.get(id).open();
     }
     el.refreshSystems();
@@ -205,6 +211,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     if (!sys.atc) hud.panels.get('radio').close();
     engines.rebuild();
     systemsPanel.rebuild();
+    dashboard.rebuild();
     radio.refresh();
   };
 
@@ -226,6 +233,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     if (action === 'radio_menu' && !hud.systems.atc) return el.showToast('ATC is off (turn it on in Settings or the setup screen)');
     if (action === 'checklist_toggle' && !hud.systems.checklists) return el.showToast('Checklists are off (turn them on in Settings or the setup screen)');
     if (action === 'panel_mission' && !hud.modeInfo) return el.showToast('Missions are part of Free Flight, Career, Emergency and VIP modes');
+    if (action === 'dashboard_toggle') return dashboard.toggleCollapsed();
     if (action === 'hud_toggle') hud.toggleHud();
     else if (action === 'hud_menu') padMenu.toggle();
     else if (ACTION_PANEL[action]) hud.panels.get(ACTION_PANEL[action]).toggle();
@@ -279,7 +287,10 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     ].filter(Boolean);
     status.textContent = flags.join('   ·   ');
     info.textContent = extra.cameraLabel;
+    const showDash = settings.get('dashboard') !== false && extra.cameraMode !== 'cockpit' && !hud.panels.hidden;
+    el.classList.toggle('has-dash', showDash);
     if (!model) return;
+    dashboard.update(t, showDash);
     refreshWarnings(t, model, now);
 
     // Navigation data shared by the map and the approach guide.
@@ -297,7 +308,9 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   };
 
   el.setVisible = (visible) => { el.classList.toggle('active', visible); };
-  window.addEventListener('resize', () => hud.panels.clamp());
+  const fit = () => el.style.setProperty('--dash-fit', String(Math.max(0.5, Math.min(1, window.innerWidth / 1270, window.innerHeight / 880))));
+  fit();
+  window.addEventListener('resize', () => { hud.panels.clamp(); fit(); });
   el.hud = hud;
   return el;
 }

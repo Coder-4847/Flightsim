@@ -55,6 +55,10 @@ export const SETTINGS_SCHEMA = {
     hint: 'Auto lowers the render resolution when the frame rate drops and raises it again when there is headroom.',
   },
   showFps: { section: 'Display', label: 'FPS counter', type: 'bool', default: false },
+  dashboard: {
+    section: 'Display', label: 'Dashboard in outside views', type: 'bool', default: true,
+    hint: 'A realistic instrument panel along the bottom of the screen with a throttle quadrant, flap and gear levers and switches. It gives way to the cockpit when you use the cockpit camera (F10 collapses it).',
+  },
   hudScale: {
     section: 'Display', label: 'HUD scale', type: 'range',
     min: 0.6, max: 1.6, step: 0.05, default: 1, format: (v) => `${Math.round(v * 100)}%`,

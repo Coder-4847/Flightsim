@@ -6,6 +6,12 @@
 - Next step: user playtests the release candidate on the live URL. If it passes, the project is done (Definition of done, section 13 of the master prompt); otherwise fix what the playtest finds.
 - Live playtest / release URL: https://coder-4847.github.io/Flightsim/
 
+## Dashboard (added after the release candidate, rc.2)
+- New realistic instrument panel along the bottom in every outside camera (chase, tower, cinematic); it hides in the cockpit camera, with H, or with Settings > Display > Dashboard; F10 collapses it. Steam-gauge aircraft get six round dials (airspeed, attitude, altimeter, vertical speed, heading, engine RPM/N1); glass, trainer, fighter and airliner types get PFD, navigation map (needs the GPS upgrade in the save modes) and engine screens. Left: switches (lights, pitot heat, APU on jets and airliners, assist, view, engine select, guarded fire button, speedbrake), a hold-to-brake pedal and the red parking-brake handle. Right: throttle levers (one per engine in per-engine mode, otherwise one; afterburner zone marked), mixture and propeller levers where the systems are on, a detented flap lever, the gear lever with its three lights, and a trim wheel. Annunciators across the top light for stall, overspeed, fire, engine failure, gear in transit, low fuel, hydraulics, electrics, pitot and parking brake.
+- Everything is two-way: dragging, scrolling (or double-clicking a lever for idle/full) changes the real controls; keys, controller and automation move the levers because they are redrawn from the aircraft every HUD update.
+- Test: drag a throttle lever; press Shift and watch it rise; drag the flap lever to a detent then press V; click LIGHTS, the park handle, hold BRAKES; scroll over the trim wheel; switch to the cockpit camera (C) and back.
+- `FlightControls.perform(action)` now goes through the input layer, which also fixes the Lights and Camera buttons on the Controls panel and the controller menu (they did nothing before).
+
 ## What to test in this build (Phase 6, release candidate)
 Everything from Phases 1-5 still applies (see git history for the earlier checklists). New:
 1. Intro: the title plays for about 3 s on every page load; any key, click or controller button skips it. Then the animated main menu (sunset sky, drifting clouds, four mountain layers, an airliner with a contrail now and then). Buttons: Fly, Continue as <pilot> (when a pilot exists), Settings, Controls (opens the bindings), How to play and about, Fullscreen.
@@ -92,6 +98,7 @@ Everything from Phases 1-5 still applies (see git history for the earlier checkl
 - src/modes/: economy (pure pay arithmetic), tracker (takeoff/touchdown/landed/sights), missions (37 career contracts), vip (contracts, comfort meter), emergency (seeded scenarios, scoring), freeflight, contract (career + VIP), runner
 - src/flight/systems.js: electrics, APU, hydraulics, pitot, jam, leak, fire, dump
 - src/game/: session (one flight), startPoints (runway / final / air spawns)
+- src/ui/hud/dashboard.js: the bottom instrument panel (levers, switches, dials, screens, annunciators)
 - src/ui/: menus (mainMenu, intro, menuBackground, aboutScreen), navigation (keyboard and controller focus), errorOverlay, settings (tabbed), mapSelect, flightSetup (hangar, paint, ownership), aircraftPreview, flightHud, hud/ (panels, radio, engines, controls, systems, checklist, instrument panels, pad menu, mission panel), modeSelect, savesScreen, shopScreen, contractScreen, emergencyScreen, debrief, pilotBar
 - src/util/: noise (Perlin), random (seeded)
 - scripts/: simtest (headless flight checks), authority (pitch authority at approach), kbtest (keyboard pilot), modetest (Phase 5), bench-terrain, inspect-maps
@@ -122,6 +129,7 @@ Everything from Phases 1-5 still applies (see git history for the earlier checkl
 - CPU (software GL, so pessimistic): physics 0.05 ms per 120 Hz step, world update about 3 ms, render submit 5-9 ms per frame at 300-500 draw calls.
 
 ## Session log (newest first)
+- 2026-10-15 Dashboard added (realistic bottom instrument panel with two-way levers and switches; perform() fix).
 - 2026-10-15 Phase 6 finished (release candidate 1.0.0-rc.1): intro, animated menu, tabbed settings, accessibility, menu navigation, audio, adaptive resolution, error overlay, GPU memory fix, HUD default layout fixes. Pushed; Pages run #19 (commit a584f62) deployed successfully. Release URL: https://coder-4847.github.io/Flightsim/
 - 2026-10-14 Phase 5 finished: saves, catalogue, economy, tracker, missions, VIP, emergency, mode runner and all screens. Pushed; Pages run #17 (commit ec928a8) deployed successfully.
 - 2026-10-14 Phase 4 finished: modes and toggles, systems and failures, ATC and AI traffic, HUD panels, controller menu, alerts; hub runway pair fix. Pushed; Pages run #15 (commit 39cfb54) deployed successfully.

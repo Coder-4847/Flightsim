@@ -66,6 +66,7 @@ export const ACTIONS = [
   a('panel_approach', 'Approach guide panel', 'HUD', ['F8']),
   a('panel_mission', 'Mission panel', 'HUD', ['F9']),
   a('hud_toggle', 'Toggle HUD', 'HUD', ['KeyH']),
+  a('dashboard_toggle', 'Collapse or open the dashboard', 'HUD', ['F10']),
   a('map_toggle', 'Toggle map', 'HUD', ['KeyM']),
   a('checklist_toggle', 'Toggle checklist', 'HUD', ['KeyK']),
 

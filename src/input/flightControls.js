@@ -19,6 +19,7 @@ export class FlightControls {
     this.stick = { pitch: 0, roll: 0, yaw: 0 };
     this.master = 0; // master throttle 0..1
     this.levers = []; // per-engine levers (used when the per-engine system is on)
+    this.uiBrake = false; // wheel brakes held from the dashboard pedal
     this.selected = null; // engine index the throttle keys act on, or null for all
     this.systems = { perEngine: false, manualFlaps: true, manualGear: true };
     this.autoGearState = true;
@@ -73,7 +74,8 @@ export class FlightControls {
 
   /** Run an action as if its key had been pressed (the HUD buttons use this). */
   perform(action) {
-    this.#onPress(action);
+    // Through the input layer, so actions handled elsewhere (lights, camera) work from the HUD too.
+    this.input.emit('press', action);
   }
 
   /** Set a flap detent directly (the HUD flap lever uses this). */
@@ -302,7 +304,7 @@ export class FlightControls {
     if (trim !== 0) c.trim = clamp(c.trim + trim * TRIM_RATE * dt, -1, 1);
 
     // Brakes, with differential braking from the rudder pedals when the toe brakes are used.
-    const both = input.isDown('brakes');
+    const both = input.isDown('brakes') || this.uiBrake;
     let left = both || input.isDown('brake_left') ? 1 : 0;
     let right = both || input.isDown('brake_right') ? 1 : 0;
     if (both && Math.abs(c.yaw) > 0.3) {

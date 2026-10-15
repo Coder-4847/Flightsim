@@ -279,6 +279,7 @@ function boot() {
       gearSpeed: m.spec.speeds.vapp * 1.4,
       windText: WIND_TEXT[settings.get('weather')],
       cameraLabel: `${session.cameras.mode} camera`,
+      cameraMode: session.cameras.mode,
     });
   }
   function handleEvents() {

@@ -3,7 +3,7 @@ import {
   HIGH, LOW, MEDIUM, Parts, T, bodyPatch, cylX, cylZ, hingedSurface, loftBody, revolve, roundedBox, sectionAt, setUV0, std, tubeBetween, vec, wingSurface,
 } from './kit.js';
 import {
-  bladeAntennaGeometry, glowLight, lensGeometry, makeProGearLeg, makeProPropeller, probeGeometry, whipGeometry,
+  bladeAntennaGeometry, ensurePlain, glowLight, lensGeometry, makeProGearLeg, makeProPropeller, probeGeometry, whipGeometry,
 } from './kitparts.js';
 import { registerPro, shade } from './skins.js';
 import { paintAtlas } from './paintkit.js';
@@ -189,7 +189,7 @@ export function buildTurboprop72(spec, mats, detail) {
         { x: 1.8, w: 0.42, top: 0.46, bottom: 0.46, yc: -0.08, n: 2.3 },
         { x: 3.2, w: 0.02, top: 0.22, bottom: 0.22, yc: 0, n: 2 },
       ], { detail, step: 0.4 });
-      fixed.add('wing', setUV0(std(sp.geo.clone()), 0.0015, 0.0015), T(-0.6, -0.95, s * 1.62));
+      fixed.add('wing', setUV0(std(sp.geo.clone()), 0.0015, 0.0015), T(-0.6, -0.98, s * 1.34));
     }
     const prop = makeProPropeller({
       blades: 6, radius: 1.97, hubR: 0.2,

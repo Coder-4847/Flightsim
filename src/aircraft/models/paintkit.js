@@ -33,7 +33,7 @@ export function paintPanel(rect, o) {
     }
     if (o.boots) {
       const L = o.boots.len;
-      g.fillStyle = o.boots.color ?? '#161719';
+      g.fillStyle = o.boots.color ?? '#33363b'; // de-ice boots: dark grey rubber, not black
       const zb0 = o.boots.z0 ?? o.z0; const zb1 = o.boots.z1 ?? o.z1 - 0.05;
       g.fillRect(zb0, -L, zb1 - zb0, L * 2);
       // Boot edge strips and chordwise stitching

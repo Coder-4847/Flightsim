@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import {
   HIGH, LOW, MEDIUM, Parts, T, airfoilStrut, bodyPatch, cylX, cylY, cylZ, hingedSurface, loftBody, roundedBox, sectionAt, setUV0, std, tubeBetween, vec,
-  wingSurface,
+  wingSurface, sphereG,
 } from './kit.js';
 import {
-  bladeAntennaGeometry, glowLight, lensGeometry, makeProGearLeg, makeProPropeller, makeWheelGroup, probeGeometry, whipGeometry,
+  bladeAntennaGeometry, ensurePlain, glowLight, lensGeometry, makeProGearLeg, makeProPropeller, makeWheelGroup, probeGeometry, whipGeometry,
 } from './kitparts.js';
 import { registerPro, shade } from './skins.js';
 import { paintAtlas } from './paintkit.js';
@@ -37,12 +37,12 @@ const STATIONS = [
   S(4.555, 0.01, 0.015, -0.015, 2),
 ];
 const POD = [
-  S(-3.5, 0.04, -0.62, -0.84, 2.1),
-  S(-2.9, 0.3, -0.58, -1.0, 2.3),
-  S(-1.8, 0.5, -0.55, -1.13, 2.4),
-  S(0.6, 0.52, -0.5, -1.16, 2.5),
-  S(1.9, 0.44, -0.55, -1.1, 2.4),
-  S(2.7, 0.1, -0.62, -0.9, 2.1),
+  S(-3.7, 0.03, -0.5, -0.8, 2.1),
+  S(-3.0, 0.2, -0.42, -0.95, 2.3),
+  S(-1.9, 0.4, -0.3, -1.1, 2.4),
+  S(0.6, 0.46, -0.25, -1.14, 2.5),
+  S(1.9, 0.38, -0.3, -1.08, 2.4),
+  S(2.7, 0.08, -0.4, -0.88, 2.1),
 ];
 const WING = [
   { z: 0.7, x: 0.5, y: 1.04, chord: 1.78, t: 0.14, camber: 0.025, cp: 0.4 },
@@ -171,8 +171,10 @@ export function buildCaravan(spec, mats, detail) {
   root.add(rud.pivot);
   rig.rudders.push({ pivot: rud.pivot, axis: rud.axis });
 
-  // Cargo pod and struts.
+  // Cargo pod, dorsal fillet and struts.
+  ensurePlain(mats, spec);
   if (MID) {
+    fixed.add('plain', sphereG(1, HI ? 20 : 10, HI ? 12 : 6), T(-4.35, 0.9, 0, 0, 0, 0.1, 1.5, 0.2, 0.07));
     const pod = loftBody(POD, { detail, step: 0.3 });
     fixed.add('wing', setUV0(std(pod.geo.clone()), 0.0015, 0.0015));
     for (const s of [1, -1]) {

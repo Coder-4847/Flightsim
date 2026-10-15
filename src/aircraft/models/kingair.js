@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {
-  HIGH, LOW, MEDIUM, Parts, T, bodyPatch, hingedSurface, loftBody, roundedBox, sectionAt, setUV0, std, tubeBetween, vec, wingSurface,
+  HIGH, LOW, MEDIUM, Parts, T, bodyPatch, hingedSurface, loftBody, roundedBox, sectionAt, setUV0, sphereG, std, tubeBetween, vec, wingSurface,
 } from './kit.js';
 import {
-  bladeAntennaGeometry, glowLight, lensGeometry, makeProGearLeg, makeProPropeller, probeGeometry, whipGeometry,
+  bladeAntennaGeometry, ensurePlain, glowLight, lensGeometry, makeProGearLeg, makeProPropeller, probeGeometry, whipGeometry,
 } from './kitparts.js';
 import { registerPro, shade } from './skins.js';
 import { paintAtlas } from './paintkit.js';
@@ -112,6 +112,8 @@ export function buildKingAir(spec, mats, detail) {
   const skinMesh = new THREE.Mesh(body.geo, mats.skin);
   exterior.add(skinMesh);
   const fixed = new Parts(mats);
+  ensurePlain(mats, spec);
+  if (MID) fixed.add('plain', sphereG(1, HI ? 20 : 10, HI ? 12 : 6), T(-4.35, 0.74, 0, 0, 0, 0.08, 0.95, 0.13, 0.05)); // dorsal fillet
   const ext = new Parts(mats);
 
   if (MID) {

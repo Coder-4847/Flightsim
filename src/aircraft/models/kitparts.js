@@ -315,4 +315,15 @@ function xfRod(len, r, lean) {
   return g;
 }
 
+/** A plain painted material in the livery base colour, for fairings that must not carry the fuselage's windows and stripes. */
+export function ensurePlain(mats, spec) {
+  if (!mats.plain) {
+    mats.plain = mats.skin.clone();
+    mats.plain.map = null;
+    mats.plain.color = new THREE.Color(spec.livery.base);
+    mats.__envMats?.push(mats.plain);
+  }
+  return mats.plain;
+}
+
 export { cylX, curve1, sphereG };

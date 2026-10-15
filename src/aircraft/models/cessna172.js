@@ -4,7 +4,7 @@ import {
   revolve, roundedBox, sectionAt, std, tubeBetween, vec, wingSurface, xf, sphereG,
 } from './kit.js';
 import {
-  bladeAntennaGeometry, glowLight, lensGeometry, makeProGearLeg, makeProPropeller, makeWheelGroup, probeGeometry, whipGeometry,
+  bladeAntennaGeometry, ensurePlain, glowLight, lensGeometry, makeProGearLeg, makeProPropeller, makeWheelGroup, probeGeometry, whipGeometry,
 } from './kitparts.js';
 import { AtlasPaint, BodyPaint, FONT, blot, mix, mottle, registerPro, shade, texSize, attachMap } from './skins.js';
 import { paintPanel } from './paintkit.js';
@@ -188,12 +188,7 @@ export function buildCessna172(spec, mats, detail) {
   rig.fuselage = exterior;
 
   // Plain painted fairings (wheel pants, dorsal fillet) must not carry the fuselage's windows and stripes.
-  if (!mats.plain) {
-    mats.plain = mats.skin.clone();
-    mats.plain.map = null;
-    mats.plain.color = new THREE.Color(spec.livery.base);
-    mats.__envMats?.push(mats.plain);
-  }
+  ensurePlain(mats, spec);
   const body = loftBody(STATIONS, { detail, step: 0.2 });
   if (!mats.__painted) {
     mats.__painted = { skin: paintFuselage(mats, body, spec), atlas: paintLifting(mats, spec) };

@@ -33,7 +33,9 @@ scene.add(ground);
 const model = new FlightModel(spec, new SimWorld());
 model.reset({ mode: 'runway' });
 if (q.get('gear') === '0') { model.gear.extension = model.gear.target = 0; model.controls.gearDown = false; }
+const t0 = performance.now();
 const view = new AircraftView(spec, createCockpit);
+const buildMs = Math.round(performance.now() - t0);
 scene.add(view.root);
 if (q.has('lod')) {
   const want = 2 - num('lod', 2); // lod=2 -> HIGH (levels[0])
@@ -75,7 +77,11 @@ function frame() {
     let tris = 0;
     let meshes = 0;
     view.lod.levels.forEach((l) => { if (!l.object.visible) return; l.object.traverse((o) => { if (o.isMesh && o.visible) { meshes++; tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; } }); });
-    window.__info = { calls: renderer.info.render.calls, tris: Math.round(renderer.info.render.triangles), sceneTris: Math.round(tris), meshes };
+    const list = [];
+    view.lod.levels.forEach((l) => { if (!l.object.visible) return; l.object.traverse((o) => { if (o.isMesh && o.visible) list.push([o.name || o.parent?.name || '?', (o.material?.name ?? '') , Math.round((o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3)]); }); });
+    list.sort((a, b) => b[2] - a[2]);
+    window.__top = list.slice(0, 14);
+    window.__info = { buildMs, calls: renderer.info.render.calls, tris: Math.round(renderer.info.render.triangles), sceneTris: Math.round(tris), meshes };
   }
   if (++frames === 3) document.title = 'ready';
   requestAnimationFrame(frame);

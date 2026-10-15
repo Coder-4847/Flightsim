@@ -10,7 +10,7 @@ export const JET_CONFIGS = {
   narrowbody: {
     fuselage: {
       xTail: -18.6, xNose: 19.0, w: 1.975, top: 2.07, bot: 2.07, yc: 0.3, n: 2.06,
-      nose: { len: 6.4, p: 1.55, q: 1.7, droop: 0.55, botPow: 0.9 },
+      nose: { len: 6.2, p: 1.7, q: 1.8, droop: 0.5, botPow: 0.9, wPow: 1.05, nBoost: 0.6 },
       tail: { len: 11.5, p: 1.5, q: 1.15, up: 1.15, tipR: 0.17, topPow: 0.9, botPow: 1.2 },
       bumps: [{ theta: BELLY, x0: -5.5, x1: 5.5, ramp: 2.5, ramp2: 2.5, h: 0.3, sigma: 0.8 }],
     },
@@ -24,7 +24,7 @@ export const JET_CONFIGS = {
       { x: 0.2, w: 0.55, h: 0.95, y0: 0.0 }, { x: -0.9, w: 0.55, h: 0.95, y0: 0.0 },
       { x: 9.0, w: 1.82, h: 1.2, y0: -1.45, sides: [1] }, { x: -5.5, w: 1.82, h: 1.2, y0: -1.45, sides: [1] },
     ],
-    cockpit: { x: 16.5, front: { ang: 20, w: 0.9, h: 0.5 }, side: { x: 15.0, y: 0.95, w: 0.66, h: 0.46 } },
+    cockpit: { x: 16.8, front: { ang: 27, w: 1.0, h: 0.55 }, side: { x: 15.6, y: 0.95, w: 0.62, h: 0.46 } },
     wing: {
       rootZ: 1.2, hinge: 0.74, slatCf: 0.13,
       stations: [
@@ -59,7 +59,7 @@ export const JET_CONFIGS = {
   regional: {
     fuselage: {
       xTail: -16.7, xNose: 15.0, w: 1.5, top: 1.68, bot: 1.58, yc: 0.2, n: 2.1,
-      nose: { len: 4.6, p: 2.2, q: 2.0, droop: 0.35, botPow: 0.8 },
+      nose: { len: 5.0, p: 1.7, q: 1.8, droop: 0.33, botPow: 0.9, wPow: 1.05, nBoost: 0.5 },
       tail: { len: 9.5, p: 1.5, q: 1.15, up: 1.0, tipR: 0.14, topPow: 0.9, botPow: 1.2 },
       waist: { amount: 0.06, y: -0.35, width: 0.55 },
       bumps: [{ theta: BELLY, x0: -4.0, x1: 4.0, ramp: 2.0, ramp2: 2.0, h: 0.22, sigma: 0.8 }],
@@ -73,7 +73,7 @@ export const JET_CONFIGS = {
       { x: 10.4, w: 0.8, h: 1.7, y0: -0.5 }, { x: -9.8, w: 0.8, h: 1.7, y0: -0.5 }, { x: 0.6, w: 0.5, h: 0.9, y0: -0.05 }, { x: -0.3, w: 0.5, h: 0.9, y0: -0.05 },
       { x: 7.0, w: 1.2, h: 0.95, y0: -1.1, sides: [1] }, { x: -5.0, w: 1.2, h: 0.95, y0: -1.1, sides: [1] },
     ],
-    cockpit: { x: 12.6, front: { ang: 32, w: 0.75, h: 0.42 }, side: { x: 11.5, y: 0.85, w: 0.6, h: 0.42 } },
+    cockpit: { x: 13.1, front: { ang: 27, w: 0.8, h: 0.44 }, side: { x: 11.9, y: 0.82, w: 0.6, h: 0.42 } },
     wing: {
       rootZ: 1.0, hinge: 0.72, slatCf: 0.13,
       stations: [
@@ -107,7 +107,7 @@ export const JET_CONFIGS = {
   bizjet: {
     fuselage: {
       xTail: -16.0, xNose: 14.4, w: 1.32, top: 1.34, bot: 1.26, yc: 0.35, n: 2.12,
-      nose: { len: 5.2, p: 2.05, q: 2.0, droop: 0.3, botPow: 0.85 },
+      nose: { len: 5.6, p: 1.6, q: 1.75, droop: 0.28, botPow: 0.88, nBoost: 0.5 },
       tail: { len: 9.5, p: 1.35, q: 1.2, up: 0.7, tipR: 0.12, topPow: 0.9, botPow: 1.1 },
       bumps: [{ theta: BELLY, x0: -3.0, x1: 4.0, ramp: 2.0, ramp2: 2.0, h: 0.18, sigma: 0.9 }],
     },
@@ -117,7 +117,7 @@ export const JET_CONFIGS = {
     },
     windows: { x0: -8.4, x1: 7.4, pitch: 1.05, y: 0.42, w: 0.4, h: 0.5, r: 0.22, skip: [[-10.4, -9.0], [8.0, 9.4]] },
     doors: [{ x: 8.9, w: 0.75, h: 1.6, y0: -0.7, sides: [-1] }, { x: -10.2, w: 0.6, h: 0.7, y0: -0.2, sides: [1] }, { x: 0.5, w: 0.5, h: 0.8, y0: 0.0, sides: [1] }],
-    cockpit: { x: 11.9, front: { ang: 34, w: 0.72, h: 0.38 }, side: { x: 11.0, y: 0.78, w: 0.62, h: 0.4 } },
+    cockpit: { x: 12.4, front: { ang: 28, w: 0.74, h: 0.42 }, side: { x: 11.2, y: 0.75, w: 0.62, h: 0.4 } },
     wing: {
       rootZ: 0.9, hinge: 0.74, slatCf: 0.12,
       stations: [
@@ -151,7 +151,7 @@ export const JET_CONFIGS = {
   citation: {
     fuselage: {
       xTail: -8.5, xNose: 7.0, w: 0.75, top: 0.8, bot: 0.76, yc: 0.2, n: 2.15,
-      nose: { len: 2.7, p: 2.0, q: 2.0, droop: 0.16, botPow: 0.85 },
+      nose: { len: 3.4, p: 1.6, q: 1.7, droop: 0.14, botPow: 0.88, nBoost: 0.4 },
       tail: { len: 6.8, p: 1.3, q: 1.2, up: 0.55, tipR: 0.07, topPow: 0.9, botPow: 1.05 },
     },
     livery: {
@@ -160,7 +160,7 @@ export const JET_CONFIGS = {
     },
     windows: { x0: -3.4, x1: 2.4, pitch: 0.95, y: 0.28, w: 0.3, h: 0.4, r: 0.15, skip: [[-6.4, -4.0]] },
     doors: [{ x: 3.3, w: 0.62, h: 1.25, y0: -0.5, sides: [-1] }, { x: -1.0, w: 0.5, h: 0.65, y0: 0.0, sides: [1] }],
-    cockpit: { x: 5.2, front: { ang: 34, w: 0.5, h: 0.3 }, side: { x: 4.7, y: 0.5, w: 0.42, h: 0.3 } },
+    cockpit: { x: 5.35, front: { ang: 28, w: 0.52, h: 0.34 }, side: { x: 4.7, y: 0.48, w: 0.42, h: 0.3 } },
     wing: {
       rootZ: 0.6, hinge: 0.72, slatCf: 0.1,
       stations: [
@@ -193,7 +193,7 @@ export const JET_CONFIGS = {
   widebody: {
     fuselage: {
       xTail: -37.4, xNose: 36.5, w: 3.1, top: 3.1, bot: 3.1, yc: 0.85, n: 2.04,
-      nose: { len: 9.5, p: 2.1, q: 2.0, droop: 0.9, botPow: 0.8 },
+      nose: { len: 10.0, p: 1.7, q: 1.8, droop: 0.9, botPow: 0.9, wPow: 1.05, nBoost: 0.6 },
       tail: { len: 21.0, p: 1.4, q: 1.15, up: 2.2, tipR: 0.3, topPow: 0.9, botPow: 1.2 },
       bumps: [{ theta: BELLY, x0: -9.0, x1: 12.0, ramp: 4.0, ramp2: 4.0, h: 0.5, sigma: 0.8 }],
     },
@@ -207,7 +207,7 @@ export const JET_CONFIGS = {
       { x: -19.0, w: 1.07, h: 1.9, y0: -0.7 }, { x: -31.0, w: 0.8, h: 1.6, y0: -0.5 },
       { x: 17.5, w: 2.7, h: 1.7, y0: -2.2, sides: [1] }, { x: -14.0, w: 2.7, h: 1.7, y0: -2.2, sides: [1] },
     ],
-    cockpit: { x: 31.8, front: { ang: 30, w: 1.05, h: 0.56 }, side: { x: 29.6, y: 1.7, w: 0.85, h: 0.56 } },
+    cockpit: { x: 33.2, front: { ang: 27, w: 1.2, h: 0.62 }, side: { x: 31.0, y: 1.0, w: 0.9, h: 0.58 } },
     wing: {
       rootZ: 2.6, hinge: 0.75, slatCf: 0.12,
       stations: [
@@ -242,10 +242,10 @@ export const JET_CONFIGS = {
   jumbo: {
     fuselage: {
       xTail: -36.7, xNose: 34.0, w: 3.25, top: 3.25, bot: 3.25, yc: 0.4, n: 2.0,
-      nose: { len: 8.8, p: 2.2, q: 2.0, droop: 0.7, botPow: 0.8 },
+      nose: { len: 9.4, p: 1.7, q: 1.8, droop: 0.75, botPow: 0.9, wPow: 1.04, nBoost: 0.5 },
       tail: { len: 20.0, p: 1.4, q: 1.15, up: 2.3, tipR: 0.3, topPow: 0.9, botPow: 1.2 },
       bumps: [
-        { theta: Math.PI / 2, x0: 27.0, x1: -1.0, ramp: 4.5, ramp2: 14, h: 1.9, sigma: 0.55 },
+        { theta: Math.PI / 2, x0: -1.0, x1: 27.0, ramp: 14, ramp2: 4.5, h: 1.9, sigma: 0.55 },
         { theta: BELLY, x0: -6.0, x1: 13.0, ramp: 4.0, ramp2: 4.0, h: 0.5, sigma: 0.8 },
       ],
     },
@@ -259,7 +259,7 @@ export const JET_CONFIGS = {
       { x: 26.5, w: 1.07, h: 1.9, y0: -0.6 }, { x: 14.5, w: 1.07, h: 1.9, y0: -0.6 }, { x: -4.0, w: 1.07, h: 1.9, y0: -0.6 }, { x: -20.5, w: 1.07, h: 1.9, y0: -0.6 },
       { x: -30.0, w: 0.9, h: 1.7, y0: -0.6 }, { x: 18.0, w: 2.6, h: 1.7, y0: -2.3, sides: [1] }, { x: -13.0, w: 2.6, h: 1.7, y0: -2.3, sides: [1] },
     ],
-    cockpit: { x: 30.1, front: { ang: 30, w: 1.0, h: 0.56 }, side: { x: 28.2, y: 1.15, w: 0.85, h: 0.55 } },
+    cockpit: { x: 31.0, front: { ang: 27, w: 1.15, h: 0.6 }, side: { x: 29.0, y: 1.0, w: 0.88, h: 0.56 } },
     wing: {
       rootZ: 2.6, hinge: 0.76, slatCf: 0.12,
       stations: [

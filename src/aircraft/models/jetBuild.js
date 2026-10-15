@@ -25,7 +25,7 @@ function addWindows(fus, cfg, J, hull, detail) {
       if (W.skip && inRanges(x, W.skip)) continue;
       for (const side of [1, -1]) {
         const y = fus.yc + W.y;
-        if (detail > 0) set.add(J.rim, fus.sidePatch(side, x, y, rim, { lift: 0.0025, rings: 1 }));
+        if (detail > 1) set.add(J.rim, fus.sidePatch(side, x, y, rim, { lift: 0.0025, rings: 1 }));
         set.add(J.window, fus.sidePatch(side, x, y, poly, { lift: 0.006, rings: detail > 1 ? 2 : 1 }));
       }
     }
@@ -50,8 +50,9 @@ function addWindshield(fus, cfg, J, hull, detail) {
       [h * 0.5, -s * w * 0.5], [h * 0.5, s * w * 0.5], [-h * 0.5, s * w * 0.42], [-h * 0.5 - h * 0.05, -s * w * 0.4],
     ];
     const ordered = s > 0 ? poly : poly.slice().reverse();
-    set.add(J.rim, fus.patch(x, th, scalePoly(ordered, 1.1, 1.1), { lift: 0.004, rings: 3 }));
-    set.add(J.glass, fus.patch(x, th, ordered, { lift: 0.009, rings: 3 }));
+    const q = detail > 0 ? { rings: 3, maxSeg: 0.14 } : { rings: 1, maxSeg: 0.5 };
+    if (detail > 0) set.add(J.rim, fus.patch(x, th, scalePoly(ordered, 1.1, 1.1), { lift: 0.004, ...q }));
+    set.add(J.glass, fus.patch(x, th, ordered, { lift: 0.009, ...q }));
   }
   // Side windows.
   const sd = k.side;
@@ -59,8 +60,9 @@ function addWindshield(fus, cfg, J, hull, detail) {
     const w = sd.w;
     const h = sd.h;
     const poly = [[w * 0.5, h * 0.5], [-w * 0.35, h * 0.5], [-w * 0.5, -h * 0.5], [w * 0.5, -h * 0.5]];
-    set.add(J.rim, fus.sidePatch(side, sd.x, fus.yc + sd.y, scalePoly(poly, 1.12), { lift: 0.004, rings: 2 }));
-    set.add(J.glass, fus.sidePatch(side, sd.x, fus.yc + sd.y, poly, { lift: 0.009, rings: 2 }));
+    const q = detail > 0 ? { rings: 2, maxSeg: 0.14 } : { rings: 1, maxSeg: 0.5 };
+    if (detail > 0) set.add(J.rim, fus.sidePatch(side, sd.x, fus.yc + sd.y, scalePoly(poly, 1.12), { lift: 0.004, ...q }));
+    set.add(J.glass, fus.sidePatch(side, sd.x, fus.yc + sd.y, poly, { lift: 0.009, ...q }));
   }
   void detail;
   set.addTo(hull, 'windshield');

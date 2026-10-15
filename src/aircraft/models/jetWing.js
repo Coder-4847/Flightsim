@@ -72,7 +72,7 @@ export class JetWingBuilder {
    */
   constructor(ctx) {
     Object.assign(this, ctx);
-    this.nChord = [6, 12, 26][this.detail];
+    this.nChord = [4, 12, 26][this.detail];
   }
 
   // ---- main wing ---------------------------------------------------------------------------------------------

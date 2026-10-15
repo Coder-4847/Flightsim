@@ -6,7 +6,14 @@ import { hashString, rng, clamp, TAU } from './jetKit.js';
 // Canvas generated textures for the jet models: painted fuselage / wing / fin with panel lines, doors, stencils and weathering,
 // matching normal and "ORM" (occlusion / roughness / metalness) maps, tyres, and engine cowls.
 
-const cnv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const cnv = (w, h) => {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const get = c.getContext.bind(c);
+  c.getContext = (t) => get(t, { willReadFrequently: true });
+  return c;
+};
 
 function toTexture(canvas, { srgb = false, repeat = false, aniso = 8 } = {}) {
   const t = new THREE.CanvasTexture(canvas);
@@ -81,7 +88,7 @@ export function airlineFor(spec) {
 // ---- cache ----------------------------------------------------------------------------------------------------------
 const typeCache = new Map(); // id -> maps shared by every livery
 const liveryCache = new Map(); // key -> livery dependent maps (LRU)
-const LIVERY_LIMIT = 10;
+const LIVERY_LIMIT = 24;
 
 function markShared(t) { t.userData.shared = true; return t; }
 
@@ -224,8 +231,8 @@ function buildLiveryMaps(spec, cfg, fus) {
     }
   }
   // radome and nose tip (dark grey cone)
-  g.fillStyle = '#4a4f56';
-  g.fillRect(P.W * ((fus.xNose - 0.9 - fus.xTail) / fus.length), 0, P.W, P.H);
+  g.fillStyle = l.radome ?? '#6d737b';
+  g.fillRect(P.W * ((fus.xNose - (LV.radome ?? 0.8) - fus.xTail) / fus.length), 0, P.W, P.H);
   const name = airlineFor(spec);
   for (const side of [1, -1]) {
     g.fillStyle = LV.titleColor ?? shade(l.stripe, 0.75);
@@ -262,7 +269,7 @@ function paintWing(spec, cfg) {
   const c = cnv(S, S);
   const g = c.getContext('2d');
   const R = rng(hashString(spec.id + 'wing'));
-  const top = l.wingTop ?? shade(l.wing ?? l.base, 0.93);
+  const top = l.wingTop ?? shade(l.wing ?? l.base, 0.8);
   g.fillStyle = l.wing ?? l.base; // lower (u 0..0.5)
   g.fillRect(0, 0, S / 2, S);
   g.fillStyle = top; // upper (u 0.5..1)

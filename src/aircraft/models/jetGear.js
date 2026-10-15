@@ -85,6 +85,14 @@ export function makeJetLeg(o, J, detail) {
     }
     for (const z of lateral) {
       const wheel = new THREE.Group();
+      if (detail === 0) {
+        wheel.add(new THREE.Mesh(cylinderGeo(wheelR, wheelR, wheelW, 8, { axis: 'z' }), J.rubber));
+        wheel.position.set(x, axleY, z);
+        lower.add(wheel);
+        wheelMeshes.push(wheel);
+        wheelGroups.push(wheel);
+        continue;
+      }
       const tyre = new THREE.Mesh(tyreGeometry(wheelR, wheelW, wheelR * 0.56, detail), J.rubber);
       wheel.add(tyre);
       const rim = new THREE.Mesh(wheelRimGeometry(wheelR, wheelW, wheelR * 0.56, detail), J.wheel);
@@ -185,8 +193,8 @@ export function buildGear(spec, cfg, J, detail, root, rig, fus) {
     rig.gear.mains.push({ leg, wheelIndex, side, retractAngle: o.mainRetract ?? Math.PI / 2 });
     if (detail > 0) {
       // leg door: a thin panel on the outboard face of the strut
-      const door = new THREE.Mesh(boxGeo(0.7, len * 0.55, 0.03), J.skin);
-      door.position.set(0, -len * 0.3, side * (o.mainTrack ?? 0.9) * 0.0 + side * 0.12);
+      const door = new THREE.Mesh(boxGeo(0.45, len * 0.42, 0.025), J.gearPaint);
+      door.position.set(0.05, -len * 0.27, side * 0.16);
       leg.add(door);
     }
     return leg;

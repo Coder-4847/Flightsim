@@ -59,7 +59,7 @@ export class Fuselage {
       top *= f ** (nz.topPow ?? 1);
       bot *= f ** (nz.botPow ?? 0.85);
       yc -= (nz.droop ?? 0) * s ** (nz.droopPow ?? 2);
-      nT = nB = (c.n ?? 2.1) + (nz.nBoost ?? 0) * s;
+      nT = nB = (c.n ?? 2.1) + (nz.nBoost ?? 0) * 4 * s * (1 - s);
       tipRing = s >= 1;
     } else if (x < this.xt0) {
       const tl = c.tail;
@@ -156,7 +156,7 @@ export class Fuselage {
   /** x positions of the rings for a detail level. */
   xSamples(detail) {
     const c = this.cfg;
-    const dens = [0.35, 0.8, 1.6][detail];
+    const dens = [0.3, 0.5, 1.5][detail];
     const xs = [];
     const nN = Math.max(5, Math.round(c.nose.len * 4.2 * dens));
     const nT = Math.max(4, Math.round(c.tail.len * 2.4 * dens));
@@ -184,7 +184,7 @@ export class Fuselage {
   }
 
   geometry(detail) {
-    const segs = [14, 40, 72][detail];
+    const segs = [12, 30, 72][detail];
     const xs = this.xSamples(detail);
     const rings = [];
     const p = new THREE.Vector3();

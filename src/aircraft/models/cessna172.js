@@ -85,17 +85,6 @@ function paintFuselage(mats, body, spec) {
   // Cheat-line swooshes on both sides: wide stripe plus a thin second stripe below, rising toward the tail and up the fin.
   const cheat = (flip) => {
     const A = (a) => (flip ? 180 - a : a);
-    const lo = (x) => A(-6 + Math.max(0, (0.4 - x)) * 9.5 + Math.max(0, (-2.6 - x)) * 4);
-    const hi = (x) => A(10 + Math.max(0, (0.4 - x)) * 10 + Math.max(0, (-2.6 - x)) * 7);
-    const draw = (shift, thick, color) => {
-      const xs = []; const a0 = []; const a1 = [];
-      for (let i = 0; i <= 60; i++) { const x = 2.0 - (7.55 * i) / 60; xs.push(x); a0.push(lo(x) + (flip ? shift : -shift)); a1.push(hi(x) + (flip ? -thick + shift : thick - shift) ); }
-      void a0; void a1;
-      const top = []; const bot = [];
-      xs.forEach((x) => { top.push([x, hi(x) - shift * (flip ? -1 : 1) * 0]); bot.push([x, lo(x)]); });
-      void top; void bot;
-    };
-    void draw;
     const ribbon = (offLo, offHi, color) => {
       const pts = []; const back = [];
       for (let i = 0; i <= 80; i++) {

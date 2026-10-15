@@ -54,6 +54,13 @@ export const ACTIONS = [
   a('crossfeed', 'Fuel crossfeed', 'Systems'),
   a('assist_cycle', 'Cycle flight assist', 'Systems', ['KeyJ']),
 
+  a('autopilot_toggle', 'Autopilot on / off', 'Autopilot and time', ['Backslash']),
+  a('autothrottle_toggle', 'Autothrottle on / off', 'Autopilot and time', ['Slash']),
+  a('panel_autopilot', 'Autopilot panel', 'Autopilot and time', ['F6']),
+  a('time_faster', 'Time compression faster', 'Autopilot and time', ['NumpadAdd', 'Quote']),
+  a('time_slower', 'Time compression slower', 'Autopilot and time', ['NumpadSubtract', 'Semicolon']),
+  a('time_normal', 'Back to real time', 'Autopilot and time', ['NumpadMultiply', 'Backquote']),
+
   a('camera_cycle', 'Cycle camera', 'Camera', ['KeyC'], ['RB']),
   a('camera_reset', 'Reset camera', 'Camera', ['Home'], ['R3']),
 

@@ -1,5 +1,6 @@
 import { Engine } from '../flight/engine.js';
 import { Autopilot } from '../flight/autopilot.js';
+import { TimeControl } from '../game/timeScale.js';
 import { approach, clamp } from '../flight/units.js';
 
 // Turns input actions (keyboard, gamepad) into flight-model controls every frame.
@@ -25,6 +26,8 @@ export class FlightControls {
     this.systems = { perEngine: false, manualFlaps: true, manualGear: true };
     this.autoGearState = true;
     this.autopilot = new Autopilot();
+    this.time = new TimeControl();
+    this.watchTimer = 0;
     this.look = { x: 0, y: 0 }; // analog look (right stick in cockpit view)
     this.onToast = null; // (text) => void
     input.on('press', (action) => this.#onPress(action));
@@ -41,6 +44,9 @@ export class FlightControls {
     this.autopilot.on = false;
     this.autopilot.at = false;
     this.autopilot.appr = false;
+    this.time.reset();
+    this.autopilot.onEvent = (text, level) => this.#toast(text, level);
+    this.time.onChange = (scale, reason) => this.#toast(reason ?? `Time ×${scale}`);
   }
 
   setSystems(systems) {
@@ -73,14 +79,33 @@ export class FlightControls {
     return this.selected == null ? [...Array(n).keys()] : [Math.min(this.selected, n - 1)];
   }
 
-  #toast(text) {
-    this.onToast?.(text);
+  #toast(text, level) {
+    this.onToast?.(text, level);
   }
 
   /** Run an action as if its key had been pressed (the HUD buttons use this). */
   perform(action) {
     // Through the input layer, so actions handled elsewhere (lights, camera) work from the HUD too.
     this.input.emit('press', action);
+  }
+
+  toggleAutopilot() {
+    const m = this.model;
+    if (!m || m.crashed) return;
+    const ap = this.autopilot;
+    if (ap.on) { ap.disengage('Autopilot off'); this.time.watch(m, ap); return; }
+    const tel = m.telemetry;
+    if (tel.onGround || tel.aglFt < 200) return this.#toast('Autopilot: get airborne first (above 200 ft)');
+    if (Math.abs(tel.bank) > 60 || Math.abs(tel.pitch) > 30) return this.#toast('Autopilot: level the aircraft first');
+    tel.ias = tel.iasTrue;
+    ap.engage(m, tel);
+  }
+
+  toggleAutothrottle() {
+    const ap = this.autopilot;
+    ap.at = !ap.at;
+    if (ap.at) ap.ias = Math.round(this.model.telemetry.iasTrue / 5) * 5;
+    this.#toast(ap.at ? `Autothrottle on: ${ap.ias} kt` : 'Autothrottle off');
   }
 
   /** Set a flap detent directly (the HUD flap lever uses this). */
@@ -180,6 +205,11 @@ export class FlightControls {
         m.crossfeed = !m.crossfeed;
         this.#toast(m.crossfeed ? 'Fuel crossfeed open' : 'Fuel crossfeed closed');
         break;
+      case 'autopilot_toggle': this.toggleAutopilot(); break;
+      case 'autothrottle_toggle': this.toggleAutothrottle(); break;
+      case 'time_faster': this.time.faster(m, this.autopilot); break;
+      case 'time_slower': this.time.slower(m, this.autopilot); break;
+      case 'time_normal': this.time.normal(m, this.autopilot); break;
       case 'assist_cycle': {
         const order = ['off', 'light', 'full'];
         const next = order[(order.indexOf(this.settings.get('flightAssist')) + 1) % order.length];
@@ -250,6 +280,7 @@ export class FlightControls {
     const padOn = pad.connected && input.enabled;
     const c = m.controls;
     m.assist = this.settings.get('flightAssist');
+    if (this.time.scale > 1 && (this.watchTimer += dt) > 0.2) { this.watchTimer = 0; this.time.watch(m, this.autopilot); }
 
     // Keyboard stick: ramp toward the held direction, spring back otherwise.
     const keyAxis = {
@@ -283,6 +314,7 @@ export class FlightControls {
     // Throttle: keys and triggers adjust the master lever.
     let throttleDelta = input.axis('throttle_down', 'throttle_up') * THROTTLE_RATE * dt;
     if (padOn) throttleDelta += (pad.axes.rt - pad.axes.lt) * THROTTLE_RATE * 1.4 * dt;
+    if (throttleDelta !== 0 && this.autopilot.at) { this.autopilot.at = false; this.#toast('Autothrottle off: throttle moved'); }
     if (this.systems.perEngine) {
       if (throttleDelta !== 0) for (const i of this.#selectedList()) this.levers[i] = clamp(this.levers[i] + throttleDelta, 0, 1);
       for (let i = 0; i < c.throttle.length; i++) c.throttle[i] = this.levers[i] ?? this.master;

@@ -256,6 +256,7 @@ function boot() {
       if (++hudCounter % 3 === 0 && session.model) updateHud();
     },
     onFrame: (frameDt) => {
+      loop.timeScale = state.is(GameState.FLYING) && session.model ? session.controls.time.scale : 1;
       if (state.is(GameState.FLYING)) adaptive.frame(frameDt);
       if (state.is(GameState.FLYING, GameState.PAUSED)) input.pollGamepad();
       fpsFrames++;

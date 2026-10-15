@@ -25,11 +25,19 @@ export function createPadMenu(hud, input) {
     items.push({ label: 'Parking brake', run: () => hud.controls.perform('parking_brake') });
     items.push({ label: 'Camera', run: () => hud.controls.perform('camera_cycle') });
     if (hud.systems.perEngine) items.push({ label: 'Select engine', run: () => hud.controls.perform('engine_cycle') });
+    items.push({ label: 'Autopilot and time', sub: () => [
+      { label: 'Autopilot on / off', run: () => hud.controls.perform('autopilot_toggle') },
+      { label: 'Autothrottle', run: () => hud.controls.perform('autothrottle_toggle') },
+      { label: 'Faster time', run: () => hud.controls.perform('time_faster'), keep: true },
+      { label: 'Slower time', run: () => hud.controls.perform('time_slower'), keep: true },
+      { label: 'Real time', run: () => hud.controls.perform('time_normal') },
+      toggleAction('Autopilot', 'autopilot'),
+    ] });
     items.push({ label: 'Systems', sub: () => systemItems() });
     items.push({ label: 'Panels', sub: () => [
       toggleAction('Flight display', 'pfd'), toggleAction('Engines', 'engines'), toggleAction('Controls', 'controls'),
       toggleAction('Fuel and systems', 'systems'), toggleAction('Checklist', 'checklist'), toggleAction('Map', 'nav'),
-      toggleAction('Approach guide', 'approach'), toggleAction('Radio', 'radio'), toggleAction('Mission', 'mission'),
+      toggleAction('Approach guide', 'approach'), toggleAction('Autopilot', 'autopilot'), toggleAction('Radio', 'radio'), toggleAction('Mission', 'mission'),
     ] });
     items.push({ label: hud.panels.hidden ? 'Show HUD' : 'Hide HUD', run: () => hud.toggleHud() });
     return items;

@@ -10,6 +10,7 @@ export class GameLoop {
     this.render = render;
     this.onFrame = onFrame;
     this.step = STEP;
+    this.timeScale = 1; // simulated seconds per real second (time compression)
     this.accumulator = 0;
     this.last = 0;
     this.running = false;
@@ -22,10 +23,13 @@ export class GameLoop {
     this.last = now;
     this.onFrame?.(frame);
 
-    this.accumulator += frame;
+    this.accumulator += frame * this.timeScale;
+    const started = performance.now();
     while (this.accumulator >= this.step) {
       this.update(this.step);
       this.accumulator -= this.step;
+      // A slow machine at high compression would never catch up: shed the backlog and run slower instead.
+      if (this.timeScale > 1 && performance.now() - started > 45) { this.accumulator = 0; break; }
     }
     this.render(this.accumulator / this.step, frame);
   };

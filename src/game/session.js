@@ -175,8 +175,9 @@ export class FlightSession {
     this.view.setNight(this.flightScene.env.night);
     this.cameras.update(frameDt, this.view.root.position, this.view.root.quaternion, this.controls.look);
     this.model.world.wind(this.view.root.position, this.model.time, this.windAtCamera);
-    if (!this.paused) this.atc?.update(Math.min(frameDt, 0.25));
-    this.flightScene.update(dt, this.flightScene.camera.position, this.windAtCamera, this.model.vel);
+    const ts = this.paused ? 1 : this.controls.time.scale;
+    if (!this.paused) for (let i = 0; i < ts; i++) this.atc?.update(Math.min(frameDt, 0.25));
+    this.flightScene.update(dt * ts, this.flightScene.camera.position, this.windAtCamera, this.model.vel);
     this.flightScene.render();
   }
 

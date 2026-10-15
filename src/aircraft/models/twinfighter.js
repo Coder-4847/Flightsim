@@ -1,70 +1,90 @@
 import * as THREE from 'three';
 import {
-  LOW, box, controlSurface, fuselageGeometry, makeLight, revolveX, wingGeometry,
-} from './builders.js';
+  HIGH, LOW, MEDIUM, Parts, T, bodyPatch, boxG, hingedSurface, loftBody, roundedBox, sectionAt, setUV0, std, tubeBetween, vec, wingSurface,
+} from './kit.js';
 import {
-  addRetractableGear, addStabilizer, addTipLights, newRig,
-} from './common.js';
+  bladeAntennaGeometry, glowLight, lensGeometry, makeProGearLeg, probeGeometry,
+} from './kitparts.js';
+import { registerPro, shade } from './skins.js';
+import { paintAtlas, roundel } from './paintkit.js';
+import { paintBody, rad } from './bodypaint.js';
+import {
+  burnerFlame, canopyBow, coamingParts, missileParts, nozzleParts, railParts, seatParts,
+} from './jetkit.js';
+import { newRig } from './common.js';
 
-// Twin-engine fighters: a canted-twin-fin carrier fighter and a large long-range heavy.
+// Twin-engine fighters: the carrier-based Corsair F/18 (F/A-18 Hornet analogue) and the long-range Warden S-27
+// (Su-27 Flanker analogue). One configurable builder, two configurations.
+
+registerPro(['hornet', 'heavyfighter'], 'fighter');
+
+const S = (x, w, yTop, yBot, n = 2.4) => ({ x, w, top: (yTop - yBot) / 2, bottom: (yTop - yBot) / 2, yc: (yTop + yBot) / 2, n });
+const N = (x, w, yTop, yBot, zc, yc, n = 2.2) => ({ x, w, top: yTop, bottom: yBot, zc, yc, n });
 
 const CONFIGS = {
   hornet: {
     stations: [
-      { x: -6.4, w: 0.8, top: 0.55, bottom: 0.5, yc: 0.0, n: 2.2 },
-      { x: -4.5, w: 1.1, top: 0.68, bottom: 0.62, yc: 0.05, n: 2.5 },
-      { x: -1.5, w: 1.2, top: 0.74, bottom: 0.66, yc: 0.1, n: 2.6 },
-      { x: 1.5, w: 1.1, top: 0.76, bottom: 0.62, yc: 0.12, n: 2.4 },
-      { x: 3.5, w: 0.8, top: 0.62, bottom: 0.5, yc: 0.1, n: 2.2 },
-      { x: 5.5, w: 0.52, top: 0.42, bottom: 0.36, yc: 0.04, n: 2.1 },
-      { x: 7.0, w: 0.28, top: 0.24, bottom: 0.22, yc: -0.02, n: 2.0 },
-      { x: 8.1, w: 0.04, top: 0.05, bottom: 0.05, yc: -0.06, n: 2 },
+      S(-7.0, 0.78, 0.5, -0.5, 2.5), S(-5.5, 1.2, 0.62, -0.58, 2.7), S(-3.5, 1.35, 0.7, -0.65, 2.8), S(-1.0, 1.35, 0.78, -0.75, 2.8),
+      S(1.0, 1.25, 0.8, -0.8, 2.7), S(2.6, 1.0, 0.78, -0.75, 2.5), S(3.8, 0.8, 0.75, -0.6, 2.35), S(5.0, 0.6, 0.68, -0.42, 2.2),
+      S(6.2, 0.38, 0.55, -0.2, 2.1), S(7.1, 0.17, 0.4, 0.02, 2), S(7.8, 0.02, 0.3, 0.12, 2),
     ],
+    canopy: [
+      { x: 2.2, w: 0.04, top: 0.04, bottom: 0.04, yc: 0.82, n: 2 }, { x: 2.8, w: 0.36, top: 0.34, bottom: 0.12, yc: 0.84, n: 2.2 },
+      { x: 3.7, w: 0.5, top: 0.52, bottom: 0.14, yc: 0.88, n: 2.3 }, { x: 4.5, w: 0.44, top: 0.46, bottom: 0.14, yc: 0.82, n: 2.3 },
+      { x: 5.1, w: 0.3, top: 0.28, bottom: 0.14, yc: 0.74, n: 2.2 }, { x: 5.5, w: 0.1, top: 0.1, bottom: 0.1, yc: 0.68, n: 2.1 }, { x: 5.6, w: 0.01, top: 0.02, bottom: 0.02, yc: 0.64, n: 2 },
+    ],
+    canopyBows: [2.9, 5.2], seats: [{ x: 3.7, y: 0.5 }], coaming: { x: 4.8, y: 0.8 },
     wing: [
-      { z: 1.0, x: 1.7, y: -0.1, chord: 4.6, t: 0.05, camber: 0.012 },
-      { z: 5.715, x: -1.2, y: 0.05, chord: 1.5, t: 0.04, camber: 0.008 },
+      { z: 1.1, x: 1.2, y: -0.2, chord: 4.9, t: 0.05, camber: 0.012, cp: 0.4 },
+      { z: 5.715, x: -1.04, y: -0.1, chord: 1.5, t: 0.04, camber: 0.008, cp: 0.4, twist: -1 },
     ],
-    lex: [{ z: 0.7, x: 5.6, y: 0.1, chord: 4.0, t: 0.03 }, { z: 1.25, x: 2.2, y: 0.05, chord: 0.8, t: 0.03 }],
-    flapTo: 3.4, aileronFrom: 3.5, aileronTo: 5.6, z0: 1.0,
-    fin: { base: { z: 1.1, y: 0.7 }, height: 2.5, cant: 0.35, sections: [{ z: 0, x: -3.4, y: 0, chord: 3.6, t: 0.04 }, { z: 2.5, x: -5.5, y: 0, chord: 1.4, t: 0.03 }] },
-    stab: { sections: [{ z: 0.9, x: -4.6, y: 0.1, chord: 2.7, t: 0.04 }, { z: 2.8, x: -6.2, y: 0.1, chord: 1.2, t: 0.03 }], z0: 0.9, z1: 2.8 },
-    canopy: { x: 3.7, y: 0.98, scale: [1.8, 0.5, 0.5] },
-    intakes: { x: 1.9, y: -0.15, z: 1.05, len: 2.4, h: 0.5 },
-    engines: { r: 0.5, len: 3.6, x: -6.6 },
-    missile: { x: -0.7, z: 5.85 },
-    nose: 0.3,
-    tipLight: { x: -1.1, y: 0.05, z: 5.7 },
-    gear: { noseAttachY: -0.6, mainAttachY: -0.45, noseWheelRadius: 0.27, noseWheelWidth: 0.14, noseWheels: 2, mainWheelRadius: 0.35, mainWheelWidth: 0.22, doorOffset: 0.3 },
-    beacon: [-5.0, 0.8],
+    wingRoot: 0.8, flap: [1.4, 3.5], ail: [3.6, 5.55], hinge: 0.72,
+    lerx: [{ z: 0.6, x: 5.8, y: -0.05, chord: 4.1, t: 0.03 }, { z: 1.2, x: 3.5, y: -0.12, chord: 2.05, t: 0.03 }, { z: 1.9, x: 0.85, y: -0.18, chord: 0.35, t: 0.03 }],
+    stab: { sections: [{ z: 0.8, x: -4.3, y: 0.0, chord: 2.8, t: 0.04 }, { z: 3.3, x: -6.5, y: 0.04, chord: 1.1, t: 0.035 }], z0: 0.8, z1: 3.3 },
+    fins: { sections: [{ z: 0, x: -3.2, y: 0, chord: 3.7, t: 0.05 }, { z: 2.24, x: -4.8, y: 0, chord: 1.6, t: 0.04 }], base: { y: 0.7, z: 1.05 }, cant: 0.35, height: 2.24, hinge: 0.7 },
+    intake: { right: [N(-0.6, 0.38, 0.4, 0.4, 0.95, -0.4, 2.8), N(0.8, 0.42, 0.42, 0.4, 0.98, -0.4, 3), N(2.4, 0.4, 0.4, 0.38, 1.0, -0.42, 3), N(3.05, 0.34, 0.37, 0.35, 1.0, -0.44, 3), N(3.12, 0.3, 0.33, 0.32, 1.0, -0.44, 3)], lip: 3.0, a: [-105, 105] },
+    nacelles: { right: [N(-5.2, 0.55, 0.52, 0.52, 0.72, 0, 2.2), N(-6.8, 0.54, 0.52, 0.52, 0.72, 0, 2.2), N(-8.2, 0.5, 0.48, 0.48, 0.72, 0, 2.2), N(-8.75, 0.49, 0.47, 0.47, 0.72, 0, 2.2)] },
+    nozzle: { x: -8.7, r0: 0.5, r1: 0.46, len: 0.6, z: 0.72, y: 0 },
+    flame: { r: 0.44, len: 3.4 },
+    airbrake: { x: -2.2, y: 0.8, len: 1.3, w: 0.9 },
+    tail: 'hook',
+    rail: { x: -0.6, y: -0.1 },
+    probe: { x: 7.7, y: 0.22 },
+    gear: { nose: { attach: -0.65, wheels: [[0, -0.1], [0, 0.1]], r: 0.27, w: 0.14, strut: 0.05, retract: 1 }, main: { attach: -0.55, r: 0.35, w: 0.22, strut: 0.065 } },
+    insignia: '#2b4170', strobe: [-6.2, 3.0],
+    text: 'CORSAIR  F/18', textX: 4.4,
   },
   heavyfighter: {
     stations: [
-      { x: -6.5, w: 0.5, top: 0.5, bottom: 0.45, yc: 0.1, n: 2.2 },
-      { x: -4.5, w: 1.0, top: 0.72, bottom: 0.6, yc: 0.2, n: 2.5 },
-      { x: -1.5, w: 1.6, top: 0.9, bottom: 0.7, yc: 0.3, n: 2.8 },
-      { x: 1.5, w: 1.7, top: 0.95, bottom: 0.65, yc: 0.35, n: 2.8 },
-      { x: 4.0, w: 1.2, top: 0.82, bottom: 0.52, yc: 0.3, n: 2.4 },
-      { x: 6.5, w: 0.62, top: 0.5, bottom: 0.38, yc: 0.22, n: 2.1 },
-      { x: 8.5, w: 0.32, top: 0.28, bottom: 0.26, yc: 0.15, n: 2.0 },
-      { x: 10.2, w: 0.05, top: 0.06, bottom: 0.06, yc: 0.1, n: 2 },
+      S(-9.0, 1.15, 0.62, -0.6, 2.5), S(-6.5, 1.9, 0.85, -0.8, 2.8), S(-3.0, 1.95, 1.0, -0.95, 2.9), S(0.0, 1.95, 1.1, -1.0, 2.9),
+      S(3.0, 1.55, 1.05, -0.9, 2.7), S(5.0, 1.15, 0.95, -0.7, 2.4), S(6.5, 0.78, 0.82, -0.5, 2.2), S(8.0, 0.45, 0.68, -0.15, 2.1),
+      S(9.2, 0.2, 0.5, 0.08, 2), S(9.85, 0.02, 0.35, 0.17, 2),
     ],
+    canopy: [
+      { x: 4.8, w: 0.04, top: 0.04, bottom: 0.04, yc: 1.0, n: 2 }, { x: 5.5, w: 0.4, top: 0.4, bottom: 0.14, yc: 1.0, n: 2.2 },
+      { x: 6.6, w: 0.56, top: 0.62, bottom: 0.16, yc: 1.04, n: 2.3 }, { x: 7.6, w: 0.5, top: 0.54, bottom: 0.16, yc: 0.98, n: 2.3 },
+      { x: 8.3, w: 0.34, top: 0.32, bottom: 0.16, yc: 0.86, n: 2.2 }, { x: 8.7, w: 0.1, top: 0.1, bottom: 0.1, yc: 0.78, n: 2.1 }, { x: 8.8, w: 0.01, top: 0.02, bottom: 0.02, yc: 0.74, n: 2 },
+    ],
+    canopyBows: [5.7, 8.4], seats: [{ x: 6.7, y: 0.6 }], coaming: { x: 7.9, y: 0.92 },
     wing: [
-      { z: 1.7, x: 3.4, y: 0.0, chord: 8.2, t: 0.05, camber: 0.012 },
-      { z: 7.35, x: -1.8, y: 0.15, chord: 1.7, t: 0.04, camber: 0.008 },
+      { z: 1.9, x: 3.6, y: -0.1, chord: 8.4, t: 0.05, camber: 0.012, cp: 0.4 },
+      { z: 7.35, x: -1.3, y: 0.1, chord: 1.9, t: 0.04, camber: 0.008, cp: 0.4, twist: -1.5 },
     ],
-    lex: [{ z: 0.6, x: 8.0, y: 0.25, chord: 5.5, t: 0.03 }, { z: 1.85, x: 3.6, y: 0.1, chord: 1.0, t: 0.03 }],
-    flapTo: 4.2, aileronFrom: 4.3, aileronTo: 7.2, z0: 1.7,
-    fin: { base: { z: 2.45, y: 0.8 }, height: 3.6, cant: 0.0, sections: [{ z: 0, x: -3.8, y: 0, chord: 4.6, t: 0.04 }, { z: 3.6, x: -7.2, y: 0, chord: 1.7, t: 0.03 }] },
-    stab: { sections: [{ z: 1.7, x: -6.0, y: 0.2, chord: 3.3, t: 0.04 }, { z: 4.5, x: -8.4, y: 0.25, chord: 1.4, t: 0.03 }], z0: 1.7, z1: 4.5 },
-    canopy: { x: 5.2, y: 1.28, scale: [2.5, 0.58, 0.55] },
-    intakes: { x: 3.6, y: -0.5, z: 1.35, len: 3.6, h: 0.75 },
-    engines: { r: 0.72, len: 4.4, x: -6.6, z: 1.45 },
-    missile: { x: -2.5, z: 7.5 },
-    nose: 0.3,
-    tipLight: { x: -2.2, y: 0.15, z: 7.4 },
-    gear: { noseAttachY: -0.7, mainAttachY: -0.55, noseWheelRadius: 0.28, noseWheelWidth: 0.16, noseWheels: 2, mainWheelRadius: 0.4, mainWheelWidth: 0.26, doorOffset: 0.35 },
-    beacon: [-7.0, 1.0],
-    stinger: { x: -9.2, len: 3.2 },
+    wingRoot: 1.4, flap: [2.3, 4.7], ail: [4.8, 7.2], hinge: 0.78,
+    lerx: [{ z: 0.75, x: 8.2, y: 0.18, chord: 6.0, t: 0.03 }, { z: 1.5, x: 5.6, y: 0.1, chord: 3.0, t: 0.03 }, { z: 2.2, x: 3.4, y: 0.0, chord: 1.0, t: 0.03 }],
+    stab: { sections: [{ z: 1.9, x: -7.6, y: 0.0, chord: 3.4, t: 0.04 }, { z: 4.8, x: -9.8, y: 0.1, chord: 1.3, t: 0.035 }], z0: 1.9, z1: 4.8 },
+    fins: { sections: [{ z: 0, x: -4.0, y: 0, chord: 4.8, t: 0.05 }, { z: 3.1, x: -7.0, y: 0, chord: 2.0, t: 0.04 }], base: { y: 0.55, z: 2.35 }, cant: 0.0, height: 3.1, hinge: 0.7 },
+    intake: { right: [N(-1.0, 0.7, 0.68, 0.68, 1.38, -0.12, 2.3), N(1.0, 0.68, 0.64, 0.66, 1.38, -0.22, 2.4), N(2.4, 0.66, 0.55, 0.55, 1.38, -0.4, 2.4), N(3.3, 0.56, 0.42, 0.44, 1.38, -0.55, 2.3), N(3.42, 0.5, 0.38, 0.4, 1.38, -0.56, 2.3)], lip: 3.35, a: [-110, 110] },
+    nacelles: { right: [N(-1.0, 0.72, 0.7, 0.7, 1.38, -0.1, 2.2), N(-4.5, 0.78, 0.74, 0.74, 1.38, -0.06, 2.2), N(-7.4, 0.72, 0.68, 0.68, 1.38, -0.05, 2.2), N(-9.3, 0.7, 0.66, 0.66, 1.38, -0.05, 2.2), N(-9.7, 0.68, 0.64, 0.64, 1.38, -0.05, 2.2)] },
+    nozzle: { x: -9.65, r0: 0.66, r1: 0.62, len: 0.8, z: 1.38, y: -0.05 },
+    flame: { r: 0.6, len: 4.6 },
+    airbrake: { x: -2.6, y: 1.1, len: 1.7, w: 1.4 },
+    tail: 'stinger',
+    rail: { x: -2.4, y: 0.0 },
+    probe: { x: 9.8, y: 0.25 },
+    gear: { nose: { attach: -0.9, wheels: [[0, -0.12], [0, 0.12]], r: 0.28, w: 0.16, strut: 0.06, retract: 1 }, main: { attach: -0.85, r: 0.4, w: 0.26, strut: 0.08 } },
+    insignia: '#27406e', strobe: [-8.5, 3.55],
+    text: 'WARDEN  S-27', textX: 7.6,
   },
 };
 
@@ -72,118 +92,245 @@ export function buildTwinFighter(spec, mats, detail, key = spec.id) {
   const c = CONFIGS[key];
   const root = new THREE.Group();
   const rig = newRig();
-  const fuselage = new THREE.Mesh(fuselageGeometry(c.stations, detail), mats.skin);
-  root.add(fuselage);
-  rig.fuselage = fuselage;
+  const HI = detail === HIGH;
+  const MID = detail >= MEDIUM;
+  const exterior = new THREE.Group();
+  root.add(exterior);
+  rig.fuselage = exterior;
+  const L = spec.livery;
+  const wingTip = c.wing[c.wing.length - 1];
 
-  const canopy = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12), mats.glass);
-  canopy.scale.set(...c.canopy.scale);
-  canopy.position.set(c.canopy.x, c.canopy.y, 0);
-  root.add(canopy);
+  const body = loftBody(c.stations, { detail, step: 0.4 });
+  const canopy = loftBody(c.canopy, { detail, step: 0.3, segs: HI ? 36 : 14 });
+  if (!mats.__painted) {
+    const light = L.base; const low = L.belly ?? shade(L.base, -0.06);
+    const x0 = c.stations[0].x; const xn = c.stations[c.stations.length - 1].x;
+    const skinTex = paintBody(mats, body, spec, {
+      base: light, belly: low, bellyAngle: -30,
+      blobs: [
+        { x: xn - 1.4, a: 90, rx: 1.4, ry: 0.55, color: shade(light, -0.2), alpha: 0.9 },
+        { x: xn - 1.7, a: 0, rx: 1.2, ry: 0.5, color: shade(light, -0.2), alpha: 0.85 },
+        { x: xn - 2.6, a: 90, rx: 1.8, ry: 0.25, color: '#15171a', alpha: 0.85 },
+        { x: x0 + 1.5, a: 0, rx: 1.6, ry: 0.5, color: '#3a3430', alpha: 0.5 },
+      ],
+      rings: [x0 + 2, x0 + 4, x0 + 6.5, x0 + 9, x0 + 11, xn - 4, xn - 2.8],
+      seams: [[x0 + 1, 20, xn - 3, 20], [x0 + 1, 50, xn - 4, 50], [x0 + 1, 75, xn - 5, 75], [x0 + 2, -25, xn - 5, -25], [x0 + 3, -55, xn - 5, -55]],
+      stencils: [{ str: 'NO STEP', x: (x0 + xn) / 2 - 1, a: 82, size: 0.06, color: '#a02020' }, { str: 'RESCUE', x: xn - 3.4, a: 55, size: 0.07, color: '#a02020' }, { str: 'DANGER', x: xn - 2.4, a: 20, size: 0.04, color: '#a02020' }],
+      regs: [{ x: xn - 3.1, a: 36, size: 0.22, stretch: 0.9, weight: 'normal', alpha: 0.9 }],
+      dirt: { streaks: [{ x: x0 + 2, a: 0, len: 3, w: 0.25, alpha: 0.2 }, { x: xn - 2, a: 40, len: 3, w: 0.05, alpha: 0.22 }], mottle: 0.12 },
+      ao: [{ x: (x0 + xn) / 2, a: -50, rx: 3, ry: 0.15, alpha: 0.2 }],
+      extra: (P) => {
+        for (const s of [1, -1]) P.local(c.textX - 5.5, 20, s, (g) => roundel(g, 0, 0, 0.34, [c.insignia, '#c9ced4', '#8a2f30'], 0.85));
+        for (const s of [1, -1]) P.text(c.text, c.textX - 1.3, 30, s, 0.07, { color: '#c9ced4', alpha: 0.5 });
+      },
+    });
+    const wb = L.wing ?? L.base;
+    const under = L.belly ?? shade(wb, -0.08);
+    const finLen = c.fins.height / Math.cos(c.fins.cant);
+    const atlas = paintAtlas(mats, wb, {
+      wing: { span: wingTip.z - c.wing[0].z + 0.3, chord: Math.max(...c.wing.map((s) => s.chord)) / 1 + 0.3, z0: c.wing[0].z },
+      lerx: { span: 1.5, chord: c.lerx[0].chord / 2 + 0.4, z0: c.lerx[0].z },
+      stab: { span: c.stab.z1 - c.stab.z0 + 0.2, chord: c.stab.sections[0].chord / 1.4 + 0.2, z0: c.stab.z0 },
+      fin: { span: finLen + 0.3, chord: c.fins.sections[0].chord / 1.0 * 0.6 + 0.3, z0: 0 },
+    }, {
+      wing: {
+        sections: c.wing, z0: c.wing[0].z, z1: wingTip.z, base: wb, under,
+        seams: [{ z0: c.flap[0], z1: c.flap[1], xf: c.hinge }, { z0: c.ail[0], z1: c.ail[1], xf: c.hinge }],
+        tip: { color: L.tip ? `#${new THREE.Color(L.tip).getHexString()}` : shade(wb, -0.3), len: 0.05 }, dirt: 0.4,
+        extra: (g) => { const z = (c.wing[0].z + wingTip.z) * 0.55; roundel(g, z, 1.2, 0.3, [c.insignia, '#c9ced4', '#8a2f30'], 0.85); roundel(g, z, -1.2, 0.3, [c.insignia, '#c9ced4', '#8a2f30'], 0.85); },
+        text: [{ str: 'NO STEP', z: c.wing[0].z + 0.6, p: 1.0, size: 0.05, color: '#a02020' }], seed: 91,
+      },
+      lerx: { sections: c.lerx, z0: c.lerx[0].z, z1: c.lerx[2].z, base: wb, under, dirt: 0.35, seed: 4 },
+      stab: { sections: c.stab.sections, z0: c.stab.z0, z1: c.stab.z1, base: shade(wb, -0.04), under, dirt: 0.4, seed: 6 },
+      fin: {
+        sections: c.fins.sections, z0: 0, z1: finLen, base: wb, under: wb, seams: [{ z0: 0.5, z1: finLen, xf: c.fins.hinge }], dirt: 0.4, seed: 9,
+        text: [{ str: spec.registration, z: finLen * 0.35, p: 1.0, size: 0.22, rot: Math.PI / 2, color: L.regColor ?? '#2a2f36' }],
+        extra: (g) => { roundel(g, finLen * 0.6, 1.3, 0.25, [c.insignia, '#c9ced4', '#8a2f30'], 0.8); },
+      },
+    });
+    mats.__painted = { skinTex, atlas };
+  }
+  const { atlas } = mats.__painted;
+  const uvW = atlas.rects.wing.uv; const uvL = atlas.rects.lerx.uv; const uvS = atlas.rects.stab.uv; const uvF = atlas.rects.fin.uv;
+  const skinMesh = new THREE.Mesh(body.geo, mats.skin);
+  exterior.add(skinMesh);
+  const fixed = new Parts(mats);
+  const ext = new Parts(mats);
+  const flat = (g) => setUV0(std(g), 0.0015, 0.0015);
 
-  // Engine nacelles with nozzles at the engine positions in the data.
-  const eng = c.engines;
-  spec.engines.positions.forEach((pos) => {
-    const pod = new THREE.Group();
-    pod.position.set(pos.x, pos.y, pos.z);
-    pod.add(new THREE.Mesh(revolveX([[0.6, eng.r * 0.92], [0.2, eng.r], [-0.6, eng.r * 0.95], [-eng.len * 0.45, eng.r * 0.85]], detail > LOW ? 22 : 10), mats.skin));
-    const nozzle = new THREE.Mesh(revolveX([[-eng.len * 0.45, eng.r * 0.78], [-eng.len * 0.62, eng.r * 0.72], [-eng.len * 0.78, eng.r * 0.62], [-eng.len * 0.78, eng.r * 0.52], [-eng.len * 0.6, eng.r * 0.6]], 18), mats.steel);
-    pod.add(nozzle);
-    root.add(pod);
-    const flameMat = new THREE.MeshBasicMaterial({ color: 0xff9a3c, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-    const flameGroup = new THREE.Group();
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(eng.r * 0.55, 4.2, 14, 1, true), flameMat);
-    flame.rotation.z = Math.PI / 2;
-    flame.position.x = -2.1;
-    const core = new THREE.Mesh(new THREE.ConeGeometry(eng.r * 0.3, 2.4, 12, 1, true),
-      new THREE.MeshBasicMaterial({ color: 0xfff1c0, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-    core.rotation.z = Math.PI / 2;
-    core.position.x = -1.2;
-    flameGroup.add(flame, core);
-    flameGroup.position.set(pos.x - eng.len * 0.78, pos.y, pos.z);
-    flameGroup.visible = false;
-    root.add(flameGroup);
-    rig.burners.push({ group: flameGroup, mat: flameMat });
-  });
-  if (c.stinger) {
-    const st = new THREE.Mesh(revolveX([[c.stinger.x + c.stinger.len, 0.28], [c.stinger.x + c.stinger.len * 0.5, 0.2], [c.stinger.x, 0.05]], 12), mats.skin);
-    root.add(st);
+  // Canopy, frame bows, seat and coaming.
+  ext.add('glass', canopy.geo);
+  if (MID) {
+    for (const x of c.canopyBows) canopyBow(ext, canopy, x, 0.1, Math.PI - 0.1, 0.012, 0.03);
+    const cs = c.canopy;
+    ext.add('dark', tubeBetween(vec(cs[cs.length - 2].x, cs[cs.length - 2].yc - 0.02, 0), vec(cs[1].x, cs[1].yc, 0), 0.016, 0.016, 6));
+    if (HI) {
+      for (const s of c.seats) seatParts(ext, { x: s.x, y: s.y, scale: 1.05 });
+      coamingParts(ext, { x: c.coaming.x, y: c.coaming.y, w: 0.9, d: 0.6 });
+    }
   }
 
-  // Intakes: dark rectangular mouths under the leading-edge extensions.
-  const it = c.intakes;
+  // Intake ducts and engine nacelles (mirrored pairs), splitter plates, lips.
+  if (MID) {
+    const ik = loftBody(c.intake.right, { detail, step: 0.4, segs: HI ? 28 : 12 });
+    fixed.addPair('wing', flat(ik.geo.clone()));
+    const first = c.intake.right[c.intake.right.length - 1];
+    const lipPatch = bodyPatch(ik, rad([[c.intake.lip - 0.12, c.intake.a[0]], [c.intake.lip + 0.01, c.intake.a[0]], [c.intake.lip + 0.01, c.intake.a[1]], [c.intake.lip - 0.12, c.intake.a[1]]]), { lift: 0.004, p: 2.6, nu: 6, nv: 10 });
+    void first; void lipPatch;
+    fixed.addPair('intake', std(new THREE.CircleGeometry(1, 24)), T(c.intake.right[c.intake.right.length - 1].x + 0.012, c.intake.right[c.intake.right.length - 1].yc, c.intake.right[c.intake.right.length - 1].zc, 0, Math.PI / 2, 0, c.intake.right[c.intake.right.length - 1].w * 0.92, (c.intake.right[c.intake.right.length - 1].top + c.intake.right[c.intake.right.length - 1].bottom) / 2 * 0.95, 1));
+    const lp = c.intake.right[c.intake.right.length - 1];
+    fixed.addPair('metal', std(new THREE.TorusGeometry(1, 0.035, 6, 28)), T(lp.x + 0.013, lp.yc, lp.zc, 0, Math.PI / 2, 0, lp.w, (lp.top + lp.bottom) / 2, 1));
+    fixed.addPair('wing', boxG(1.2, (lp.top + lp.bottom) * 1.2, 0.012), T(lp.x - 0.7, lp.yc, lp.zc - lp.w - 0.06)); // boundary-layer splitter plate
+    const nac = loftBody(c.nacelles.right, { detail, step: 0.5, segs: HI ? 28 : 12 });
+    fixed.addPair('wing', flat(nac.geo.clone()));
+  }
+  // Nozzles and afterburner flames (engine order: left then right).
+  const nz = c.nozzle;
   for (const s of [-1, 1]) {
-    const duct = new THREE.Mesh(new THREE.BoxGeometry(it.len, it.h, it.h * 1.1), mats.skin);
-    duct.position.set(it.x - it.len / 2 + 0.2, it.y, s * it.z);
-    root.add(duct);
-    if (detail > LOW) {
-      const mouth = new THREE.Mesh(new THREE.PlaneGeometry(it.h * 1.0, it.h * 0.9), mats.intake);
-      mouth.rotation.y = Math.PI / 2;
-      mouth.position.set(it.x + it.len * 0.0 + 0.21, it.y, s * it.z);
-      root.add(mouth);
-    }
-  }
-  if (detail > LOW) {
-    const pitot = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.02, 1.0, 6), mats.metal);
-    pitot.rotation.z = -Math.PI / 2;
-    pitot.position.set(c.stations[c.stations.length - 1].x + 0.4, -0.05, 0);
-    root.add(pitot);
+    nozzleParts(fixed, { x: nz.x, y: nz.y, z: s * nz.z, r0: nz.r0, r1: nz.r1, len: nz.len, petals: 18, detail });
+    const flame = burnerFlame(c.flame.r, c.flame.len);
+    flame.group.position.set(nz.x - nz.len, nz.y, s * nz.z);
+    root.add(flame.group);
+    rig.burners.push(flame);
   }
 
-  const buildWing = (side) => {
-    const g = new THREE.Group();
-    if (side < 0) g.scale.z = -1;
-    const tipZ = c.wing[c.wing.length - 1].z;
-    g.add(new THREE.Mesh(wingGeometry(c.wing, c.z0, tipZ, { xf0: 0, xf1: 0.7, detail }), mats.wing));
-    const flap = controlSurface(c.wing, c.z0, c.flapTo, 0.7, mats.wing, detail);
-    const aileron = controlSurface(c.wing, c.aileronFrom, c.aileronTo, 0.7, mats.wing, detail);
-    g.add(flap.pivot, aileron.pivot);
+  // LERX, wings, flaps, ailerons, stabilators, fins and rudders.
+  fixed.addPair('wing', wingSurface(c.lerx, c.lerx[0].z, c.lerx[2].z, { detail, tipRound: 0.01, map: uvL, dz: 0.3 }));
+  const w0 = c.wing[0].z;
+  fixed.addPair('wing', wingSurface(c.wing, c.wingRoot, wingTip.z, { xf0: 0, xf1: c.hinge, detail, tipRound: 0.07, map: uvW, dz: 0.8 }));
+  fixed.addPair('wing', wingSurface(c.wing, c.flap[1], c.ail[0], { xf0: c.hinge, xf1: 1, detail, roundNose: true, capA: true, capB: true, map: uvW }));
+  fixed.addPair('wing', wingSurface(c.wing, c.ail[1], wingTip.z, { xf0: c.hinge, xf1: 1, detail, roundNose: true, capA: true, tipRound: 0.07, map: uvW }));
+  fixed.addPair('wing', wingSurface(c.wing, c.wingRoot, c.flap[0], { xf0: c.hinge, xf1: 1, detail, roundNose: true, capB: true, map: uvW }));
+  for (const side of [1, -1]) {
+    const flap = hingedSurface(c.wing, c.flap[0], c.flap[1], c.hinge, mats.wing, { detail, side, map: uvW });
+    const ail = hingedSurface(c.wing, c.ail[0], c.ail[1], c.hinge, mats.wing, { detail, side, map: uvW });
+    root.add(flap.pivot, ail.pivot);
     rig.flaps.push({ pivot: flap.pivot, axis: flap.axis });
-    rig.ailerons.push({ pivot: aileron.pivot, axis: aileron.axis, side });
-    g.add(new THREE.Mesh(wingGeometry(c.lex, c.lex[0].z, c.lex[1].z, { detail }), mats.wing));
-    if (detail > LOW) {
-      const m = c.missile;
-      const missile = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.6, 10), mats.metal);
-      body.rotation.z = Math.PI / 2;
-      const nose = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.5, 10), mats.metal);
-      nose.rotation.z = -Math.PI / 2;
-      nose.position.x = 1.55;
-      const fins = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.01, 0.6), mats.metal);
-      fins.position.x = -1.1;
-      missile.add(body, nose, fins);
-      missile.position.set(m.x, 0.03, m.z);
-      g.add(missile);
-    }
-    addTipLights(g, rig, side, c.tipLight);
-    return g;
-  };
-  root.add(buildWing(-1), buildWing(1));
-
-  // Twin fins (canted on the carrier fighter), one rudder each. Order matters only for symmetry.
-  for (const side of [-1, 1]) {
-    const f = c.fin;
-    const holder = new THREE.Group();
-    holder.position.set(0, f.base.y, side * f.base.z);
-    holder.rotation.x = side * f.cant; // lean outward
-    const fin = new THREE.Group();
-    fin.rotation.x = -Math.PI / 2;
-    fin.add(new THREE.Mesh(wingGeometry(f.sections, 0, f.height, { xf0: 0, xf1: 0.68, detail }), mats.wing));
-    const rudder = controlSurface(f.sections, 0.3, f.height, 0.68, mats.wing, detail);
-    fin.add(rudder.pivot);
-    rig.rudders.push({ pivot: rudder.pivot, axis: rudder.axis });
-    holder.add(fin);
-    root.add(holder);
+    rig.ailerons.push({ pivot: ail.pivot, axis: ail.axis, side });
+    // Stabilator
+    const st = c.stab.sections;
+    const px = st[0].x - 0.4 * st[0].chord;
+    let geo = wingSurface(st, c.stab.z0, c.stab.z1, { detail, tipRound: 0.04, capA: true, map: uvS, dz: 0.5 });
+    geo.translate(-px, -st[0].y, 0);
+    if (side < 0) { geo = std(geo); geo.applyMatrix4(new THREE.Matrix4().makeScale(1, 1, -1)); const ia = geo.index.array; for (let i = 0; i < ia.length; i += 3) { const t = ia[i + 1]; ia[i + 1] = ia[i + 2]; ia[i + 2] = t; } }
+    const pivot = new THREE.Object3D();
+    pivot.position.set(px, st[0].y, 0);
+    pivot.add(new THREE.Mesh(geo, mats.wing));
+    root.add(pivot);
+    rig.elevators.push({ pivot, axis: new THREE.Vector3(0, 0, 1) });
   }
-  addStabilizer(root, rig, mats, c.stab.sections, { z0: c.stab.z0, z1: c.stab.z1, hinge: 0.6, detail, allMoving: true });
+  const f = c.fins;
+  const finLen = f.height / Math.cos(f.cant);
+  for (const side of [-1, 1]) {
+    const m = T(0, f.base.y, f.base.z, f.cant - Math.PI / 2, 0, 0);
+    // The right fin is built, the left is its mirror image (rudders share one rotation sense).
+    const fm = side > 0 ? m : null;
+    if (side > 0) fixed.add('wing', wingSurface(f.sections, 0, finLen, { xf0: 0, xf1: f.hinge, detail, tipRound: 0.06, map: uvF, dz: 0.6 }), fm);
+    else fixed.add('wing', wingSurface(f.sections, 0, finLen, { xf0: 0, xf1: f.hinge, detail, tipRound: 0.06, map: uvF, dz: 0.6 }), new THREE.Matrix4().makeScale(1, 1, -1).multiply(m));
+    const rud = hingedSurface(f.sections, 0.5, finLen, f.hinge, mats.wing, { detail, m, side, map: uvF, kind: 'rudder' });
+    // Mirrored fins need their base moved to the other side: hingedSurface mirrors positions already.
+    root.add(rud.pivot);
+    rig.rudders.push({ pivot: rud.pivot, axis: rud.axis });
+  }
 
-  const beacon = makeLight(0xff2a2a, 0.04, 1.2);
-  beacon.position.set(c.beacon[0], c.beacon[1], 0);
-  root.add(beacon);
-  rig.lights.beacon.push(beacon);
+  // Airbrake panel on the spine, hinged at its forward edge.
+  if (MID) {
+    const ab = c.airbrake;
+    const pivot = new THREE.Object3D();
+    pivot.position.set(ab.x, ab.y, 0);
+    const dp = new Parts(mats);
+    dp.add('wing', flat(boxG(ab.len, 0.02, ab.w)), T(-ab.len / 2, 0, 0));
+    dp.build(pivot);
+    root.add(pivot);
+    rig.speedbrakes.push({ pivot, axis: new THREE.Vector3(0, 0, 1), angle: -1.0 });
+  }
 
-  addRetractableGear(root, rig, spec, mats, detail, c.gear);
-  void box;
+  // Tail details, probes and antennas.
+  if (MID) {
+    if (c.tail === 'stinger') {
+      const st = loftBody([
+        { x: -9.5, w: 0.3, top: 0.3, bottom: 0.3, yc: 0.2, n: 2 }, { x: -10.5, w: 0.3, top: 0.28, bottom: 0.28, yc: 0.2, n: 2 },
+        { x: -11.5, w: 0.2, top: 0.2, bottom: 0.2, yc: 0.2, n: 2 }, { x: -11.9, w: 0.08, top: 0.08, bottom: 0.08, yc: 0.2, n: 2 }, { x: -12.0, w: 0.01, top: 0.01, bottom: 0.01, yc: 0.2, n: 2 },
+      ], { detail, step: 0.5, segs: HI ? 16 : 8 });
+      fixed.add('wing', flat(st.geo.clone()));
+      for (const s of [1, -1]) { // tail booms carrying the fins and stabilators
+        const bm = loftBody([
+          { x: -1.5, w: 0.3, top: 0.3, bottom: 0.3, yc: 0.2, zc: s * 2.0, n: 2.2 }, { x: -5.0, w: 0.46, top: 0.4, bottom: 0.4, yc: 0.2, zc: s * 2.3, n: 2.2 },
+          { x: -9.0, w: 0.42, top: 0.38, bottom: 0.38, yc: 0.12, zc: s * 2.35, n: 2.2 }, { x: -10.4, w: 0.2, top: 0.2, bottom: 0.2, yc: 0.1, zc: s * 2.35, n: 2 }, { x: -10.6, w: 0.01, top: 0.01, bottom: 0.01, yc: 0.1, zc: s * 2.35, n: 2 },
+        ], { detail, step: 0.6, segs: HI ? 20 : 8 });
+        fixed.add('wing', flat(bm.geo.clone()));
+      }
+      fixed.add('black', std(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 8)), T(-12.0, 0.2, 0, 0, 0, Math.PI / 2));
+    } else {
+      fixed.add('steel', tubeBetween(vec(-7.0, -0.4, 0), vec(-8.7, -0.35, 0), 0.04, 0.035, 8)); // arrestor hook
+      fixed.add('steel', roundedBox(0.3, 0.07, 0.14, 0.02), T(-7.1, -0.42, 0));
+    }
+    fixed.add('metal', probeGeometry(1.2, 0.014), T(c.probe.x, c.probe.y, 0));
+    fixed.add('black', bladeAntennaGeometry(0.3, 0.14, 0.014), T(c.canopy[1].x - 1.0, 0.82, 0.3));
+    fixed.add('black', bladeAntennaGeometry(0.3, 0.14, 0.014), T(-4.0, 0.76, 0));
+    fixed.add('black', bladeAntennaGeometry(0.22, 0.1, 0.012), T(0.5, -0.8, 0, 0, 0, Math.PI));
+    for (const s of [1, -1]) {
+      railParts(fixed, { x: c.rail.x, y: c.rail.y, z: s * (wingTip.z + 0.1), len: 2.2 });
+      missileParts(fixed, { x: c.rail.x, y: c.rail.y, z: s * (wingTip.z + 0.1), len: key === 'heavyfighter' ? 2.9 : 2.9, detail });
+    }
+  }
+
+  // Lights.
+  for (const s of [1, -1]) {
+    const nav = glowLight(s > 0 ? 0x2aff5a : 0xff2a2a, 0.05, 0.6);
+    nav.position.set(wingTip.x + 0.6, wingTip.y, s * (wingTip.z + 0.1));
+    root.add(nav); rig.lights.nav.push(nav);
+    fixed.add(s > 0 ? 'lensGreen' : 'lensRed', lensGeometry(0.04, 1.3), T(wingTip.x + 0.6, wingTip.y, s * (wingTip.z + 0.1)));
+    const landing = glowLight(0xfff3d0, 0.07, 0.9);
+    landing.position.set(spec.gear.mainLeft.x + 0.3, spec.gear.mainLeft.y + 1.2, s * 1.2);
+    root.add(landing); rig.lights.landing.push(landing);
+    const strobe = glowLight(0xffffff, 0.05, 0.9);
+    strobe.position.set(c.strobe[0], f.base.y + f.height, s * (f.base.z + Math.tan(f.cant) * f.height));
+    root.add(strobe); rig.lights.strobes.push(strobe);
+  }
+  const beacon = glowLight(0xff2a2a, 0.045, 1.0);
+  beacon.position.set(c.airbrake.x - 1.5, c.airbrake.y + 0.05, 0);
+  root.add(beacon); rig.lights.beacon.push(beacon);
+
+  // Retractable gear.
+  const g = spec.gear;
+  const ng = c.gear.nose;
+  const noseLeg = makeProGearLeg({ length: ng.attach - g.nose.y, strutR: ng.strut, wheelRadius: ng.r, wheelWidth: ng.w, wheels: ng.wheels, fork: 'double', outerFrac: 0.5, lightMount: [0.16, -0.6, 0] }, mats, detail);
+  noseLeg.position.set(g.nose.x, ng.attach, 0);
+  root.add(noseLeg);
+  rig.gear.nose = { leg: noseLeg, retract: 1 };
+  const mg = c.gear.main;
+  for (const [pos, side, wheelIndex] of [[g.mainLeft, -1, 1], [g.mainRight, 1, 2]]) {
+    const leg = makeProGearLeg({ length: mg.attach - pos.y, strutR: mg.strut, wheelRadius: mg.r, wheelWidth: mg.w, fork: 'single', outerFrac: 0.5, brake: true, drag: 0.35 }, mats, detail);
+    leg.position.set(pos.x, mg.attach, pos.z);
+    root.add(leg);
+    rig.gear.mains.push({ leg, wheelIndex, side, retractAngle: Math.PI / 2 });
+    if (MID) {
+      const door = new THREE.Object3D();
+      door.position.set(pos.x, mg.attach - 0.02, pos.z + side * 0.3);
+      const dp = new Parts(mats);
+      dp.add('wing', flat(boxG(1.0, 0.02, 0.42)), T(0, 0, -side * 0.21));
+      dp.build(door);
+      root.add(door);
+      rig.gear.doors.push({ pivot: door, axis: new THREE.Vector3(1, 0, 0), open: side * 1.15 });
+    }
+  }
+  if (MID) {
+    for (const s of [-1, 1]) {
+      const door = new THREE.Object3D();
+      door.position.set(g.nose.x, ng.attach - 0.03, s * 0.22);
+      const dp = new Parts(mats);
+      dp.add('wing', flat(boxG(0.8, 0.015, 0.2)), T(0, 0, -s * 0.1));
+      dp.build(door);
+      root.add(door);
+      rig.gear.doors.push({ pivot: door, axis: new THREE.Vector3(1, 0, 0), open: s * 1.2 });
+    }
+  }
+
+  fixed.build(root);
+  ext.build(exterior);
+  for (const m of exterior.children) if (m !== skinMesh) m.userData.exteriorOnly = true;
+  void LOW; void sectionAt; void w0;
   return { group: root, rig };
 }
 

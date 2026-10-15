@@ -1,6 +1,6 @@
 {
   "name": "flight-sim",
-  "version": "0.1.0",
+  "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
   "description": "Browser-based 3D flight simulator (Three.js + Vite), deployed to GitHub Pages.",

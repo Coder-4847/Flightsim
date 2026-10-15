@@ -1,20 +1,37 @@
 import { h } from './dom.js';
 
-export function createMainMenu({ onStart, onSettings }) {
-  return h('section.menu-screen',
+export const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
+
+export function createMainMenu({ saves, onStart, onContinue, onSettings, onControls, onAbout, onFullscreen }) {
+  const cont = h('button.btn', { onclick: onContinue, hidden: true });
+  const el = h('section.menu-screen',
     h('div.menu-card',
       h('div.brand',
-        h('span.brand-mark', '▲'),
+        h('span.brand-mark', '\u25b2'),
         h('h1', 'FLIGHT SIM'),
         h('p.tagline', 'Browser flight simulator'),
       ),
-      h('nav.menu-list',
-        h('button.btn.primary', { onclick: onStart }, 'Start flying'),
+      h('nav.menu-list', { 'aria-label': 'Main menu' },
+        h('button.btn.primary', { onclick: onStart, autofocus: true }, 'Fly'),
+        cont,
         h('button.btn', { onclick: onSettings }, 'Settings'),
+        h('button.btn', { onclick: onControls }, 'Controls'),
+        h('button.btn', { onclick: onAbout }, 'How to play and about'),
       ),
-      h('p.build-note', 'Phase 5 build · game modes, career, economy and saves'),
+      h('div.menu-foot',
+        h('button.btn.small.ghost', { onclick: onFullscreen }, 'Fullscreen'),
+        h('span.build-note', `Release candidate ${VERSION}`)),
     ),
   );
+  el.refresh = () => {
+    const s = saves.active;
+    cont.hidden = !s;
+    if (s) cont.textContent = `Continue as ${s.name} \u00b7 ${Math.round(s.money).toLocaleString('en-US')} cr`;
+  };
+  saves.on('change', el.refresh);
+  saves.on('money', el.refresh);
+  el.refresh();
+  return el;
 }
 
 export function createLoadingScreen() {

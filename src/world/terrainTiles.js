@@ -52,6 +52,7 @@ export class Terrain {
     this.tiles = new Map();
     this.index = new THREE.BufferAttribute(buildIndex(SEGMENTS), 1);
     this.frame = 0;
+    this.pendingBuilds = 1;
     this.visible = new Set();
     this.queue = [];
     this.listeners = []; // called with (tile) when a tile is built, and (tile) when disposed
@@ -210,6 +211,10 @@ export class Terrain {
    */
   update(cam, budget = this.buildsPerFrame) {
     this.frame++;
+    // Nothing is waiting to be built and the camera has barely moved: the selection cannot change.
+    const last = this.lastSelectCam;
+    if (this.pendingBuilds === 0 && last && Math.abs(cam.x - last.x) < 20 && Math.abs(cam.z - last.z) < 20 && Math.abs(cam.y - last.y) < 12) return 0;
+    this.lastSelectCam = { x: cam.x, y: cam.y, z: cam.z };
     const leaves = this.select(cam);
     const need = [];
     const show = new Set();
@@ -257,7 +262,8 @@ export class Terrain {
     }
     this.visible = show;
     this.#trim();
-    return need.filter((x) => !this.tiles.has(Terrain.key(x.n.level, x.n.ix, x.n.iz))).length;
+    this.pendingBuilds = need.filter((x) => !this.tiles.has(Terrain.key(x.n.level, x.n.ix, x.n.iz))).length;
+    return this.pendingBuilds;
   }
 
   #trim() {

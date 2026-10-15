@@ -7,6 +7,7 @@ import { setColorBlind } from './aircraft/cockpit/instruments.js';
 import { Input } from './input/input.js';
 import { FlightScene } from './scene/flightScene.js';
 import { Keybinds } from './storage/keybinds.js';
+import { AdaptiveQuality } from './scene/adaptiveQuality.js';
 import { Settings } from './storage/settings.js';
 import { h } from './ui/dom.js';
 import { getAudio } from './audio/audioBus.js';
@@ -18,7 +19,10 @@ import { createDebrief } from './ui/debrief.js';
 import { createEmergencyScreen } from './ui/emergencyScreen.js';
 import { createFlightHud } from './ui/flightHud.js';
 import { createFlightSetup } from './ui/flightSetup.js';
+import { createAboutScreen } from './ui/aboutScreen.js';
+import { createIntro } from './ui/intro.js';
 import { createMapSelect } from './ui/mapSelect.js';
+import { createMenuBackground } from './ui/menuBackground.js';
 import { createNavigator } from './ui/navigation.js';
 import { createModeSelect } from './ui/modeSelect.js';
 import { createSavesScreen } from './ui/savesScreen.js';
@@ -57,6 +61,7 @@ function boot() {
   const session = new FlightSession(flightScene, input, settings);
   const saves = new SaveManager();
   const runner = new ModeRunner({ session, saves, settings });
+  const adaptive = new AdaptiveQuality(flightScene);
   const audio = getAudio(settings);
   const engineSound = new EngineSound(audio);
   let selection = null;
@@ -146,9 +151,20 @@ function boot() {
   const begin = (plan) => needPilot('modes', () => launch(plan));
 
   screenEls.main = screens.register('main', createMainMenu({
+    saves,
     onStart: () => openScreen('modes'),
+    onContinue: () => openScreen('modes'),
     onSettings: () => openSettings('main'),
+    onControls: () => { openSettings('main'); settingsScreen.showTab('controls'); },
+    onAbout: () => openScreen('about'),
+    onFullscreen: () => {
+      try {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen?.();
+      } catch { /* fullscreen is optional */ }
+    },
   }));
+  screenEls.about = screens.register('about', createAboutScreen({ onBack: () => openScreen('main') }));
   screenEls.modes = screens.register('modes', createModeSelect({
     saves, onPick: pick, onShop: () => openScreen('shop'), onPilots: () => openSaves('modes'), onBack: () => openScreen('main'),
   }));
@@ -174,7 +190,18 @@ function boot() {
   });
   screens.register('pause', pauseMenu);
   screens.register('settings', settingsScreen);
+  // Animated backdrop behind the menus: moving on the main menu, a still frame behind the others.
+  const menuBg = createMenuBackground({ settings });
+  document.getElementById('app').insertBefore(menuBg.canvas, uiRoot);
+  const BACKDROP = new Set(['main', 'about', 'modes', 'saves', 'shop', 'career', 'vip', 'emergency', 'maps', 'setup']);
+  screens.onShow = (name) => {
+    const menuState = state.is(GameState.MENU);
+    menuBg.show(menuState && BACKDROP.has(name), name === 'main');
+  };
+  const intro = createIntro({ settings, onDone: () => screens.show('main') });
+  uiRoot.append(intro);
   screens.show('main');
+  intro.start();
   createNavigator({ ui: uiRoot, screens, input, settings, audio });
 
   session.onToast = (text) => flightHud.showToast(text);
@@ -184,7 +211,7 @@ function boot() {
   const applySetting = (key) => {
     const value = settings.get(key);
     switch (key) {
-      case 'quality': flightScene.setQuality(value); break;
+      case 'quality': flightScene.setQuality(value); adaptive.setEnabled(value === 'auto'); break;
       case 'showFps': hud.setFpsVisible(value); break;
       case 'hudScale': case 'textSize': {
         const text = Number(settings.get('textSize'));
@@ -228,11 +255,12 @@ function boot() {
       if (++hudCounter % 3 === 0 && session.model) updateHud();
     },
     onFrame: (frameDt) => {
+      if (state.is(GameState.FLYING)) adaptive.frame(frameDt);
       if (state.is(GameState.FLYING, GameState.PAUSED)) input.pollGamepad();
       fpsFrames++;
       fpsTime += frameDt;
       if (fpsTime >= 0.5) {
-        hud.setFps(fpsFrames / fpsTime);
+        hud.setFps(fpsFrames / fpsTime, adaptive.enabled ? adaptive.scale : null);
         fpsFrames = 0;
         fpsTime = 0;
       }
@@ -354,6 +382,7 @@ function boot() {
         break;
       case GameState.FLYING:
         pendingDebrief = false;
+        adaptive.reset();
         screens.show(null);
         loop.resetClock();
         break;

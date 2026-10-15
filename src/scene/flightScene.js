@@ -13,7 +13,7 @@ import { Weather } from './weather.js';
 // The 3D world: renderer, camera, environment, and the currently loaded map (terrain and
 // everything placed on it). The flight session owns the aircraft and cameras.
 
-const QUALITY_PIXEL_RATIO = { low: 1, medium: 1.5, high: 2 };
+const QUALITY_PIXEL_RATIO = { auto: 2, low: 1, medium: 1.5, high: 2 };
 const ZERO_WIND = new THREE.Vector3();
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 
@@ -34,7 +34,8 @@ export class FlightScene {
     this.mapId = null;
     this.terrain = null;
     this.built = false;
-    this.setQuality('medium');
+    this.renderScale = 1;
+    this.setQuality('auto');
     this.resize();
   }
 
@@ -93,7 +94,21 @@ export class FlightScene {
   }
 
   setQuality(level) {
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QUALITY_PIXEL_RATIO[level] ?? 1.5));
+    this.quality = level;
+    this.renderScale = 1;
+    this.#applyRatio();
+  }
+
+  /** Dynamic resolution (Auto quality): scales the pixel ratio between about 0.55 and 1 of its maximum. */
+  setRenderScale(scale) {
+    if (Math.abs(scale - this.renderScale) < 0.001) return;
+    this.renderScale = scale;
+    this.#applyRatio();
+  }
+
+  #applyRatio() {
+    const max = QUALITY_PIXEL_RATIO[this.quality] ?? 1.5;
+    this.renderer.setPixelRatio(Math.max(0.5, Math.min(window.devicePixelRatio || 1, max) * (this.renderScale ?? 1)));
     this.resize();
   }
 

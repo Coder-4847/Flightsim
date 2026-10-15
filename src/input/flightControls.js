@@ -1,4 +1,5 @@
 import { Engine } from '../flight/engine.js';
+import { Autopilot } from '../flight/autopilot.js';
 import { approach, clamp } from '../flight/units.js';
 
 // Turns input actions (keyboard, gamepad) into flight-model controls every frame.
@@ -23,6 +24,7 @@ export class FlightControls {
     this.selected = null; // engine index the throttle keys act on, or null for all
     this.systems = { perEngine: false, manualFlaps: true, manualGear: true };
     this.autoGearState = true;
+    this.autopilot = new Autopilot();
     this.look = { x: 0, y: 0 }; // analog look (right stick in cockpit view)
     this.onToast = null; // (text) => void
     input.on('press', (action) => this.#onPress(action));
@@ -36,6 +38,9 @@ export class FlightControls {
     this.levers = model.controls.throttle.map(() => this.master);
     this.selected = null;
     this.landedLatch = false;
+    this.autopilot.on = false;
+    this.autopilot.at = false;
+    this.autopilot.appr = false;
   }
 
   setSystems(systems) {
@@ -268,6 +273,8 @@ export class FlightControls {
       if (pad.axes.leftX !== 0) roll = pad.axes.leftX;
       if (pad.axes.rightX !== 0) yaw = pad.axes.rightX;
     }
+    // The autopilot flies the stick while it is engaged (the pilot's stick only disconnects it).
+    if (this.autopilot.update(dt, m, this, input)) { pitch = this.autopilot.out.pitch; roll = this.autopilot.out.roll; }
     c.pitch = clamp(pitch, -1, 1);
     c.roll = clamp(roll, -1, 1);
     c.yaw = clamp(yaw, -1, 1);

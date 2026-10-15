@@ -173,7 +173,7 @@ export function concreteTexture() {
     const c = imageFromFn(S, (x, y) => {
       const i = y * S + x;
       const slab = (x >= 512 ? 1 : 0) + (y >= 512 ? 2 : 0);
-      let v = 0.60 + tone[slab] + (low[i] - 0.5) * 0.07 + (mid[i] - 0.5) * 0.045 + (rnd() - 0.5) * 0.04;
+      let v = 0.66 + tone[slab] + (low[i] - 0.5) * 0.07 + (mid[i] - 0.5) * 0.045 + (rnd() - 0.5) * 0.04;
       if (rnd() < 0.01) v -= 0.06;
       const g = v * 255;
       return [clamp255(g * 1.0), clamp255(g * 0.985), clamp255(g * 0.95)];
@@ -187,16 +187,16 @@ export function concreteTexture() {
       ctx.fillRect(p + 1.5, 0, 1.5, S); ctx.fillRect(0, p + 1.5, S, 1.5);
     }
     // oil drips and stains
-    for (let k = 0; k < 16; k++) {
-      const x = 30 + rnd() * (S - 60); const y = 30 + rnd() * (S - 60); const r = 12 + rnd() * 46;
+    for (let k = 0; k < 8; k++) {
+      const x = 30 + rnd() * (S - 60); const y = 30 + rnd() * (S - 60); const r = 12 + rnd() * 40;
       const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, `rgba(28,24,20,${0.18 + rnd() * 0.3})`); g.addColorStop(1, 'rgba(28,24,20,0)');
+      g.addColorStop(0, `rgba(28,24,20,${0.06 + rnd() * 0.12})`); g.addColorStop(1, 'rgba(28,24,20,0)');
       ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
     }
     // tyre scuffs near the centre of slabs
     ctx.lineCap = 'round';
-    for (let k = 0; k < 7; k++) {
-      ctx.strokeStyle = `rgba(20,20,20,${0.05 + rnd() * 0.07})`; ctx.lineWidth = 3 + rnd() * 6;
+    for (let k = 0; k < 5; k++) {
+      ctx.strokeStyle = `rgba(20,20,20,${0.025 + rnd() * 0.04})`; ctx.lineWidth = 3 + rnd() * 6;
       const x = rnd() * S; const y = rnd() * S; const a = rnd() * Math.PI;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + Math.cos(a) * 80, y + Math.sin(a) * 80, x + Math.cos(a + 0.4) * 160, y + Math.sin(a + 0.4) * 160); ctx.stroke();
     }
@@ -302,14 +302,14 @@ export function curtainWall() {
     for (let j = 0; j < 2; j++) for (let i = 0; i < 12; i++) {
       const x = i * pw; const y = j * ph;
       const g = ctx.createLinearGradient(0, y, 0, y + ph);
-      g.addColorStop(0, '#9db8c9'); g.addColorStop(0.42, '#5d7d92'); g.addColorStop(1, '#27394a');
+      g.addColorStop(0, '#c4d9e8'); g.addColorStop(0.42, '#8fb0c6'); g.addColorStop(1, '#4f6b82');
       ctx.fillStyle = g; ctx.fillRect(x, y, pw, ph);
       // sky reflection streak
       ctx.fillStyle = `rgba(235,245,255,${0.10 + rnd() * 0.16})`;
       ctx.beginPath(); ctx.moveTo(x, y + ph * (0.2 + rnd() * 0.3)); ctx.lineTo(x + pw, y + ph * (0.05 + rnd() * 0.25)); ctx.lineTo(x + pw, y + ph * (0.3 + rnd() * 0.2)); ctx.lineTo(x, y + ph * (0.5 + rnd() * 0.2)); ctx.fill();
       // interior hint: dark ceiling line and silhouettes
-      ctx.fillStyle = 'rgba(8,12,18,0.30)'; ctx.fillRect(x, y + ph * 0.58, pw, ph * 0.04);
-      ctx.fillStyle = `rgba(8,12,18,${0.12 + rnd() * 0.1})`; ctx.fillRect(x, y + ph * 0.62, pw, ph * 0.38);
+      ctx.fillStyle = 'rgba(8,12,18,0.20)'; ctx.fillRect(x, y + ph * 0.58, pw, ph * 0.04);
+      ctx.fillStyle = `rgba(8,12,18,${0.05 + rnd() * 0.06})`; ctx.fillRect(x, y + ph * 0.62, pw, ph * 0.38);
       // emissive: lit pane
       const lit = rnd();
       if (lit > 0.18) {

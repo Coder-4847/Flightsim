@@ -27,6 +27,23 @@ const SURFACE_FRAG = `
   diffuseColor.rgb *= sc;
 `;
 
+/** Shared uniform: extra ambient on buildings and props (sky bounce), faded out at night by the manager. */
+export const ambientBoost = { value: 0.22 };
+
+/** Adds a daylight ambient floor to a standard material so shaded walls do not turn black. */
+export function lift(mat) {
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, r) => {
+    prev?.(shader, r);
+    shader.uniforms.uAmbBoost = ambientBoost;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uAmbBoost;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += diffuseColor.rgb * uAmbBoost;');
+  };
+  mat.customProgramCacheKey = () => `lift-${mat.map ? 'm' : 'n'}-${mat.emissiveMap ? 'e' : 'n'}-${mat.alphaTest > 0 ? 'a' : 'n'}`;
+  return mat;
+}
+
 /** Pavement / ground material. kind: 'asphalt' | 'concrete' | 'grass' | 'dirt' | 'snow'. */
 export function surfaceMaterial(kind, tint = 1, { roughness = 0.94 } = {}) {
   const tex = kind === 'asphalt' ? TX.asphaltTexture() : kind === 'concrete' ? TX.concreteTexture() : TX.groundTexture(kind);

@@ -23,7 +23,7 @@ const mapId = q.get('map') ?? 'grasslands';
 const map = buildMap(mapId);
 const biome = map.cfg.biome;
 const groundColor = { grass: 0x4d6e2b, desert: 0xc19a62, snow: 0xe6edf4 }[biome];
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(200000, 200000).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: groundColor, roughness: 1 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000, 240, 240).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: groundColor, roughness: 1 }));
 scene.add(ground);
 
 // planes and airports that the viewer needs sit at their world positions; the ground follows the airport elevation
@@ -32,7 +32,7 @@ let current = null;
 
 window.show = (code) => {
   current = map.airports.find((a) => a.code === code) ?? map.airports.find((a) => a.cls === code) ?? map.airports[0];
-  ground.position.y = current.elevation - 0.02;
+  ground.position.set(current.x, current.elevation - 0.02, current.z);
   return current.code;
 };
 
@@ -56,6 +56,7 @@ window.view = (v) => {
 };
 
 window.show(q.get('airport') ?? 'hub');
+window.__THREE = THREE;
 window.__viewer = { scene, camera, renderer, manager, env, map, get current() { return current; } };
 if (q.get('along') != null) {
   window.view({

@@ -1,6 +1,7 @@
 import { Rng } from '../util/random.js';
 import { createTrafficModel, setHeading } from './fleet.js';
 import { layoutAirport, standPlacement } from '../world/airportLayout.js';
+import { equipStand } from '../world/airport/gse.js';
 
 // Aircraft parked nose-in on the stands of each airport, chosen by airport size and stand type.
 // Positions come from the stand's nose-gear stop mark, so every aircraft type sits correctly at its
@@ -22,7 +23,7 @@ function pickWeighted(rng, pool) {
 }
 
 /** Adds parked aircraft to an airport group (positioned at the airport's origin). */
-export function addParkedTraffic(group, airport) {
+export function addParkedTraffic(group, airport, vehicles = null) {
   const layout = layoutAirport(airport);
   let seed = 0;
   for (const ch of airport.code) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
@@ -51,6 +52,7 @@ export function addParkedTraffic(group, airport) {
     root.userData.stand = i;
     root.userData.variant = variant;
     group.add(root);
+    if (vehicles) equipStand(vehicles, stand, spec, id, rng);
     placed.push(i);
     (group.userData.parked ??= []).push({ stand: i, id, root, spec });
   });

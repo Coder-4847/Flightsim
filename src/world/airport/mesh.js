@@ -94,6 +94,34 @@ export class MeshBuf {
     }
   }
 
+  /**
+   * Box centred at (x, y, z) with size w (X) x h (Y) x d (Z), rotated by `pitch` about its local Z axis
+   * (raising the +X end) and then yawed by `ry`. Flat colour via `tint` ([r,g,b]) or `color`.
+   */
+  boxT(x, y, z, w, h, d, { ry = 0, pitch = 0, color = 1, tint = null } = {}) {
+    const cp = Math.cos(pitch); const sp = Math.sin(pitch);
+    const c = Math.cos(ry); const s = Math.sin(ry);
+    const hw = w / 2; const hh = h / 2; const hd = d / 2;
+    const P = (lx, ly, lz) => {
+      const px = lx * cp - ly * sp; const py = lx * sp + ly * cp;
+      const [rx, rz] = rot(px, lz, c, s);
+      return [x + rx, y + py, z + rz];
+    };
+    const N = (lx, ly, lz) => {
+      const px = lx * cp - ly * sp; const py = lx * sp + ly * cp;
+      const [rx, rz] = rot(px, lz, c, s);
+      return [rx, py, rz];
+    };
+    const col = tint ?? [color, color, color];
+    const cc = [...col, ...col, ...col, ...col];
+    this.quad(P(-hw, -hh, hd), P(hw, -hh, hd), P(hw, hh, hd), P(-hw, hh, hd), [0, 0, w, 0, w, h, 0, h], cc, N(0, 0, 1));
+    this.quad(P(hw, -hh, hd), P(hw, -hh, -hd), P(hw, hh, -hd), P(hw, hh, hd), [0, 0, d, 0, d, h, 0, h], cc, N(1, 0, 0));
+    this.quad(P(hw, -hh, -hd), P(-hw, -hh, -hd), P(-hw, hh, -hd), P(hw, hh, -hd), [0, 0, w, 0, w, h, 0, h], cc, N(0, 0, -1));
+    this.quad(P(-hw, -hh, -hd), P(-hw, -hh, hd), P(-hw, hh, hd), P(-hw, hh, -hd), [0, 0, d, 0, d, h, 0, h], cc, N(-1, 0, 0));
+    this.quad(P(-hw, hh, hd), P(hw, hh, hd), P(hw, hh, -hd), P(-hw, hh, -hd), [0, 0, w, 0, w, d, 0, d], cc, N(0, 1, 0));
+    this.quad(P(-hw, -hh, -hd), P(hw, -hh, -hd), P(hw, -hh, hd), P(-hw, -hh, hd), [0, 0, w, 0, w, d, 0, d], cc, N(0, -1, 0));
+  }
+
   /** Frustum/cylinder with base centre (x, y, z); yaw/tilt are not supported (cylinders stay upright). */
   cyl(x, y, z, rTop, rBot, h, seg = 12, { color = 1, ao = 0.14, capTop = true, capBot = false, uvTile = 4, open = false, tint = null, arc = null } = {}) {
     const a0 = arc ? arc[0] : 0; const a1 = arc ? arc[1] : Math.PI * 2;

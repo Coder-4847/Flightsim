@@ -321,7 +321,10 @@ export function layoutAirport(a) {
     sites.push({ type: 'lot', u: -412, v: 78, w: 110, d: 36 });
     sites.push({ type: 'lot', u: -540, v: -62, w: 70, d: 36 });
     sites.push({ type: 'lot', u: -540, v: 62, w: 70, d: 36 });
-    sites.push({ type: 'hangarRow', u: 760, v: 0 });
+    sites.push({ type: 'windsock', u: -520, v: -312 });
+    sites.push({ type: 'windsock', u: 640, v: 312 });
+    sites.push({ type: 'trees', u: -430, v: 0, count: 90, spread: 95, zone: [-640, -300, -100, 100] });
+    sites.push({ type: 'trees', u: 0, v: -96, count: 0, spread: 0 });
     void half; void second;
   } else {
     // ---------------------------------------------------------------------------- REGIONAL / AIRFIELD / STRIP

@@ -56,7 +56,8 @@ for (let i = 0; i < 30; i++) model.step(1 / 120, true);
 if (q.has('aileron')) model.surfaces.aileron = num('aileron', 0) * 0.35;
 if (q.has('elevator')) model.surfaces.elevator = num('elevator', 0) * 0.35;
 if (q.has('rudder')) model.surfaces.rudder = num('rudder', 0) * 0.4;
-if (q.has('brake')) model.surfaces.speedbrake = num('brake', 0);
+if (q.has('brake') || q.has('speedbrake')) model.surfaces.speedbrake = num(q.has('brake') ? 'brake' : 'speedbrake', 0);
+if (q.has('gearext')) model.gear.extension = num('gearext', 1);
 if (q.get('ab') === '1') for (const e of model.engines) e.afterburner = 1;
 if (q.get('rpm') === '1') for (const e of model.engines) { e.spool = 1; e.running = true; }
 for (let i = 0; i < 4; i++) view.update(model, 1, 0.06, i * 0.06 + 0.02);

@@ -174,9 +174,10 @@ export function addVegetation(batch, tile, map, zones, clear, density = 1) {
       const x = (wi + hash2(wi, wj, seed + 1)) * spacing;
       const z = (wj + hash2(wi, wj, seed + 2)) * spacing;
       const f = bil(gridF, i, j);
-      if (f > 0.03) {
+      if (f > 0.12) {
         const clump = hashNoise(x, z, 46, seed + 9);
-        const p = f * (0.55 + 0.9 * clump) * density;
+        const fs = Math.min(1, Math.max(0, (f - 0.12) / 0.5));
+        const p = (fs * fs * (3 - 2 * fs)) * (0.45 + 0.9 * clump) * density;
         if (hash2(wi, wj, seed) < p * (lvl0 ? 0.95 : 0.8) && clear.free(x, z, 6)) {
           const h = Terrain.heightIn(tile, x, z);
           const kind = pickWood(x, z, h, hash2(wi, wj, seed + 6), f);

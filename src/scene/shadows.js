@@ -22,6 +22,7 @@ export class ShadowRig {
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.shadowMap.autoUpdate = false;
     this.radius = 600;
+    this.primed = false;
   }
 
   setQuality(level) {
@@ -33,6 +34,7 @@ export class ShadowRig {
     if (size > 0) {
       if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
       sun.shadow.mapSize.set(size, size);
+      this.primed = false;
       sun.shadow.radius = 2.2;
       sun.shadow.bias = -0.00015;
       const c = sun.shadow.camera;
@@ -52,6 +54,8 @@ export class ShadowRig {
     const strength = enabledHint && day ? (1 - 0.9 * env.cloudDim) * Math.min(1, (lightEl - 0.05) * 6) : 0;
     this.active = strength > 0.02 && agl < 3200;
     this.renderer.shadowMap.autoUpdate = this.active;
+    if (!this.active && !this.primed) { this.renderer.shadowMap.needsUpdate = true; this.primed = true; } // allocate the map once
+    if (this.active) this.primed = true;
     sun.shadow.intensity = this.active ? strength : 0;
     if (!this.active) return;
 
@@ -94,6 +98,7 @@ export function enableShadows(root, { cast = true, receive = true, skip = null }
     if (skip && skip(o)) return;
     if (o.userData.shadowSet) return;
     o.userData.shadowSet = true;
+    if (o.userData.noShadow) { if (receive) o.receiveShadow = true; return; } // receives, never casts
     const m = o.material;
     const transparent = Array.isArray(m) ? m.some((x) => x.transparent) : m?.transparent;
     if (cast && !transparent) o.castShadow = true;

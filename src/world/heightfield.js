@@ -146,6 +146,7 @@ export function createHeightfield(config, features) {
   const base = createBaseHeight(config);
   const { rivers, lakes } = features;
   let airports = [];
+  let pits = [];
 
   // Terrain including rivers and lakes but not airport pads.
   const carved = (x, z) => {
@@ -175,6 +176,15 @@ export function createHeightfield(config, features) {
       if (d < 1) h = l.level - 1.5 - 16 * (1 - d * d);
       else h = lerp(l.level + 0.6, h, smoothstep(1, 1.7, d));
     }
+    for (let i = 0; i < pits.length; i++) {
+      const q = pits[i];
+      const dx = x - q.x; const dz = z - q.z;
+      if (dx * dx + dz * dz > q.r * q.r) continue;
+      const d = Math.sqrt(dx * dx + dz * dz) / q.r;
+      // Terraced open-cast pit: benches stepping down to a flat floor.
+      const t = smoothstep(1.0, 0.42, d + 0.05 * Math.sin(Math.atan2(dz, dx) * 5 + q.x));
+      h -= q.depth * (Math.floor(t * 5) / 5 + smoothstep(0.62, 1.0, (t * 5) % 1) / 5);
+    }
     return h;
   };
 
@@ -195,5 +205,6 @@ export function createHeightfield(config, features) {
   return {
     base, carved, height, rivers, lakes,
     setAirports(list) { airports = list; },
+    setPits(list) { pits = list; },
   };
 }

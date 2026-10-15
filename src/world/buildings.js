@@ -44,6 +44,18 @@ function indexedBox(rise, ridgeX) {
   return g;
 }
 
+function dome() {
+  const g = new THREE.SphereGeometry(0.5, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 2, 1).toNonIndexed();
+  g.deleteAttribute('uv');
+  return g;
+}
+
+function spire() {
+  const g = new THREE.ConeGeometry(0.5, 1, 4, 1, true).rotateY(Math.PI / 4).translate(0, 0.5, 0).toNonIndexed();
+  g.deleteAttribute('uv');
+  return g;
+}
+
 function cylinder(sides) {
   const g = new THREE.CylinderGeometry(0.5, 0.5, 1, sides, 1, false).translate(0, 0.5, 0).toNonIndexed();
   g.deleteAttribute('uv');
@@ -58,6 +70,8 @@ function baseGeometries() {
       gable: indexedBox(1.55),
       shed: indexedBox(1.12),
       cyl: cylinder(12),
+      dome: dome(),
+      spire: spire(),
     };
     for (const g of Object.values(geos)) g.computeBoundingSphere();
   }
@@ -135,8 +149,12 @@ export function buildingMaterial() {
           float winAvg = kind < 0.5 ? 0.28 : kind < 1.5 ? 0.5 : kind < 2.5 ? 0.82 : 0.1;
           float winEff = mix(winAvg, win, vis);
           col = mix(col, glass, winEff * 0.9);
-          if (win > 0.5 && vis > 0.0) { bwin = win; float ls = kind < 0.5 ? 0.32 : kind < 1.5 ? 0.45 : 0.5; blit = step(r * 1.7 - 0.35, ls) * vis; bglow = kind < 0.5 ? vec3(1.0, 0.74, 0.42) : mix(vec3(1.0, 0.8, 0.5), vec3(0.78, 0.88, 1.0), step(0.5, bh(cell + 5.0))); }
-          else { bglow = vec3(1.0); }
+          bwin = win * vis;
+          float ls = kind < 0.5 ? 0.32 : kind < 1.5 ? 0.45 : kind < 2.5 ? 0.5 : 0.12;
+          float litNear = step(r * 1.7 - 0.35, ls) * win;
+          float litFar = ls * winAvg * (0.5 + bh(floor(vec2(dot(vWPos.xz, tang) / 14.0, vHm / 15.0)) + vBaseY));
+          blit = mix(litFar, litNear, vis);
+          bglow = kind < 0.5 ? vec3(1.0, 0.74, 0.42) : mix(vec3(1.0, 0.8, 0.5), vec3(0.78, 0.88, 1.0), step(0.5, bh(cell + 5.0)));
           col *= mix(0.72, 1.0, smoothstep(0.0, 5.0, vHm));
         } else { bglow = vec3(1.0); }
         // Roofs: tiles / membrane in the instance's roof colour.
@@ -152,7 +170,7 @@ export function buildingMaterial() {
       .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
         metalnessFactor = bwin * 0.55 * (0.4 + 0.6 * step(1.5, vRoof.w) * step(vRoof.w, 2.5));`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        totalEmissiveRadiance += bglow * blit * uNight * 0.9;`);
+        totalEmissiveRadiance += bglow * blit * uNight * 0.5;`);
     applyAtmosphere(shader);
   };
   return material;
@@ -200,6 +218,7 @@ const isArterial = (line) => ((Math.round(line) % 4) + 4) % 4 === 0;
 
 /** District of a block. */
 export function districtOf(city, bx, bz, seed) {
+  if (city.reserved?.has(`${bx},${bz}`)) return 'civic';
   const cx = bx * BLOCK + BLOCK / 2;
   const cz = bz * BLOCK + BLOCK / 2;
   const dc = Math.hypot(cx - city.x, cz - city.z) / city.radius;
@@ -229,7 +248,7 @@ export function districtOf(city, bx, bz, seed) {
 /** Buildings of one block, as items {t: 'box'|'gable'|'shed'|'cyl', x, z, w, d, h, yaw, wall, roof, kind}. */
 export function blockBuildings(bx, bz, city, biome, seed, tall, out) {
   const dist = districtOf(city, bx, bz, seed);
-  if (dist === 'park') return dist;
+  if (dist === 'park' || dist === 'civic') return dist;
   const baseX = bx * BLOCK;
   const baseZ = bz * BLOCK;
   const mL = isArterial(bx) ? 11 : 8;
@@ -338,7 +357,7 @@ export function blockBuildings(bx, bz, city, biome, seed, tall, out) {
 
 function toMeshes(items, ground) {
   const base = baseGeometries();
-  const byType = { box: [], gable: [], shed: [], cyl: [] };
+  const byType = { box: [], gable: [], shed: [], cyl: [], dome: [], spire: [] };
   for (const it of items) byType[it.t].push(it);
   const meshes = [];
   for (const [type, list] of Object.entries(byType)) {
@@ -352,7 +371,7 @@ function toMeshes(items, ground) {
     geo.setAttribute('iRoof', new THREE.InstancedBufferAttribute(roof, 4));
     const mesh = new THREE.InstancedMesh(geo, buildingMaterial(), list.length);
     list.forEach((b, i) => {
-      const y = ground(b.x, b.z);
+      const y = (b.y ?? ground(b.x, b.z)) + (b.yo ?? 0);
       _q.setFromAxisAngle(UP, b.yaw);
       _p.set(b.x, y - 0.5, b.z);
       _s.set(b.w, b.h + 0.5, b.d);
@@ -375,14 +394,14 @@ function toMeshes(items, ground) {
  * Low and mid-rise buildings and houses for a tile (towers live in the skyline mesh). Also adds
  * park and garden trees to `batch`. Returns a Group or null.
  */
-export function buildCityTile(tile, map, zones, batch, clear) {
+export function buildCityTile(tile, map, zones, batch, clear, extra = []) {
   const x0 = Math.floor(tile.x0 / BLOCK);
   const x1 = Math.floor((tile.x0 + tile.size) / BLOCK);
   const z0 = Math.floor(tile.z0 / BLOCK);
   const z1 = Math.floor((tile.z0 + tile.size) / BLOCK);
   const cities = map.cities.filter((c) => c.x + c.radius > tile.x0 && c.x - c.radius < tile.x0 + tile.size && c.z + c.radius > tile.z0 && c.z - c.radius < tile.z0 + tile.size);
-  if (!cities.length) return null;
-  const items = [];
+  if (!cities.length && !extra.length) return null;
+  const items = [...extra];
   const zone = {};
   const seed = map.cfg.seed + 77;
   const biome = map.cfg.biome;
@@ -402,7 +421,7 @@ export function buildCityTile(tile, map, zones, batch, clear) {
       const dist = blockBuildings(bx, bz, city, biome, seed, false, items);
       // Trees in parks and gardens.
       if (batch && batch.count < 1100) {
-        const nT = dist === 'park' ? 12 : dist === 'residential' ? 5 : dist === 'apartments' || dist === 'commercial' ? 3 : 0;
+        const nT = dist === 'park' ? 12 : dist === 'civic' ? 6 : dist === 'residential' ? 5 : dist === 'apartments' || dist === 'commercial' ? 3 : 0;
         for (let i = 0; i < nT; i++) {
           const tx = bx * BLOCK + 8 + hash2(bx * 13 + i, bz, seed + 50) * (BLOCK - 16);
           const tz = bz * BLOCK + 8 + hash2(bx, bz * 13 + i, seed + 51) * (BLOCK - 16);

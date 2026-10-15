@@ -190,7 +190,7 @@ export class Environment {
     this.scene.fog.near = Math.min(4000, v * 0.1);
     this.scene.fog.far = v * 1.15;
     const f = atmosphere.uniforms.uAtmoFog.value;
-    f.x = 2.3 / Math.max(80, v);
+    f.x = 1.8 / Math.max(80, v);
     f.y = this.fogHeight;
     f.z = this.groundRef;
   }

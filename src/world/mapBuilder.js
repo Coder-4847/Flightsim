@@ -3,6 +3,7 @@ import { createBaseHeight, createHeightfield } from './heightfield.js';
 import { AIRPORT_CLASSES, MAPS, MAP_HALF } from './maps.js';
 import { PolylineSet } from './polyline.js';
 import { buildLinearSet } from './placement.js';
+import { generateInfrastructure } from './infrastructure.js';
 
 // Turns a static map definition into a world: height function, rivers, lakes, cities, airports
 // (with runways and ILS data), navaids, waypoints and roads. Pure data, no rendering, so it also
@@ -327,45 +328,6 @@ function generateNavaids(cfg, airports, rng) {
   return { navaids, waypoints };
 }
 
-// ---- roads ---------------------------------------------------------------------------------------------------------
-/** Connect settlements and airports with a minimum spanning tree of gently wiggling roads. */
-function generateRoads(cfg, cities, airports, rng) {
-  const nodes = [
-    ...cities.map((c) => ({ x: c.x, z: c.z, kind: c.kind })),
-    ...airports.filter((a) => a.cls !== 'strip').map((a) => ({ x: a.x + 450, z: a.z + 450, kind: 'airport' })),
-  ];
-  const lines = [];
-  const inTree = [0];
-  const rest = new Set(nodes.map((_, i) => i).filter((i) => i > 0));
-  const sparse = cfg.biome === 'desert';
-  while (rest.size) {
-    let best = null;
-    for (const i of inTree) for (const j of rest) {
-      const d = Math.hypot(nodes[i].x - nodes[j].x, nodes[i].z - nodes[j].z);
-      if (!best || d < best.d) best = { i, j, d };
-    }
-    if (!best) break;
-    inTree.push(best.j);
-    rest.delete(best.j);
-    const a = nodes[best.i];
-    const b = nodes[best.j];
-    const len = best.d;
-    const pts = [];
-    const steps = Math.max(2, Math.round(len / 160));
-    const phase = rng.range(0, 6);
-    const amp = Math.min(900, len * 0.06);
-    for (let k = 0; k <= steps; k++) {
-      const t = k / steps;
-      const wig = Math.sin(t * Math.PI * 3 + phase) * amp * Math.sin(t * Math.PI);
-      const nx = -(b.z - a.z) / len;
-      const nz = (b.x - a.x) / len;
-      pts.push({ x: a.x + (b.x - a.x) * t + nx * wig, z: a.z + (b.z - a.z) * t + nz * wig });
-    }
-    lines.push({ points: pts, width: sparse ? 7 : best.d > 20000 ? 9 : 8, major: !sparse && (nodes[best.i].kind === 'major' || nodes[best.j].kind === 'major') });
-  }
-  return lines;
-}
-
 // ---- entry point ---------------------------------------------------------------------------------------------------------
 const cache = new Map();
 
@@ -393,10 +355,14 @@ export function buildMap(id) {
   const airports = generateAirports(cfg, hf, cities, rng);
   hf.setAirports(airports);
   const { navaids, waypoints } = generateNavaids(cfg, airports, rng);
-  const roads = generateRoads(cfg, cities, airports, rng);
 
-  const map = { id, cfg, hf, rivers, riverLines, lakes, cities, airports, navaids, waypoints, roads, half: MAP_HALF };
-  map.linearSet = buildLinearSet(roads);
+  const map = { id, cfg, hf, rivers, riverLines, lakes, cities, airports, navaids, waypoints, roads: [], half: MAP_HALF };
+  const infra = generateInfrastructure({ cfg, hf, cities, airports, lakes, rivers }, cfg.seed * 13 + 99);
+  hf.setPits(infra.quarries);
+  map.roads = infra.roads;
+  map.rails = infra.rails;
+  map.infra = infra;
+  map.linearSet = buildLinearSet([...infra.roads, ...infra.rails, ...infra.pipelines]);
   cache.set(id, map);
   return map;
 }

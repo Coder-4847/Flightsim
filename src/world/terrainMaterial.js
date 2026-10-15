@@ -164,6 +164,13 @@ void grassSurface(vec2 p, vec3 N0, vec4 zone, vec4 z2, float h, float slope, flo
     gBump.x *= mix(1.0, fb, fm);
     gBump.y *= mix(1.0, 0.6, fm);
   }
+  // Mown grass around airports: lush, with wide mowing stripes.
+  float mown = smoothstep(0.1, 0.55, z2.g);
+  if (mown > 0.01) {
+    vec3 mc = mix(vec3(0.24, 0.42, 0.13), vec3(0.30, 0.48, 0.16), nv(p, 600.0)) * (0.94 + 0.12 * stripe(p.x * 0.866 + p.y * 0.5, 14.0, pix));
+    col = mix(col, mc, mown);
+    gBump.x *= 1.0 - 0.5 * mown;
+  }
   // Woodland floor and canopy texture.
   float fo = smoothstep(0.3, 0.55, zone.g + (nv(p, 38.0) - 0.5) * 0.55);
   if (fo > 0.01) {
@@ -183,6 +190,14 @@ void grassSurface(vec2 p, vec3 N0, vec4 zone, vec4 z2, float h, float slope, flo
     col = mix(col, rock, rk);
     rough = mix(rough, 0.92, rk);
     gBump = mix(gBump, vec3(0.8, 2.2, 3.0), rk);
+  }
+  // Quarry: pale crushed rock and spoil.
+  if (zone.a > 0.04) {
+    float bn2 = h * 0.5 + nv(p, 90.0) * 3.0;
+    vec3 qc = mix(vec3(0.62, 0.58, 0.50), vec3(0.78, 0.74, 0.66), sin(bn2) * 0.5 + 0.5) * (0.88 + 0.24 * nw(p, 5.0));
+    col = mix(col, qc, smoothstep(0.04, 0.5, zone.a));
+    rough = mix(rough, 0.95, zone.a);
+    gBump = mix(gBump, vec3(1.2, 1.8, 1.2), zone.a);
   }
   // Snow on the high ground (only maps with a snow line).
   float snow = smoothstep(uSnowLine - 150.0, uSnowLine + 200.0, h + (mD - 0.5) * 200.0) * (1.0 - smoothstep(0.5, 0.8, slope));
@@ -384,7 +399,8 @@ void terrainSurface(vec3 wp, vec3 N0) {
     vec2 lot = floor(fract(p / 88.0) * vec2(4.0, 3.0));
     float street = (1.0 - smoothstep(-0.5, 2.5, si.x)) * (0.6 + 0.4 * si.y);
     float win = step(0.5, hash21(blk * 5.1 + lot)) * uz;
-    gEmit = uz * (street * 0.85 + 0.3 * win) * (1.0 - clamp(pix / 60.0, 0.0, 0.6));
+    float lamps = mix(0.3, 1.0, step(0.78, fract((p.x + p.y) / 27.0)));
+    gEmit = uz * (street * 0.55 * lamps + 0.22 * win) * (1.0 - clamp(pix / 60.0, 0.0, 0.6));
   }
 }
 `;

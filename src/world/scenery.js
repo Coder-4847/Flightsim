@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { buildCityTile, buildSkyline, buildingMaterial } from './buildings.js';
-import { buildLandmarks, buildNavaids } from './landmarks.js';
+import { buildInfrastructure } from './infraBuilder.js';
 import { buildRoads } from './roads.js';
 import { TreeBatch, addVegetation, treeMaterial } from './vegetation.js';
 import { makeClearance } from './placement.js';
+import { tileProps } from './props.js';
 import { buildWater } from './water.js';
 import { enableShadows } from '../scene/shadows.js';
 
@@ -30,16 +31,14 @@ export class Scenery {
 
     this.water = buildWater(map);
     this.group.add(this.water.group);
-    this.landmarks = buildLandmarks(map);
+    this.landmarks = buildInfrastructure(map);
     this.group.add(this.landmarks.group);
-    this.navaids = buildNavaids(map);
-    this.group.add(this.navaids.group);
     this.skylines = [];
     for (const city of map.cities.filter((c) => c.kind !== 'village')) {
       const sky = buildSkyline(map, zones, city);
       if (sky) { this.group.add(sky); this.skylines.push(sky); }
     }
-    this.masts = [...this.landmarks.masts, ...this.navaids.masts];
+    this.masts = this.landmarks.masts;
 
     terrain.onTileShown = (tile) => this.#shown(tile);
     terrain.onTileHidden = (tile) => this.#hidden(tile);
@@ -67,12 +66,13 @@ export class Scenery {
     const g = new THREE.Group();
     const batch = new TreeBatch(tile, Math.round(1800 * this.density));
     const parts = [];
-    parts.push(buildCityTile(tile, this.map, this.zones, batch, this.clear));
+    const extra = tileProps(tile, this.map, this.zones, batch, this.clear);
+    parts.push(buildCityTile(tile, this.map, this.zones, batch, this.clear, extra));
     addVegetation(batch, tile, this.map, this.zones, this.clear, this.density);
     parts.push(batch.finish());
     parts.push(buildRoads(tile, this.map));
     for (const p of parts) if (p) g.add(p);
-    enableShadows(g, { cast: true, receive: true, skip: (o) => o.userData.noShadow });
+    enableShadows(g, { cast: true, receive: true });
     tile.decor = g;
     tile.queued = false;
     if (this.terrain.visible.has(tile)) this.scene.add(g);
@@ -126,13 +126,8 @@ export class Scenery {
     buildingMaterial().userData.uniforms.uNight.value = night;
     const cover = this.terrain.material.userData.uniforms?.uSnowCover.value ?? 0;
     buildingMaterial().userData.uniforms.uSnow.value = Math.max(this.map.cfg.biome === 'snow' ? 0.8 : 0, cover);
-    // Landmark animation: turbines turn with the wind, masts blink at dusk and night.
-    const speed = Math.hypot(wind.x, wind.z);
-    const omega = 0.4 + Math.min(speed, 15) * 0.22;
-    for (const t of this.landmarks.turbines) {
-      const near = (t.position.x - cam.x) ** 2 + (t.position.z - cam.z) ** 2 < 25e6;
-      if (near) t.userData.rotor.rotation.x += omega * dt;
-    }
+    // Landmark animation: turbines turn and face the wind, masts blink at dusk and night.
+    this.landmarks.wind?.place(cam, dt, wind);
     const blink = Math.sin(this.time * 4) > 0.2 ? 1 : 0.15;
     for (const m of this.masts) m.userData.blink.material.color.setRGB(blink, 0.12 * blink, 0.12 * blink);
   }

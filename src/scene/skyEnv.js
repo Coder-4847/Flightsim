@@ -43,7 +43,7 @@ export class SkyEnvironment {
     this.key = '';
     this.lastTime = -10;
     this.enabled = true;
-    this.intensity = 1;
+    this.intensity = 0.8;
   }
 
   setBiome(biome) {
@@ -79,7 +79,7 @@ export class SkyEnvironment {
     this.target = rt;
     this.scene.environment = rt.texture;
     this.scene.environmentIntensity = this.intensity * (0.35 + 0.65 * Math.max(this.env.dayAmt, 0.25));
-    this.env.setHemiScale(0.32);
+    this.env.setHemiScale(0.26);
   }
 
   dispose() {

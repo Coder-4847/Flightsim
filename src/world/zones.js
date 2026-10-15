@@ -3,6 +3,7 @@ import { createNoise, smoothstep } from '../util/noise.js';
 import { createLandforms } from './heightfield.js';
 import { MAP_HALF } from './maps.js';
 import { lakeD } from './lakeShape.js';
+import { PolylineSet } from './polyline.js';
 
 // Land-use masks (0..1) for a map. The same function drives the terrain shader (through two
 // low-resolution textures) and the placement of trees, so what you see from far away matches what
@@ -28,13 +29,25 @@ export function createZones(map) {
   const oases = lakes.filter((l) => l.oasis);
   const land = createLandforms(cfg);
   const lm = {};
+  const infra = map.infra ?? {};
+  const runs = infra.skiRuns?.length ? new PolylineSet(infra.skiRuns.map((r) => ({ points: r.points.map((p) => ({ x: p.x, z: p.z, w: r.width / 2 })) })), 600) : null;
+  const quarries = infra.quarries ?? [];
 
   function airportClearance(x, z) {
     for (let i = 0; i < airports.length; i++) {
       const a = airports[i];
       const d = Math.hypot(x - a.x, z - a.z);
-      if (d < a.flatRadius * 0.9) return 0;
-      if (d < a.flatRadius * 1.6) return smoothstep(a.flatRadius * 0.9, a.flatRadius * 1.6, d);
+      if (d < a.flatRadius * 0.82) return 0;
+      if (d < a.flatRadius * 1.2) return smoothstep(a.flatRadius * 0.82, a.flatRadius * 1.2, d);
+    }
+    return 1;
+  }
+
+  function airportMown(x, z) {
+    for (let i = 0; i < airports.length; i++) {
+      const a = airports[i];
+      const d = Math.hypot(x - a.x, z - a.z);
+      if (d < a.flatRadius * 1.1) return smoothstep(a.flatRadius * 0.7, a.flatRadius * 1.05, d);
     }
     return 1;
   }
@@ -87,6 +100,7 @@ export function createZones(map) {
       const copse = smoothstep(0.62, 0.68, nC.fbm(x / 330 + 50, z / 330, 2)) * (0.15 + 0.85 * smoothstep(0.1, 0.25, slope + 0.1 * farm)) * (farm > 0.3 ? 0.9 : 0.5) * smoothstep(0.3, 0.15, slope);
       forest = Math.max(wood, hillWood, copse);
       a1 = lm.relief;
+      a2 = 1 - airportMown(x, z); // mown airfield grass
       a3 = wetness(x, z);
     } else if (biome === 'snow') {
       const f = nF.fbm(x / 1900 + 9, z / 1900, 3);
@@ -113,6 +127,15 @@ export function createZones(map) {
       a1 = lm.wadi;
       a2 = lm.dune;
       a3 = smoothstep(0.5, 0.7, nF.fbm(x / 260 + 20, z / 260, 3)) * (1 - lm.dune * 0.8) * (1 - special) * smoothstep(0.35, 0.12, slope) * (0.25 + 0.75 * Math.max(lm.wadi * 1.6, smoothstep(0.45, 0.62, nR.fbm(x / 3000 + 5, z / 3000, 3))));
+    }
+    if (runs) {
+      const r = runs.nearest(x, z);
+      if (r.dist < r.w * 1.6) { const m = smoothstep(r.w * 1.5, r.w * 0.7, r.dist); forest *= 1 - m; a2 = Math.max(a2, m * 0.95); }
+    }
+    for (let i = 0; i < quarries.length; i++) {
+      const q = quarries[i];
+      const d = Math.hypot(x - q.x, z - q.z) / q.r;
+      if (d < 1.15) { special = Math.max(special, smoothstep(1.15, 0.9, d)); forest *= 1 - smoothstep(1.2, 0.95, d); farm *= 1 - smoothstep(1.2, 0.95, d); }
     }
     farm *= (1 - urban);
     forest = Math.min(1, forest) * (1 - urban) * clear * (1 - farm * (biome === 'grass' ? 0.2 : 0.6));

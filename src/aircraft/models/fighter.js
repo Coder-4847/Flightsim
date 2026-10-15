@@ -86,7 +86,7 @@ export function buildFighter(spec, mats, detail) {
   rig.fuselage = exterior;
   const L = spec.livery;
 
-  const body = loftBody(STATIONS, { detail, step: 0.35 });
+  const body = loftBody(STATIONS, { detail, step: 0.35, capStart: true });
   const canopy = loftBody(CANOPY, { detail, step: 0.3, segs: HI ? 36 : 14 });
   if (!mats.__painted) {
     const light = L.base; const low = L.belly ?? shade(L.base, -0.06);

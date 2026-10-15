@@ -25,7 +25,7 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const night = num('night', 0);
 const air = q.get('air') === '1';
-scene.background = new THREE.Color(night ? 0x05070d : 0x9db8d6);
+scene.background = new THREE.Color(q.has('bg') ? `#${q.get('bg')}` : night ? 0x05070d : 0x9db8d6); // bg=ff00ff makes see-through holes obvious
 const sunAz = (num('sun', -35) * Math.PI) / 180;
 const sun = new THREE.DirectionalLight(night ? 0x9db4ff : 0xfff1d6, night ? 0.5 : 2.6);
 sun.position.set(Math.cos(sunAz) * 700, 600, Math.sin(sunAz) * 700);

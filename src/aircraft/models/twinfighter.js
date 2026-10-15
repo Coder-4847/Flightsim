@@ -100,7 +100,7 @@ export function buildTwinFighter(spec, mats, detail, key = spec.id) {
   const L = spec.livery;
   const wingTip = c.wing[c.wing.length - 1];
 
-  const body = loftBody(c.stations, { detail, step: 0.4 });
+  const body = loftBody(c.stations, { detail, step: 0.4, capStart: true });
   const canopy = loftBody(c.canopy, { detail, step: 0.3, segs: HI ? 36 : 14 });
   if (!mats.__painted) {
     const light = L.base; const low = L.belly ?? shade(L.base, -0.06);

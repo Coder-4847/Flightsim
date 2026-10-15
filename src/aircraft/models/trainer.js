@@ -76,7 +76,7 @@ export function buildTrainer(spec, mats, detail) {
   rig.fuselage = exterior;
   const L = spec.livery;
 
-  const body = loftBody(STATIONS, { detail, step: 0.3 });
+  const body = loftBody(STATIONS, { detail, step: 0.3, capStart: true });
   const canopy = loftBody(CANOPY, { detail, step: 0.3, segs: HI ? 36 : 14 });
   if (!mats.__painted) {
     const rise = (x) => Math.max(0, -2.5 - x) * 5;

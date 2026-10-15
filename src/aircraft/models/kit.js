@@ -192,7 +192,7 @@ function ringPoint(p, a) {
  * Returns { geo, at(x, a, lift) -> {p, n}, uvOf(x, a), xMin, xMax, ringAt(x) }.
  */
 export function loftBody(stations, {
-  detail = HIGH, segs, step = 0.2, tile = 2, minSub = 1,
+  detail = HIGH, segs, step = 0.2, tile = 2, minSub = 1, capStart = false, capEnd = false,
 } = {}) {
   const P = prepStations(stations);
   const nSeg = segs ?? [12, 26, 56][detail];
@@ -282,6 +282,29 @@ export function loftBody(stations, {
     const vn = V(nrm[i0 * 3], nrm[i0 * 3 + 1], nrm[i0 * 3 + 2]);
     if (fn.dot(vn) < 0) flipWinding(geo);
   }
+  // Optional flat end caps (a fuselage whose tail would otherwise be an open tube you can see through).
+  let outGeo = geo;
+  if (capStart || capEnd) {
+    const caps = [];
+    for (const [on, ring, nx] of [[capStart, 0, -1], [capEnd, nRing - 1, 1]]) {
+      if (!on) continue;
+      const cp = []; const cn = []; const cu = []; const ci = [];
+      let cy = 0; let cz = 0;
+      for (let s = 0; s < nSeg; s++) { const o = (ring * cols + s) * 3; cy += pos[o + 1]; cz += pos[o + 2]; }
+      cy /= nSeg; cz /= nSeg;
+      cp.push(pos[ring * cols * 3], cy, cz); cn.push(nx, 0, 0); cu.push(uv[ring * cols * 2], 0.5);
+      for (let s = 0; s < nSeg; s++) { const o = (ring * cols + s) * 3; cp.push(pos[o], pos[o + 1], pos[o + 2]); cn.push(nx, 0, 0); cu.push(uv[(ring * cols + s) * 2], uv[(ring * cols + s) * 2 + 1]); }
+      for (let s = 0; s < nSeg; s++) { const a = 1 + s; const b = 1 + ((s + 1) % nSeg); if (nx < 0) ci.push(0, b, a); else ci.push(0, a, b); }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3));
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(cn, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(cu, 2));
+      g.setAttribute('uv1', new THREE.Float32BufferAttribute(cu, 2));
+      g.setIndex(ci);
+      caps.push(g);
+    }
+    outGeo = mergeGeometries([geo, ...caps], false) ?? geo;
+  }
   geo.computeBoundingSphere();
 
   const pointAt = (x, a) => { const p = evalStations(P, x); const [z, y] = ringPoint(p, a); return V(x, y, z); };
@@ -295,7 +318,7 @@ export function loftBody(stations, {
     return { p: p0.addScaledVector(n, lift), n };
   };
   return {
-    geo, at, xMin: x0, xMax: xs[xs.length - 1], params: (x) => evalStations(P, x),
+    geo: outGeo, at, xMin: x0, xMax: xs[xs.length - 1], params: (x) => evalStations(P, x),
     uvOf: (x, a) => [(x - x0) / xSpan, (a + Math.PI / 2) / TAU],
     P,
   };

@@ -112,8 +112,13 @@ function terminalHub(ctx, s) {
   // cambered roof with overhang
   const rp = [[-hw - 3.5, C.h - 0.2], [hw + 3.5, C.h - 0.2], [hw + 3.5, C.h + 0.3], [hw * 0.55, C.h + 1.5], [0, C.h + 1.9], [-hw * 0.55, C.h + 1.5], [-hw - 3.5, C.h + 0.3]];
   rl.extrude(rp, C.u0 - 2, C.u1 + 2, { ry: PI / 2, ao: 0, caps: true });
+  // central atrium: taller glass volume with a barrel-vault skylight
+  glass.box(0, 0, 0, 44, C.h + 6, hw * 2 + 6, { top: false, ao: 0.08 });
+  const vault = [];
+  for (let i = 0; i <= 14; i++) { const t = (i / 14) * PI; vault.push([Math.cos(t) * (hw + 3.2), C.h + 6 + Math.sin(t) * 4.5]); }
+  glass.extrude(vault, -22, 22, { ry: PI / 2, ao: 0, smooth: true, caps: true });
   // rooftop plant
-  for (let x = C.u0 + 20; x < C.u1 - 10; x += 38) w2.box(x, C.h + 1.4, rng.range(-4, 4), rng.range(4, 8), 1.6, rng.range(3, 5), { ao: 0.1 });
+  for (let x = C.u0 + 20; x < C.u1 - 10; x += 38) if (Math.abs(x) > 30) w2.box(x, C.h + 1.4, rng.range(-4, 4), rng.range(4, 8), 1.6, rng.range(3, 5), { ao: 0.1 });
   // departure hall: tall glass volume with a sweeping roof, glazed fins, curbside canopy
   const hu = (H.u0 + H.u1) / 2; const hl = H.u1 - H.u0;
   glass.box(hu, 0, 0, hl, H.h - 3, H.half * 2, { top: false, ao: 0.08 });

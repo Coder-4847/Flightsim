@@ -100,8 +100,8 @@ export function asphaltTexture() {
     for (let k = 0; k < 1400; k++) {
       const x = rr() * S; const y = rr() * S; const s = 1.5 + rr() * 2.2;
       const t = rr();
-      const L = 70 + rr() * 80;
-      ctx.fillStyle = t < 0.25 ? `rgba(${L + 30},${L + 14},${L - 6},0.35)` : t < 0.55 ? `rgba(${L - 40},${L - 40},${L - 35},0.4)` : `rgba(${L},${L},${L + 5},0.28)`;
+      const L = 62 + rr() * 52;
+      ctx.fillStyle = t < 0.25 ? `rgba(${L + 30},${L + 14},${L - 6},0.2)` : t < 0.55 ? `rgba(${L - 40},${L - 40},${L - 35},0.28)` : `rgba(${L},${L},${L + 5},0.17)`;
       for (const ox of [0, x < s ? S : 0, x > S - s ? -S : 0]) for (const oy of [0, y < s ? S : 0, y > S - s ? -S : 0]) ctx.fillRect(x + ox, y + oy, s, s * (0.7 + rr() * 0.6));
     }
     return finish(c, { aniso: 16 });

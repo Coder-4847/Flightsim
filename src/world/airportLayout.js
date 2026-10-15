@@ -286,7 +286,7 @@ export function layoutAirport(a) {
         const S = { u, v: sd * S0 };
         const axis = axisFor(sd);
         const park = { u: S.u - axis.u * plan.nose, v: S.v - axis.v * plan.nose };
-        const start = startFor(S, axis, 78 - S0);
+        const start = startFor(S, axis, 88 - S0);
         stands.push({ u, v: park.v, S, axis, side: sd, k, bridge: true, name: `${sd < 0 ? 'A' : 'B'}${k + 1}`, wide: true, start, lane: sd * 122 });
       }
     }

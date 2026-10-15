@@ -79,7 +79,7 @@ export function buildAirport(a, { biome = 'grass' } = {}) {
   mk('asphalt', surfaceMaterial('asphalt', style.asphaltTint));
   mk('concrete', surfaceMaterial('concrete', new THREE.Color(...style.concreteTint)));
   mk('gravel', surfaceMaterial('dirt', 0.8));
-  mk('infield', surfaceMaterial(groundKind, groundKind === 'grass' ? new THREE.Color(0.8, 0.95, 0.72) : 1));
+  mk('infield', surfaceMaterial(groundKind, groundKind === 'grass' ? new THREE.Color(0.8, 0.95, 0.72) : groundKind === 'dirt' ? new THREE.Color(1.3, 1.2, 1.1) : 1));
   mk('strip', surfaceMaterial(groundKind, groundKind === 'grass' ? new THREE.Color(1.05, 1.15, 0.8) : groundKind === 'snow' ? 0.95 : 1.1));
   mk('paintW', paintMaterial(0xf2f2ee));
   mk('paintY', paintMaterial(0xe8b712));

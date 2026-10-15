@@ -107,10 +107,11 @@ export function buildTwinFighter(spec, mats, detail, key = spec.id) {
     const x0 = c.stations[0].x; const xn = c.stations[c.stations.length - 1].x;
     const skinTex = paintBody(mats, body, spec, {
       base: light, belly: low, bellyAngle: -30,
+      extra: (P) => {
+        P.poly([[xn - 1.6, -90], [xn + 0.3, -90], [xn + 0.3, 270], [xn - 1.6, 270]], shade(light, -0.22)); // radome
+        P.poly([[xn - 3.4, 62], [xn - 1.6, 66], [xn - 1.6, 114], [xn - 3.4, 118]], '#2a2d31'); // anti-glare panel
+      },
       blobs: [
-        { x: xn - 1.4, a: 90, rx: 1.4, ry: 0.55, color: shade(light, -0.2), alpha: 0.9 },
-        { x: xn - 1.7, a: 0, rx: 1.2, ry: 0.5, color: shade(light, -0.2), alpha: 0.85 },
-        { x: xn - 2.6, a: 90, rx: 1.8, ry: 0.25, color: '#15171a', alpha: 0.85 },
         { x: x0 + 1.5, a: 0, rx: 1.6, ry: 0.5, color: '#3a3430', alpha: 0.5 },
       ],
       rings: [x0 + 2, x0 + 4, x0 + 6.5, x0 + 9, x0 + 11, xn - 4, xn - 2.8],

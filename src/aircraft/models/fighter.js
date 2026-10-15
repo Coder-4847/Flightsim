@@ -92,10 +92,12 @@ export function buildFighter(spec, mats, detail) {
     const light = L.base; const low = L.belly ?? shade(L.base, -0.06);
     const skinTex = paintBody(mats, body, spec, {
       base: light, belly: low, bellyAngle: -35,
+      // Crisp-edged radome and anti-glare panel (soft blobs read as burn marks).
+      extra: (P) => {
+        P.poly([[5.45, -90], [7.2, -90], [7.2, 270], [5.45, 270]], shade(light, -0.24));
+        P.poly([[4.85, 62], [5.45, 66], [5.45, 114], [4.85, 118]], '#2a2d31');
+      },
       blobs: [
-        { x: 6.3, a: 90, rx: 1.3, ry: 0.55, color: shade(light, -0.22), alpha: 0.9 }, // radome
-        { x: 6.0, a: 0, rx: 1.0, ry: 0.5, color: shade(light, -0.22), alpha: 0.85 },
-        { x: 5.6, a: 90, rx: 1.6, ry: 0.25, color: '#15171a', alpha: 0.85 }, // anti-glare
         { x: -7.2, a: 0, rx: 1.0, ry: 0.5, color: '#3a3430', alpha: 0.5 }, // heat staining
         { x: -6.2, a: 90, rx: 1.4, ry: 0.3, color: '#2c2824', alpha: 0.35 },
       ],

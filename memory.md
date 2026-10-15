@@ -12,6 +12,13 @@
 - Test: drag a throttle lever; press Shift and watch it rise; drag the flap lever to a detent then press V; click LIGHTS, the park handle, hold BRAKES; scroll over the trim wheel; switch to the cockpit camera (C) and back.
 - `FlightControls.perform(action)` now goes through the input layer, which also fixes the Lights and Camera buttons on the Controls panel and the controller menu (they did nothing before).
 
+## Overhaul (after rc.2): handling, autopilot, time compression, remodels
+- Handling: roll authority (`clDa`) retuned for every aircraft; fighters, hornet and heavy fighter use stronger fly-by-wire gains (`fcs.kq`, `kp`, `rollRate` 320/280/240 deg/s); keyboard stick ramps faster (`KEY_RATE` pitch 2.2, roll 3.4, yaw 2.6). Airliners are only slightly more responsive. Fighters' low g at 300 kt is physical (corner speed); the gain rise gives a quicker pitch response instead.
+- Autopilot (`src/flight/autopilot.js`, panel F6, key Backslash; autothrottle Slash): HDG / NAV (direct-to airport) / LOC lateral, ALT / VS / GS vertical, speed hold. APPR arms the approach and captures the localiser and glide slope of the runway ahead, then hands back at 80 ft AGL ("land the aircraft"). Disconnects on stick movement, stall warning, on the ground. Headless checks: `node scripts/aptest.mjs` (14 aircraft x 5 scenarios) and `node scripts/apils.mjs` (ILS from 16 km, 13 of 14 within tolerance at decision height; the widebody arrives ~1000 fpm hot in the scripted test).
+- Time compression (`src/game/timeScale.js`): keys Numpad + / − / * (or ' ; and `) give 1, 2, 4, 8, 16x. Rules (decision): real time on the ground and below 1500 ft AGL, with a stall warning, an engine fire, or terrain within 25 s ahead; without the autopilot the cap is 2x (keys act per simulated second, so a human cannot fly faster). HUD chip shows AP mode and TIME x. The loop sheds backlog on slow machines instead of spiralling.
+- Screenshot: PrintScreen or F12 saves a PNG of the 3D view.
+- Remodel workstreams (smaller maps, airports, aircraft models, cockpits) ran as parallel worktree agents; see the session log for what was merged.
+
 ## What to test in this build (Phase 6, release candidate)
 Everything from Phases 1-5 still applies (see git history for the earlier checklists). New:
 1. Intro: the title plays for about 3 s on every page load; any key, click or controller button skips it. Then the animated main menu (sunset sky, drifting clouds, four mountain layers, an airliner with a contrail now and then). Buttons: Fly, Continue as <pilot> (when a pilot exists), Settings, Controls (opens the bindings), How to play and about, Fullscreen.

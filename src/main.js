@@ -405,6 +405,19 @@ function boot() {
 
   input.on('press', (action) => {
     if (state.is(GameState.FLYING)) flightHud.handleAction(action);
+    if (action === 'screenshot' && state.is(GameState.FLYING, GameState.PAUSED) && flightScene.built) {
+      // Render and read the canvas in the same task so the buffer is still valid.
+      flightScene.render();
+      flightScene.renderer.domElement.toBlob((blob) => {
+        if (!blob) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `flightsim-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        flightHud.showToast('Screenshot saved');
+      }, 'image/png');
+    }
     if (action === 'pause') {
       if (state.is(GameState.FLYING)) state.go(GameState.PAUSED);
       else if (state.is(GameState.PAUSED) && screens.current === 'pause') state.go(GameState.FLYING);

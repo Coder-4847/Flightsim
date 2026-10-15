@@ -77,6 +77,7 @@ export const ACTIONS = [
   a('map_toggle', 'Toggle map', 'HUD', ['KeyM']),
   a('checklist_toggle', 'Toggle checklist', 'HUD', ['KeyK']),
 
+  a('screenshot', 'Save a screenshot', 'Game', ['PrintScreen', 'F12']),
   a('pause', 'Pause', 'Game', ['Escape', 'KeyP'], ['Start']),
 ];
 

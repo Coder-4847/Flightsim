@@ -135,6 +135,20 @@ export function text(buf, str, c, up, height, y, { gap = 0.22, color = 1 } = {})
   });
 }
 
+/** Frame of one runway end: unit direction of landing, right-hand vector, threshold position (all in u/v as x/z). */
+export function endBasis(layout, info, i) {
+  const DEG = Math.PI / 180;
+  const sg = i === 0 ? 1 : -1;
+  const dir = { x: sg * Math.cos(info.rel * DEG), z: sg * Math.sin(info.rel * DEG) };
+  const right = { x: -dir.z, z: dir.x };
+  const e = info.rw.ends[i];
+  const f = layout.frame.toFrame(e.threshold.x, e.threshold.z);
+  return { dir, right, thr: { x: f.u, z: f.v }, end: e };
+}
+
+/** Point `s` metres along the landing direction from the threshold and `t` to the pilot's right. */
+export function ptST(B, s, t) { return { x: B.thr.x + B.dir.x * s + B.right.x * t, z: B.thr.z + B.dir.z * s + B.right.z * t }; }
+
 /** Width of a painted string. */
 export function textWidth(str, height, gap = 0.22) {
   const inkW = height * (GLYPH_CELL.inkW / GLYPH_CELL.inkH);

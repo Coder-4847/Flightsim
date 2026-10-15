@@ -132,6 +132,26 @@ export class MeshBuf {
     if (capBot) cap(y, rBot, false, cB);
   }
 
+  /** UV sphere (or upper hemisphere with `half`) centred at (x, y, z). */
+  sphere(x, y, z, r, seg = 12, rings = 8, { color = 1, half = false, sy = 1, tint = null } = {}) {
+    const rows = half ? Math.ceil(rings / 2) : rings;
+    const base = this.n;
+    const c = tint ?? [color, color, color];
+    for (let j = 0; j <= rows; j++) {
+      const phi = half ? (j / rows) * (Math.PI / 2) : (j / rows) * Math.PI;
+      const yy = Math.cos(phi); const rr = Math.sin(phi);
+      for (let i = 0; i <= seg; i++) {
+        const th = (i / seg) * Math.PI * 2;
+        const nx = Math.cos(th) * rr; const nz = Math.sin(th) * rr;
+        this.vert(x + nx * r, y + yy * r * sy, z + nz * r, nx, yy, nz, (i / seg) * r * 6, (j / rows) * r * 3, ...c);
+      }
+    }
+    for (let j = 0; j < rows; j++) for (let i = 0; i < seg; i++) {
+      const a = base + j * (seg + 1) + i; const b = a + seg + 1;
+      this.idx.push(a, a + 1, b, a + 1, b + 1, b);
+    }
+  }
+
   /**
    * Extrude a 2D profile (x, y pairs in a local XY plane, counter-clockwise) along local Z from z0 to z1.
    * The result is positioned at (x, y, z) and yawed by ry. `smooth` averages normals around the profile.
@@ -266,12 +286,14 @@ export class BufSet {
   }
 
   /** Create meshes for every non-empty buffer using `materials[key]`; returns the list. */
-  build(materials, parent, { frustumCulled = true } = {}) {
+  build(materials, parent, { frustumCulled = true, uvTile = {} } = {}) {
     const out = [];
     for (const [key, buf] of this.map) {
       if (buf.empty) continue;
       const mat = materials[key];
       if (!mat) { console.warn('airport: missing material', key); continue; }
+      const tile = uvTile[key];
+      if (tile) for (let i = 0; i < buf.uv.length; i += 2) { buf.uv[i] /= tile[0]; buf.uv[i + 1] /= tile[1]; }
       const mesh = new THREE.Mesh(buf.toGeometry(), mat);
       mesh.name = key;
       mesh.frustumCulled = frustumCulled;

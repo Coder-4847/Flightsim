@@ -3,6 +3,7 @@ import { AircraftView } from '../aircraft/aircraftView.js';
 import { disposeObject } from '../aircraft/dispose.js';
 import { createCockpit } from '../aircraft/cockpit/index.js';
 import { specWithLivery } from '../progress/catalog.js';
+import { specWithTuning } from '../progress/tuning.js';
 import { buildMap, getAirport } from '../world/mapBuilder.js';
 import { FlightModel } from '../flight/flightModel.js';
 import { FlightControls } from '../input/flightControls.js';
@@ -66,13 +67,13 @@ export class FlightSession {
   /**
    * Load the map and start a flight.
    * @param opts {aircraftId, mapId, airportCode, endId, startMode, hour, sky, onProgress}
-   *   Mode extras: liveryId, weather (preset id), fuelKg, seed, spawn {x, z, altitude, heading, speed}
+   *   Mode extras: liveryId, tuning ({ trackId: level }, the pilot's upgrades for this aircraft), weather (preset id), fuelKg, seed, spawn {x, z, altitude, heading, speed}
    *   with startMode 'custom' (a flight that begins somewhere in the air, e.g. an emergency).
    */
   async start(opts) {
     this.dispose();
     const { aircraftId, mapId, startMode = 'runway', onProgress = () => {} } = opts;
-    const spec = specWithLivery(aircraftId, opts.liveryId);
+    const spec = specWithTuning(specWithLivery(aircraftId, opts.liveryId), opts.tuning);
     this.options = opts;
     this.startMode = startMode;
 

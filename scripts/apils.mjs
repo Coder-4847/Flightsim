@@ -1,5 +1,8 @@
 // Headless autopilot approach check: node scripts/apils.mjs [aircraftId]
 import { AIRCRAFT } from '../src/aircraft/index.js';
+import { MAX_LEVEL, TRACKS, specWithTuning } from '../src/progress/tuning.js';
+// TUNED=1 runs the same checks on every aircraft with all upgrades fitted (see scripts/tuningtest.mjs).
+const maxed = Object.fromEntries(TRACKS.map((t) => [t.id, MAX_LEVEL]));
 import { FlightModel } from '../src/flight/flightModel.js';
 import { SimWorld } from '../src/flight/world.js';
 import { Autopilot } from '../src/flight/autopilot.js';
@@ -15,7 +18,8 @@ const dt = 1 / 120;
 const DEG = Math.PI / 180;
 let fails = 0;
 
-for (const spec of AIRCRAFT) {
+for (const stock of AIRCRAFT) {
+  const spec = process.env.TUNED ? specWithTuning(stock, maxed) : stock;
   if (only && spec.id !== only) continue;
   const world = new SimWorld({ groundHeight: (x, z) => map.hf.height(x, z) });
   const m = new FlightModel(spec, world);

@@ -1,11 +1,12 @@
 import { AIRCRAFT } from '../aircraft/index.js';
 import { hasModel } from '../aircraft/aircraftView.js';
 import { ECONOMY, UPGRADES, liveriesFor, specWithLivery } from '../progress/catalog.js';
+import { MAX_LEVEL, MAX_UPGRADES, TRACKS, levelOf, remainingCost, tunedSpec } from '../progress/tuning.js';
 import { createAircraftPreview } from './aircraftPreview.js';
 import { h } from './dom.js';
 import { createPilotBar, credits } from './pilotBar.js';
 
-// The shop: aircraft, paint schemes and upgrades, bought with money earned in the game modes.
+// The shop: aircraft, per-aircraft upgrades (tuning), paint schemes and pilot-wide perks, bought with money earned in the game modes.
 
 export function createShopScreen({ saves, onBack, onPilots }) {
   let tab = 'aircraft';
@@ -15,7 +16,7 @@ export function createShopScreen({ saves, onBack, onPilots }) {
   const tabs = h('div.segmented', { role: 'tablist' });
   const body = h('div.shop-body');
   const notice = h('p.notice');
-  const TABS = [['aircraft', 'Aircraft'], ['liveries', 'Liveries'], ['upgrades', 'Upgrades']];
+  const TABS = [['aircraft', 'Aircraft'], ['tuning', 'Upgrades'], ['liveries', 'Liveries'], ['upgrades', 'Pilot perks']];
   for (const [id, label] of TABS) tabs.append(h('button', { type: 'button', role: 'tab', dataset: { id }, onclick: () => { tab = id; notice.textContent = ''; paint(); } }, label));
 
   const say = (text) => { notice.textContent = text; };
@@ -77,6 +78,42 @@ export function createShopScreen({ saves, onBack, onPilots }) {
     return h('div.shop-split', picker, h('div.shop-detail', previewBlock(specWithLivery(cur.id, equipped)), h('h3', cur.name), h('div.livery-list', items), s ? null : needPilot()));
   }
 
+
+  // Per-aircraft upgrades: six tracks of five levels for each owned aircraft; each purchase costs more than the last.
+  function tuningTab() {
+    const s = saves.active;
+    const owned = AIRCRAFT.filter((a) => !s || s.aircraft.includes(a.id));
+    if (!owned.some((a) => a.id === selected)) selected = owned[0]?.id ?? 'cessna172';
+    const cur = AIRCRAFT.find((a) => a.id === selected);
+    const levels = s ? saves.tuningFor(cur.id) : {};
+    const bought = s ? saves.tuningBought(cur.id) : 0;
+    const price = s ? saves.nextTuningPrice(cur.id) : 0;
+    const picker = h('div.shop-list', owned.map((a) => h('button.shop-row' + (a.id === selected ? '.on' : ''), { type: 'button', dataset: { id: a.id }, onclick: () => { selected = a.id; paint(); } },
+      h('span.shop-name', a.name), h('span.shop-class', a.class), h('span.shop-price' + (s && saves.tuningBought(a.id) >= MAX_UPGRADES ? '.owned' : ''), s ? `${saves.tuningBought(a.id)}/${MAX_UPGRADES}` : ''))));
+    const rows = TRACKS.map((t) => {
+      const lv = levelOf(levels, t.id);
+      const now = tunedSpec(cur.id, { ...levels });
+      const next = lv < MAX_LEVEL ? tunedSpec(cur.id, { ...levels, [t.id]: lv + 1 }) : null;
+      const pips = h('span.pips', Array.from({ length: MAX_LEVEL }, (_, i) => h('i' + (i < lv ? '.on' : ''))));
+      const stat = lv < MAX_LEVEL ? `${t.stat(now)} → ${t.stat(next)}` : `${t.stat(now)} (maximum)`;
+      const action = !s ? null : lv >= MAX_LEVEL ? h('span.shop-price.owned', 'Maxed')
+        : h('button.btn.small.primary', { disabled: s.money < price, dataset: { track: t.id }, onclick: () => {
+          const r = saves.buyTuning(cur.id, t.id);
+          say(r.ok ? `${t.name} level ${r.level} fitted to the ${cur.name} for ${credits(r.price)}.` : r.reason);
+          paint();
+        } }, `Buy ${credits(price)}`);
+      return h('div.tune-row', { dataset: { id: t.id } },
+        h('div.tune-text', h('div.tune-head', h('strong', t.name), pips, h('span.muted', `Level ${lv}/${MAX_LEVEL}`)), h('span.help', t.blurb), h('span.tune-stat', stat)),
+        action);
+    });
+    const summary = !s ? needPilot() : bought >= MAX_UPGRADES
+      ? h('p.help', `The ${cur.name} is fully upgraded.`)
+      : h('p.help', `${bought} of ${MAX_UPGRADES} upgrades fitted. The next one costs ${credits(price)}, and each one after costs about 10% more. Everything left on this aircraft: ${credits(remainingCost(cur.id, bought))}.`);
+    return h('div.shop-split', picker, h('div.shop-detail', previewBlock(specWithLivery(cur.id, s ? saves.equippedLivery(cur.id) : 'factory')), h('h3', cur.name),
+      h('p.help', `${cur.blurb}`), h('div.tune-list', rows), summary,
+      h('p.help', 'Upgrades belong to the aircraft and apply in Free Flight, Career, Emergency Landing and VIP Escort. Quick Flight always uses the stock aircraft.')));
+  }
+
   function upgradesTab() {
     const s = saves.active;
     return h('div.upgrade-list', UPGRADES.map((u) => {
@@ -85,13 +122,13 @@ export function createShopScreen({ saves, onBack, onPilots }) {
         h('div.upgrade-text', h('strong', u.name), h('span.help', u.blurb)),
         have ? h('span.shop-price.owned', 'Installed')
           : h('button.btn.small.primary', { disabled: !s || s.money < u.price, onclick: () => { const r = saves.buyUpgrade(u.id, u.price); say(r.ok ? `${u.name} installed.` : r.reason); paint(); } }, `Buy ${credits(u.price)}`));
-    }), s ? null : needPilot(), h('p.help', 'Upgrades belong to the pilot and apply in Free Flight, Career, Emergency Landing and VIP Escort. Quick Flight always has everything.'));
+    }), s ? null : needPilot(), h('p.help', 'Perks belong to the pilot (not to one aircraft) and apply in Free Flight, Career, Emergency Landing and VIP Escort. Quick Flight always has everything.'));
   }
 
   function paint() {
     tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === tab));
     bar.refresh();
-    body.replaceChildren(tab === 'aircraft' ? aircraftTab() : tab === 'liveries' ? liveriesTab() : upgradesTab());
+    body.replaceChildren(tab === 'aircraft' ? aircraftTab() : tab === 'tuning' ? tuningTab() : tab === 'liveries' ? liveriesTab() : upgradesTab());
   }
 
   const el = h('section.select-screen',

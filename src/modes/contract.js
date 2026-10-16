@@ -38,7 +38,7 @@ export class ContractMode {
     return {
       aircraftId: d.aircraft, mapId: d.map, airportCode: d.from, endId: pickEnd(d.fromAirport, d.weatherPreset).id,
       startMode: gate ? 'gate' : d.startMode, hour: d.hour, sky: d.sky, weather: d.weatherPreset, fuelKg: d.fuelKg, seed: hashId(d.id),
-      liveryId: 'factory',
+      liveryId: 'factory', tuning: this.runner.saves.tuningFor(d.aircraft),
     };
   }
 

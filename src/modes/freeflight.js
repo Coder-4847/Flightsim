@@ -21,6 +21,7 @@ export class FreeFlightMode {
     return {
       aircraftId: p.aircraftId, mapId: p.mapId, airportCode: p.airportCode, endId: p.endId, startMode: p.startMode,
       hour: p.hour, sky: p.sky, liveryId: save ? this.runner.saves.equippedLivery(p.aircraftId) : 'factory',
+      tuning: save ? this.runner.saves.tuningFor(p.aircraftId) : undefined,
     };
   }
 

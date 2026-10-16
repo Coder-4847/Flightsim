@@ -954,3 +954,14 @@ body.touch-ui .hpanel { left: calc(env(safe-area-inset-left) + 70px) !important;
 body.touch-ui .hpanel-head { cursor: default; }
 /* the chart is a full-screen instrument: nothing from the flight HUD may sit on top of it */
 body.chart-open .tc, body.chart-open .hud-panels { display: none; }
+
+/* Per-aircraft upgrades (shop > Upgrades) */
+.tune-list { display: flex; flex-direction: column; gap: 8px; }
+.tune-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+.tune-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tune-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.tune-stat { color: var(--accent); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pips { display: inline-flex; gap: 3px; }
+.pips i { width: 14px; height: 6px; border-radius: 2px; background: #ffffff1f; display: block; }
+.pips i.on { background: var(--accent); }
+.tune-row .btn { white-space: nowrap; }

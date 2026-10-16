@@ -46,6 +46,9 @@ export class Autopilot {
       vsDown: fighter ? 4000 : heavy ? 2500 : 1500,
       pitchMax: fighter ? 18 : heavy ? 12 : 12,
       kRoll: fbw ? 0.06 : heavy ? 0.06 : 0.05,
+      // Upgraded aircraft (progress/tuning.js) respond more strongly to the same stick or throttle: scale the gains back.
+      thrustK: 1 / (spec.tuneRatio?.thrust ?? 1),
+      controlK: 1 / (spec.tuneRatio?.control ?? 1),
     };
   }
 
@@ -175,7 +178,7 @@ export class Autopilot {
       if (this.vert === 'GS' && guide) iasT = spec.speeds.vapp + 5 + clamp((guide.distM - 6000) / 1000, 0, 6) * 4;
       // Throttle rate per second: proportional to the speed error, damped by the acceleration.
       const accel = (tel.iasTrue - (this.lastIas ?? tel.iasTrue)) / step;
-      const rate = clamp((iasT - tel.iasTrue) * 0.03 - accel * 0.12, -0.3, 0.3);
+      const rate = clamp((iasT - tel.iasTrue) * 0.03 - accel * 0.12, -0.3, 0.3) * prof.thrustK;
       this.lastIas = tel.iasTrue;
       const cap = prof.fbw ? 0.85 : 1;
       const target = clamp(controls.master + rate * step, 0, cap);
@@ -198,6 +201,8 @@ export class Autopilot {
       const pT = clamp(tel.pitch + (vsT - tel.vsFpm) * 0.0022 + this.vsInt, -9, prof.pitchMax);
       this.out.pitch = prof.heavy ? clamp((pT - tel.pitch) * 0.6 - tel.pitchRate * 0.5, -0.6, 0.6) : clamp((pT - tel.pitch) * 0.2 - tel.pitchRate * 0.6, -0.5, 0.6);
     }
+    this.out.roll *= prof.controlK;
+    this.out.pitch *= prof.controlK;
   }
 
   /** Status for the HUD. */

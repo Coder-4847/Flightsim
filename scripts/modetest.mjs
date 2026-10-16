@@ -18,6 +18,7 @@ const { MAP_HALF } = await import('../src/world/maps.js');
 const { startPoint } = await import('../src/game/startPoints.js');
 const { FailureManager } = await import('../src/game/failures.js');
 const catalog = await import('../src/progress/catalog.js');
+const tuning = await import('../src/progress/tuning.js');
 const { SaveManager, sanitizeSave, newSave } = await import('../src/progress/saves.js');
 const eco = await import('../src/modes/economy.js');
 const { MISSIONS, resolveMission, missionUnlocked } = await import('../src/modes/missions.js');
@@ -79,6 +80,87 @@ section('saves');
   reloaded.delete(2);
   ok(reloaded.slots[1] === null, 'delete slot');
   ok(newSave().version === 1, 'save version');
+}
+
+// ---------------------------------------------------------------------------------------------------
+section('aircraft upgrades (tuning)');
+{
+  const T = tuning;
+  ok(T.TRACKS.length === 6 && T.MAX_LEVEL === 5 && T.MAX_UPGRADES === 30, 'six tracks of five levels');
+  // Prices: strictly rising with every purchase on one aircraft, scaled to what the aircraft earns.
+  for (const a of AIRCRAFT) {
+    let prev = 0; let rising = true;
+    for (let n = 0; n < T.MAX_UPGRADES; n++) { const p = T.upgradePrice(a.id, n); if (p <= prev) rising = false; prev = p; }
+    ok(rising, `${a.id}: every upgrade costs more than the last`);
+    ok(T.upgradePrice(a.id, 0) >= T.referenceFare(a.id) && T.upgradePrice(a.id, 0) <= 2 * T.referenceFare(a.id), `${a.id}: the first upgrade costs about one to two flights`);
+    ok(T.upgradePrice(a.id, 29) / T.upgradePrice(a.id, 0) > 10, `${a.id}: the last upgrade costs over 10x the first`);
+  }
+  ok(T.upgradePrice('jumbo', 0) > T.upgradePrice('cessna172', 0), 'bigger aircraft cost more to upgrade');
+  // Specs: an untuned spec is returned as is, a tuned one is a copy and the original is untouched.
+  const base = getAircraft('cessna172');
+  const power0 = base.engines.spec.power; const empty0 = base.mass.empty;
+  ok(T.specWithTuning(base, {}) === base && T.specWithTuning(base, undefined) === base, 'no tuning = the stock spec object');
+  const maxed = Object.fromEntries(T.TRACKS.map((t) => [t.id, 5]));
+  for (const a of AIRCRAFT) {
+    const up = T.specWithTuning(a, maxed);
+    const e0 = a.engines.spec; const e1 = up.engines.spec;
+    ok(up !== a && up.tuning.engine === 5, `${a.id}: tuned copy`);
+    ok((e1.type === 'turbofan' ? e1.thrust / e0.thrust : e1.power / e0.power) > 1.24, `${a.id}: engine +25%`);
+    ok(up.aero.cd0 < a.aero.cd0 * 0.81 && up.limits.vne > a.limits.vne, `${a.id}: less drag, higher Vne`);
+    ok(up.mass.empty < a.mass.empty * 0.91, `${a.id}: lighter`);
+    ok(up.aero.clDa > a.aero.clDa * 1.24 && (!a.fcs || up.fcs.rollRate > a.fcs.rollRate * 1.29), `${a.id}: sharper controls`);
+    ok(up.gear.brakeMu > a.gear.brakeMu * 1.29 && up.limits.hardLanding > a.limits.hardLanding * 1.19 && up.limits.crashLanding > a.limits.crashLanding * 1.19, `${a.id}: stronger gear and brakes`);
+    ok(up.engines.spec.fuelFlowMax < e0.fuelFlowMax * 1.2 && up.engines.spec.fuelFlowIdle < e0.fuelFlowIdle * 0.76, `${a.id}: leaner idle fuel burn`);
+    ok(up.engines.positions === a.engines.positions && up.speeds === a.speeds, `${a.id}: untouched parts are shared`);
+    ok(T.specWithTuning(a, { ...maxed }) === up, `${a.id}: copies are cached`);
+    for (const t of T.TRACKS) ok(typeof t.stat(a) === 'string' && typeof t.stat(up) === 'string', `${a.id}: ${t.id} stat text`);
+  }
+  ok(base.engines.spec.power === power0 && base.mass.empty === empty0, 'the stock spec is never modified');
+  ok(JSON.stringify(T.cleanLevels({ engine: 9, drag: -1, weight: 'x', bogus: 3, gear: 2.7 })) === '{"engine":5,"gear":2}', 'cleanLevels clamps and drops junk');
+  // Saves: buying.
+  const saves = new SaveManager();
+  saves.create(1, 'Tuner');
+  const m0 = saves.money;
+  ok(!saves.buyTuning('jumbo', 'engine').ok, 'cannot upgrade an aircraft you do not own');
+  ok(!saves.buyTuning('cessna172', 'bogus').ok, 'unknown track refused');
+  ok(saves.nextTuningPrice('cessna172') === T.upgradePrice('cessna172', 0), 'next price = first price');
+  const r1 = saves.buyTuning('cessna172', 'engine');
+  ok(r1.ok && r1.level === 1 && saves.money === m0 - r1.price && saves.tuningFor('cessna172').engine === 1, 'buy level 1');
+  const r2 = saves.buyTuning('cessna172', 'drag');
+  ok(r2.ok && r2.price > r1.price, 'the next upgrade (another track) costs more');
+  ok(saves.tuningBought('cessna172') === 2 && saves.tuningBought('caravan') === 0, 'levels are kept per aircraft');
+  ok(saves.nextTuningPrice('caravan') === T.upgradePrice('caravan', 0), 'a second aircraft starts at its own first price');
+  saves.active.money = 0;
+  ok(!saves.buyTuning('cessna172', 'engine').ok && saves.tuningFor('cessna172').engine === 1, 'cannot afford it');
+  saves.active.money = 10 ** 9;
+  let bought = saves.tuningBought('cessna172'); let last = r2.price; let monotone = true;
+  for (const t of T.TRACKS) {
+    while (saves.tuningFor('cessna172')[t.id] !== 5) { const r = saves.buyTuning('cessna172', t.id); if (!r.ok || r.price <= last) monotone = false; last = r.price; bought++; if (bought > 40) break; }
+  }
+  ok(monotone && saves.tuningBought('cessna172') === 30, 'all 30 upgrades bought with ever-rising prices');
+  ok(saves.buyTuning('cessna172', 'engine').reason === 'Fully upgraded', 'a maxed track cannot be bought again');
+  const reloaded = new SaveManager();
+  ok(T.totalLevels(reloaded.tuningFor('cessna172')) === 30, 'upgrades persisted');
+  const dirty = sanitizeSave({ money: 5, aircraft: ['jumbo'], tuning: { cessna172: { engine: 99, drag: 'x' }, jumbo: { gear: 3 }, kingair: { engine: 2 }, bogus: { engine: 1 } } });
+  ok(dirty.tuning.cessna172.engine === 5 && !('drag' in dirty.tuning.cessna172) && dirty.tuning.jumbo.gear === 3 && !dirty.tuning.kingair && !dirty.tuning.bogus, 'sanitize repairs the tuning table (and drops unowned aircraft)');
+  ok(Object.keys(sanitizeSave({ money: 5 }).tuning).length === 0, 'old saves without a tuning table load fine');
+  // A tuned aircraft really flies better (take-off roll and climb).
+  const fly = (spec) => {
+    const mdl = new FlightModel(spec, new SimWorld());
+    mdl.assist = 'light'; mdl.controls.throttle.fill(1); mdl.controls.parkingBrake = false;
+    let t = 0; let lift = null;
+    while (t < 60) {
+      const tel = mdl.telemetry;
+      mdl.controls.pitch = tel.ias >= spec.speeds.vr ? Math.max(-1, Math.min(1, (10 - tel.pitch) * 0.12)) : 0;
+      mdl.controls.steer = mdl.controls.yaw = Math.max(-1, Math.min(1, -(tel.heading > 180 ? tel.heading - 360 : tel.heading) * 0.15));
+      mdl.step(dt); t += dt;
+      if (!mdl.gear.weightOnWheels && !lift && t > 1) lift = { t, dist: -mdl.pos.z };
+      if (lift && t > lift.t + 20) break;
+    }
+    return { dist: lift?.dist ?? 1e9, vs: mdl.telemetry.vsFpm, crashed: !!mdl.crashed };
+  };
+  const stock = fly(base); const tuned = fly(T.specWithTuning(base, maxed));
+  ok(!stock.crashed && !tuned.crashed && tuned.dist < stock.dist * 0.85 && tuned.vs > stock.vs * 1.3, `a fully upgraded Skyhawk takes off shorter (${Math.round(stock.dist)} -> ${Math.round(tuned.dist)} m) and climbs better (${Math.round(stock.vs)} -> ${Math.round(tuned.vs)} ft/min)`);
 }
 
 // ---------------------------------------------------------------------------------------------------

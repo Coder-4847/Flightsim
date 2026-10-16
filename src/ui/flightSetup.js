@@ -9,6 +9,7 @@ import { h } from './dom.js';
 import { SETTINGS_SCHEMA } from '../storage/settings.js';
 import { ECONOMY, liveriesFor, specWithLivery } from '../progress/catalog.js';
 import { createPilotBar, credits } from './pilotBar.js';
+import { MAX_UPGRADES, specWithTuning, totalLevels } from '../progress/tuning.js';
 
 // The hangar and flight setup screen: aircraft, airport and runway, start position, time of
 // day and sky. The last choices are remembered between visits.
@@ -96,7 +97,9 @@ export function createFlightSetup({ settings, saves, onFly, onBack, onShop }) {
 
   const fmt = (n) => Math.round(n).toLocaleString('en-US');
   function paintPreview() {
-    const spec = AIRCRAFT.find((a) => a.id === state.aircraftId) ?? AIRCRAFT[0];
+    const stock = AIRCRAFT.find((a) => a.id === state.aircraftId) ?? AIRCRAFT[0];
+    const levels = kind === 'free' && saves.active ? saves.tuningFor(stock.id) : {};
+    const spec = specWithTuning(stock, levels);
     if (hasModel(spec.id)) preview.set(specWithLivery(spec.id, currentLivery()));
     specName.replaceChildren(h('strong', spec.name), h('span', ` ${spec.maker}`));
     specBlurb.textContent = spec.blurb;
@@ -110,6 +113,7 @@ export function createFlightSetup({ settings, saves, onFly, onBack, onShop }) {
       ['Stall (landing)', `${spec.flaps.stages.at(-1).vs} kt`],
       ['Runway', `${fmt(spec.minRunway)} m or more`],
       ['Seats', `${spec.cockpit.seats}`],
+      ...(kind === 'free' && saves.active ? [['Upgrades', `${totalLevels(levels)} of ${MAX_UPGRADES} fitted (Shop > Upgrades)`]] : []),
     ];
     specSheet.replaceChildren(...rows.flatMap(([k, v]) => [h('dt', k), h('dd', v)]));
   }

@@ -1,6 +1,7 @@
 import { Emitter } from '../core/events.js';
 import { loadJSON, removeKey, saveJSON } from '../storage/store.js';
 import { AIRCRAFT_IDS, START_AIRCRAFT, START_MONEY, UPGRADES } from './catalog.js';
+import { MAX_LEVEL, TRACKS, cleanLevels, totalLevels, upgradePrice } from './tuning.js';
 
 // Save slots: three pilots in localStorage, each with money, unlocks and progress. Slots can be
 // exported to a JSON file and imported again (the importer validates and repairs the data).
@@ -26,6 +27,7 @@ export function newSave(name = 'Pilot') {
     liveries: {}, // aircraftId -> [owned livery ids]
     equipped: {}, // aircraftId -> livery id
     upgrades: [],
+    tuning: {}, // aircraftId -> { trackId: level 1..5 } (per-aircraft upgrades, see progress/tuning.js)
     stats: { flights: 0, landings: 0, crashes: 0, distanceKm: 0, airborneHours: 0, passengers: 0, cargoKg: 0, earned: 0, spent: 0, bestLandingFpm: null },
     career: { completed: {} }, // missionId -> { stars, payout, best: seconds, plays }
     vip: { completed: {} },
@@ -46,7 +48,7 @@ export function sanitizeSave(raw) {
     money: Math.floor(num(raw.money, START_MONEY, 0, 1e10)),
     aircraft: [...new Set([...START_AIRCRAFT, ...(Array.isArray(raw.aircraft) ? raw.aircraft : []).filter((id) => AIRCRAFT_IDS.includes(id))])],
     upgrades: [...new Set((Array.isArray(raw.upgrades) ? raw.upgrades : []).filter((id) => UPGRADES.some((u) => u.id === id)))],
-    liveries: {}, equipped: {},
+    liveries: {}, equipped: {}, tuning: {},
     stats: {
       flights: num(stats.flights), landings: num(stats.landings), crashes: num(stats.crashes), distanceKm: num(stats.distanceKm),
       airborneHours: num(stats.airborneHours), passengers: num(stats.passengers), cargoKg: num(stats.cargoKg), earned: num(stats.earned),
@@ -59,6 +61,12 @@ export function sanitizeSave(raw) {
   }
   if (isObj(raw.equipped)) {
     for (const [id, l] of Object.entries(raw.equipped)) if (AIRCRAFT_IDS.includes(id)) out.equipped[id] = str(l, 'factory', 24);
+  }
+  if (isObj(raw.tuning)) {
+    for (const [id, lv] of Object.entries(raw.tuning)) {
+      const clean = AIRCRAFT_IDS.includes(id) && out.aircraft.includes(id) ? cleanLevels(lv) : {};
+      if (totalLevels(clean)) out.tuning[id] = clean;
+    }
   }
   const copyDone = (src, dst) => {
     if (!isObj(src?.completed)) return;
@@ -202,6 +210,11 @@ export class SaveManager extends Emitter {
   canAfford(price) { return !!this.active && this.active.money >= price; }
   ownsAircraft(id) { return !this.active || this.active.aircraft.includes(id); }
   ownsUpgrade(id) { return !!this.active?.upgrades.includes(id); }
+  /** Upgrade levels of one aircraft, { engine: 2, ... } (empty object when untuned or when there is no pilot). */
+  tuningFor(aircraftId) { return this.active?.tuning?.[aircraftId] ?? {}; }
+  tuningBought(aircraftId) { return totalLevels(this.tuningFor(aircraftId)); }
+  /** Price of the next upgrade on this aircraft (rises with every level already bought on it). */
+  nextTuningPrice(aircraftId) { return upgradePrice(aircraftId, this.tuningBought(aircraftId)); }
   ownsLivery(aircraftId, liveryId) { return liveryId === 'factory' || !!this.active?.liveries[aircraftId]?.includes(liveryId); }
   equippedLivery(aircraftId) { return this.active?.equipped[aircraftId] ?? 'factory'; }
 
@@ -228,6 +241,23 @@ export class SaveManager extends Emitter {
     this.autosave('purchase');
     this.emit('change', { reason: 'purchase' });
     return { ok: true };
+  }
+
+  /** Buy the next level of one upgrade track on one aircraft. The price is worked out here, not by the caller. */
+  buyTuning(aircraftId, trackId) {
+    const s = this.active;
+    if (!s) return { ok: false, reason: 'No save selected' };
+    if (!s.aircraft.includes(aircraftId)) return { ok: false, reason: 'Buy the aircraft first' };
+    if (!TRACKS.some((t) => t.id === trackId)) return { ok: false, reason: 'Unknown upgrade' };
+    const lv = (s.tuning[aircraftId] ??= {});
+    if ((lv[trackId] ?? 0) >= MAX_LEVEL) return { ok: false, reason: 'Fully upgraded' };
+    const price = this.nextTuningPrice(aircraftId);
+    if (s.money < price) return { ok: false, reason: 'Not enough money' };
+    this.charge(price, `tuning:${aircraftId}:${trackId}`);
+    lv[trackId] = (lv[trackId] ?? 0) + 1;
+    this.autosave('purchase');
+    this.emit('change', { reason: 'purchase' });
+    return { ok: true, price, level: lv[trackId] };
   }
 
   buyLivery(aircraftId, liveryId, price) {

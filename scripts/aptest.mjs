@@ -1,5 +1,8 @@
 // Headless autopilot check: node scripts/aptest.mjs [aircraftId]
 import { AIRCRAFT } from '../src/aircraft/index.js';
+import { MAX_LEVEL, TRACKS, specWithTuning } from '../src/progress/tuning.js';
+// TUNED=1 runs the same checks on every aircraft with all upgrades fitted (see scripts/tuningtest.mjs).
+const maxed = Object.fromEntries(TRACKS.filter((t) => !process.env.ONLY_TRACK || t.id === process.env.ONLY_TRACK).map((t) => [t.id, MAX_LEVEL]));
 import { FlightModel } from '../src/flight/flightModel.js';
 import { SimWorld } from '../src/flight/world.js';
 import { Autopilot } from '../src/flight/autopilot.js';
@@ -28,6 +31,7 @@ function run(spec, scenario) {
     m.controls.pitch = ap.out.pitch; m.controls.roll = ap.out.roll;
     const tel = m.telemetry;
     maxBank = Math.max(maxBank, Math.abs(tel.bank));
+    if (process.env.TRACE && Math.abs(t % 10) < dt) console.log('    t', Math.round(t), tel.altitudeFt.toFixed(0), tel.vsFpm.toFixed(0), tel.iasTrue.toFixed(0), ctl.master.toFixed(2), ap.vert);
     if (m.crashed) break;
   }
   const tel = m.telemetry;
@@ -43,7 +47,8 @@ const scenarios = [
 ];
 
 let fails = 0;
-for (const spec of AIRCRAFT) {
+for (const stock of AIRCRAFT) {
+  const spec = process.env.TUNED ? specWithTuning(stock, maxed) : stock;
   if (only && spec.id !== only) continue;
   const row = [];
   for (const sc of scenarios) {

@@ -50,10 +50,12 @@ section('saves');
   saves.create(1, 'Test Pilot');
   ok(saves.active.money === catalog.START_MONEY, 'starting money');
   ok(saves.earn(500, 't') === 500 && saves.money === catalog.START_MONEY + 500, 'earn');
-  ok(!saves.buyAircraft('caravan', catalog.aircraftPrice('caravan')).ok, 'cannot afford the caravan yet');
-  saves.earn(20000, 't');
-  ok(saves.buyAircraft('caravan', catalog.aircraftPrice('caravan')).ok, 'buy aircraft');
-  ok(!saves.buyAircraft('caravan', 1).ok, 'cannot buy twice');
+  const classesOwned = new Set(saves.active.aircraft.map((id) => getAircraft(id).class));
+  ok([...new Set(AIRCRAFT.map((a) => a.class))].every((c) => classesOwned.has(c)), `a pilot starts with one aircraft of every category (${[...classesOwned].join(', ')})`);
+  ok(!saves.buyAircraft('kingair', catalog.aircraftPrice('kingair')).ok, 'cannot afford the King Air yet');
+  saves.earn(50000, 't');
+  ok(saves.buyAircraft('kingair', catalog.aircraftPrice('kingair')).ok, 'buy aircraft');
+  ok(!saves.buyAircraft('kingair', 1).ok, 'cannot buy twice');
   ok(!saves.buyAircraft('jumbo', 1200000).ok, 'cannot afford the jumbo');
   ok(saves.buyUpgrade('approach', 4000).ok && saves.ownsUpgrade('approach'), 'buy upgrade');
   ok(saves.buyLivery('cessna172', 'skyline', 1500).ok && saves.equippedLivery('cessna172') === 'skyline', 'buy + equip livery');
@@ -62,7 +64,7 @@ section('saves');
   ok(saves.charge(10 ** 9, 'x') === after && saves.money === 0, 'charge never goes below zero');
   const reloaded = new SaveManager();
   ok(reloaded.activeSlot === 1 && reloaded.active.name === 'Test Pilot', 'active slot restored from storage');
-  ok(reloaded.active.aircraft.includes('caravan') && reloaded.active.upgrades.includes('approach'), 'purchases persisted');
+  ok(reloaded.active.aircraft.includes('kingair') && reloaded.active.upgrades.includes('approach'), 'purchases persisted');
   const json = reloaded.exportJSON(1);
   reloaded.importJSON(2, json);
   ok(reloaded.slots[1].name === 'Test Pilot', 'import into another slot');
@@ -73,7 +75,7 @@ section('saves');
   try { reloaded.importJSON(3, 'not json'); } catch { threw = true; }
   ok(threw, 'rejects invalid JSON');
   const dirty = sanitizeSave({ money: -5, aircraft: ['cessna172', 'bogus'], upgrades: ['approach', 'bogus'], stats: { flights: 'x' }, name: 123 });
-  ok(dirty.money === 0 && dirty.aircraft.join() === 'cessna172' && dirty.upgrades.join() === 'approach' && dirty.stats.flights === 0, 'sanitize repairs bad data');
+  ok(dirty.money === 0 && dirty.aircraft.join() === catalog.START_AIRCRAFT.join() && dirty.upgrades.join() === 'approach' && dirty.stats.flights === 0, 'sanitize repairs bad data');
   reloaded.delete(2);
   ok(reloaded.slots[1] === null, 'delete slot');
   ok(newSave().version === 1, 'save version');
@@ -95,6 +97,21 @@ section('economy');
   ok(tiers.every((v, i) => i === 0 || v < tiers[i - 1]) && tiers[4] === 0, `VIP landing tiers fall: ${tiers.join(' > ')}`);
   ok(eco.vipPayout({ base: 10000, comfort: 30, grade: 'Smooth' }).total < tiers[0], 'comfort lowers the fare');
   ok(eco.crashPenalty('jumbo', true) < eco.crashPenalty('jumbo', false), 'insurance cuts repair bills');
+  // Pay targets: a short hop in the starter aircraft is about 3,000 cr, the jumbo on a long flight reaches 15,000+; landing and other factors move it by roughly a quarter.
+  const fare = (id, km, grade = 'Good', o = {}) => {
+    const e = catalog.ECONOMY[id];
+    return eco.freeFlightPayout({ aircraftId: id, trackKm: km, straightKm: km, grade, atAirport: true, onRunway: true, pax: Math.round((e.pax ?? 0) * 0.75), cargoKg: Math.round((e.cargoKg ?? 0) * 0.75), pois: 0, multiplier: 1, upgrades: [], ...o }).total;
+  };
+  const cessnaShort = fare('cessna172', 15);
+  ok(cessnaShort >= 2700 && cessnaShort <= 3500, `Cessna 15 km hop pays about 3,000 cr (${cessnaShort})`);
+  ok(fare('jumbo', 40) >= 15000, `jumbo on a long flight pays 15,000+ (${fare('jumbo', 40)})`);
+  const order = ['cessna172', 'caravan', 'trainer', 'kingair', 'citation', 'turboprop72', 'bizjet', 'regional', 'narrowbody', 'widebody', 'jumbo'];
+  ok(order.every((id, i) => i === 0 || fare(id, 25) > fare(order[i - 1], 25)), 'bigger aircraft pay more on the same flight');
+  ok(Object.keys(catalog.ECONOMY).every((id) => fare(id, 40) > fare(id, 15) * 1.3), 'longer flights pay more');
+  ok(fare('cessna172', 15, 'Smooth') / cessnaShort > 1.1 && fare('cessna172', 15, 'Hard') / cessnaShort < 0.85 && fare('cessna172', 15, 'Hard') / cessnaShort > 0.7, 'landing quality moves the fare by roughly 15-25%');
+  ok(fare('cessna172', 4) < fare('cessna172', 15) * 0.5, 'a very short hop pays well under a normal one');
+  ok(eco.crashPenalty('cessna172', false) >= 500 && eco.crashPenalty('cessna172', false) < cessnaShort, `Cessna repair bill stays below a flight's pay (${eco.crashPenalty('cessna172', false)})`);
+  ok(eco.crashPenalty('jumbo', false) >= 3000 && eco.crashPenalty('jumbo', false) <= 8000, `big aircraft repair bills are a few thousand (${eco.crashPenalty('jumbo', false)})`);
   console.log(`  narrow-body 100 km Smooth: ${smooth} cr; VIP 10,000 cr tiers: ${tiers.join(' / ')}`);
 }
 

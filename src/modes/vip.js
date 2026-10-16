@@ -57,7 +57,7 @@ export function resolveVip(def) {
   const estMinutes = 5 + routeKm / (kmPerMin * 0.8);
   const burn = CRUISE_BURN[def.aircraft] ?? 500;
   const fuelKg = Math.round(Math.min(spec.mass.fuelCapacity, Math.max(spec.mass.fuelStart, burn * (estMinutes / 60) * 1.5 + burn * 0.3)));
-  const base = Math.max(1500, Math.round((Math.max(routeKm, 10) * eco.rate * 3 + 1800 * def.tier + (def.pax ?? 0) * 8) / 50) * 50);
+  const base = Math.max(1500, Math.round((Math.max(routeKm, 10) * eco.rate * 4 + 2400 * def.tier + (def.pax ?? 0) * 8) / 50) * 50);
   return {
     ...def, mapData: map, fromAirport: from, toAirport: to, via, spec, routeKm, estMinutes, fuelKg, base, startMode: 'runway',
     hour: def.hour ?? 11, sky: def.sky ?? 'clear', weatherPreset: def.weather ?? (def.tier === 1 ? 'calm' : 'breeze'), goals: [], arriveBy: def.arriveBy ?? null,

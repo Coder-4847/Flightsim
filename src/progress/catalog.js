@@ -5,31 +5,37 @@ import { AIRCRAFT, getAircraft } from '../aircraft/index.js';
 // modes (Free Flight, Career, Emergency, VIP) use it.
 
 export const START_MONEY = 10000;
-export const START_AIRCRAFT = ['cessna172'];
+// One aircraft from every category is unlocked from the start (light prop, turboprop, jet trainer, business jet,
+// airliner, fighter); the rest are bought. Existing saves pick the new starters up when they load.
+export const START_AIRCRAFT = ['cessna172', 'caravan', 'trainer', 'citation', 'turboprop72', 'fighter'];
 
 /**
- * price     purchase price
+ * price     purchase price (aircraft that start unlocked are never charged)
  * role      'pax' | 'cargo' | 'none': what the aircraft carries in Free Flight
  * pax       passengers at full load (pax role); cargoKg for the cargo role
  * rate      credits per km flown (hull / crew)
  * paxRate   credits per passenger-km;  cargoRate credits per kg-km
- * landing   landing fee base (credits) for a smooth touchdown at an airport
+ * landing   landing fee base (credits) for a normal touchdown at an airport
+ * repair    flat repair bill (credits) after a crash, before insurance
+ *
+ * Tuned so that a 15 km hop pays about 3,000 cr in the Cessna and 40 km about 4,800; the pay climbs with the size of
+ * the aircraft and the length of the flight to roughly 13,000 cr (15 km) and 20,000 cr (40 km) in the jumbo.
  */
 export const ECONOMY = {
-  cessna172: { price: 0, role: 'pax', pax: 3, rate: 8, paxRate: 0.6, landing: 120, repair: 0.02 },
-  caravan: { price: 18000, role: 'cargo', cargoKg: 900, rate: 11, cargoRate: 0.045, landing: 160, repair: 0.02 },
-  trainer: { price: 30000, role: 'none', rate: 14, landing: 200, repair: 0.02 },
-  kingair: { price: 45000, role: 'pax', pax: 7, rate: 18, paxRate: 1.0, landing: 260, repair: 0.02 },
-  turboprop72: { price: 90000, role: 'pax', pax: 58, rate: 30, paxRate: 0.5, landing: 420, repair: 0.02 },
-  citation: { price: 110000, role: 'pax', pax: 5, rate: 25, paxRate: 1.6, landing: 380, repair: 0.02 },
-  bizjet: { price: 190000, role: 'pax', pax: 12, rate: 40, paxRate: 2.0, landing: 520, repair: 0.02 },
-  regional: { price: 240000, role: 'pax', pax: 70, rate: 40, paxRate: 0.5, landing: 700, repair: 0.02 },
-  narrowbody: { price: 420000, role: 'pax', pax: 150, rate: 60, paxRate: 0.45, landing: 1000, repair: 0.02 },
-  widebody: { price: 800000, role: 'pax', pax: 330, rate: 90, paxRate: 0.4, landing: 1600, repair: 0.02 },
-  jumbo: { price: 1200000, role: 'pax', pax: 410, rate: 110, paxRate: 0.4, landing: 2000, repair: 0.02 },
-  fighter: { price: 300000, role: 'none', rate: 28, landing: 400, repair: 0.02 },
-  hornet: { price: 520000, role: 'none', rate: 34, landing: 500, repair: 0.02 },
-  heavyfighter: { price: 700000, role: 'none', rate: 40, landing: 600, repair: 0.02 },
+  cessna172: { price: 0, role: 'pax', pax: 3, rate: 40, paxRate: 14.4, landing: 1920, repair: 900 },
+  caravan: { price: 18000, role: 'cargo', cargoKg: 900, rate: 48, cargoRate: 0.0587, landing: 2280, repair: 1400 },
+  trainer: { price: 30000, role: 'none', rate: 100, landing: 2500, repair: 1800 },
+  kingair: { price: 45000, role: 'pax', pax: 7, rate: 55, paxRate: 8.57, landing: 3000, repair: 1800 },
+  turboprop72: { price: 90000, role: 'pax', pax: 58, rate: 77, paxRate: 1.45, landing: 3900, repair: 2800 },
+  citation: { price: 110000, role: 'pax', pax: 5, rate: 77, paxRate: 16.8, landing: 3400, repair: 2400 },
+  bizjet: { price: 190000, role: 'pax', pax: 12, rate: 92, paxRate: 8.4, landing: 4280, repair: 3000 },
+  regional: { price: 240000, role: 'pax', pax: 70, rate: 88, paxRate: 1.37, landing: 5100, repair: 3300 },
+  narrowbody: { price: 420000, role: 'pax', pax: 150, rate: 110, paxRate: 0.8, landing: 6000, repair: 4000 },
+  widebody: { price: 800000, role: 'pax', pax: 330, rate: 132, paxRate: 0.436, landing: 7400, repair: 5000 },
+  jumbo: { price: 1200000, role: 'pax', pax: 410, rate: 154, paxRate: 0.41, landing: 8800, repair: 6000 },
+  fighter: { price: 300000, role: 'none', rate: 140, landing: 2900, repair: 2800 },
+  hornet: { price: 520000, role: 'none', rate: 160, landing: 4100, repair: 3400 },
+  heavyfighter: { price: 700000, role: 'none', rate: 200, landing: 5000, repair: 4200 },
 };
 
 export const economyOf = (aircraftId) => ECONOMY[aircraftId] ?? ECONOMY.cessna172;

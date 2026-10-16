@@ -52,7 +52,7 @@ export function createShopScreen({ saves, onBack, onPilots }) {
         h('h3', cur.name), h('p.help', cur.blurb),
         h('dl.spec-sheet',
           h('dt', 'Class'), h('dd', cur.class), h('dt', 'Cruise'), h('dd', `${cur.speeds.cruise} kt`), h('dt', 'Runway needed'), h('dd', `${cur.minRunway} m`),
-          h('dt', 'Earns'), h('dd', `${eco.rate} cr per km, ${earns}`), h('dt', 'Landing fee'), h('dd', `${eco.landing} cr (smooth)`)),
+          h('dt', 'Earns'), h('dd', `${eco.rate} cr per km, ${earns}`), h('dt', 'Landing fee'), h('dd', `${eco.landing} cr, a hop under 15 km pays less`), h('dt', 'Crash repair'), h('dd', `${eco.repair} cr`)),
         s ? buy : needPilot()));
   }
 

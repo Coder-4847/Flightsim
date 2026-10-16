@@ -1,4 +1,4 @@
-import { economyOf, aircraftPrice } from '../progress/catalog.js';
+import { economyOf } from '../progress/catalog.js';
 
 // How flights turn into money. Everything here is pure arithmetic over plain objects so it can be
 // unit-tested without a browser. Amounts are whole credits.
@@ -10,10 +10,11 @@ export const modeMultiplier = (preset) => MODE_MULTIPLIER[preset] ?? 1;
 export const GRADES = ['Smooth', 'Good', 'Firm', 'Hard', 'Very hard'];
 export const gradeIndex = (g) => Math.max(0, GRADES.indexOf(g));
 
-/** Share of the landing fee paid for each touchdown grade. */
-export const LANDING_FEE = { Smooth: 1, Good: 0.6, Firm: 0.25, Hard: 0, 'Very hard': 0 };
-/** Passengers and cargo pay less after a rough landing. */
-export const CARGO_LANDING = { Smooth: 1.1, Good: 1.05, Firm: 0.9, Hard: 0.6, 'Very hard': 0.3 };
+/** Free Flight fare multiplier for the touchdown: a smooth landing adds up to 20%, a rough one takes up to 30% off. */
+export const LANDING_FARE = { Smooth: 1.2, Good: 1.05, Firm: 0.9, Hard: 0.8, 'Very hard': 0.7 };
+/** A very short hop pays only part of the landing fee, so shuttling between neighbouring airports is not the best earner. */
+export const SHORT_HOP_KM = 15;
+export const shortHopFactor = (km) => Math.max(0.3, Math.min(1, km / SHORT_HOP_KM));
 
 /** VIP payout tiers: the harder the landing, the smaller the cheque. */
 export const VIP_TIERS = [
@@ -45,7 +46,7 @@ export function paidDistanceKm(trackKm, straightKm) {
   return Math.max(0, Math.min(trackKm, straightKm * 1.5 + 15));
 }
 
-export const SIGHTSEEING_BONUS = (aircraftId) => Math.round(200 + economyOf(aircraftId).rate * 6);
+export const SIGHTSEEING_BONUS = (aircraftId) => Math.round(300 + economyOf(aircraftId).rate * 8);
 
 const line = (label, amount) => ({ label, amount: Math.round(amount) });
 
@@ -61,27 +62,29 @@ export function freeFlightPayout(o) {
   lines.push(line(`Distance (${km.toFixed(1)} km)`, km * eco.rate));
   let load = 0;
   if (eco.role === 'pax' && o.pax > 0) {
-    load = o.pax * km * eco.paxRate * (CARGO_LANDING[o.grade] ?? 1) * (has('cabin') ? 1.2 : 1);
+    load = o.pax * km * eco.paxRate * (has('cabin') ? 1.2 : 1);
     lines.push(line(`Passengers (${o.pax})`, load));
   } else if (eco.role === 'cargo' && o.cargoKg > 0) {
-    load = o.cargoKg * km * eco.cargoRate * (CARGO_LANDING[o.grade] ?? 1) * (has('cargo') ? 1.2 : 1);
+    load = o.cargoKg * km * eco.cargoRate * (has('cargo') ? 1.2 : 1);
     lines.push(line(`Cargo (${Math.round(o.cargoKg)} kg)`, load));
   }
-  if (o.atAirport) {
-    const fee = eco.landing * (LANDING_FEE[o.grade] ?? 0) * (o.onRunway ? 1 : 0.5);
-    lines.push(line(`Landing: ${o.grade}`, fee));
-  }
+  if (o.atAirport) lines.push(line('Landing fee', eco.landing * shortHopFactor(km) * (o.onRunway ? 1 : 0.5)));
   if (o.pois > 0) lines.push(line(`Sightseeing (${o.pois})`, o.pois * SIGHTSEEING_BONUS(o.aircraftId)));
-  const subtotal = lines.reduce((s, l) => s + l.amount, 0);
+  let subtotal = lines.reduce((s, l) => s + l.amount, 0);
+  if (o.atAirport) {
+    const factor = LANDING_FARE[o.grade] ?? LANDING_FARE['Very hard'];
+    const pct = Math.round((factor - 1) * 100);
+    lines.push(line(`Touchdown: ${o.grade}${pct ? ` (${pct > 0 ? '+' : '−'}${Math.abs(pct)}%)` : ''}`, subtotal * (factor - 1)));
+    subtotal += subtotal * (factor - 1);
+  }
   const mult = o.multiplier ?? 1;
   if (mult !== 1) lines.push(line(`Realism bonus ×${mult.toFixed(1)}`, subtotal * (mult - 1)));
   return { lines, total: lines.reduce((s, l) => s + l.amount, 0) };
 }
 
-/** The repair bill after a crash. */
+/** The repair bill after a crash: a flat amount per aircraft (about a flight's pay, a little more for big aircraft). */
 export function crashPenalty(aircraftId, insured) {
-  const eco = economyOf(aircraftId);
-  const raw = Math.min(25000, Math.max(250, aircraftPrice(aircraftId) * eco.repair));
+  const raw = Math.max(250, economyOf(aircraftId).repair);
   return Math.round(raw * (insured ? 0.25 : 1) / 10) * 10;
 }
 

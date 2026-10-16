@@ -152,30 +152,21 @@ export function addFence(ctx) {
   else if (cls === 'regional') box = { u0: -1500, u1: 1500, v0: -650, v1: 650 };
   else box = { u0: -720, u1: 720, v0: s > 0 ? -90 : -230, v1: s > 0 ? 230 : 90 };
   const loop = [{ x: box.u0, z: box.v0 }, { x: box.u1, z: box.v0 }, { x: box.u1, z: box.v1 }, { x: box.u0, z: box.v1 }, { x: box.u0, z: box.v0 }];
-  // gate position on the landside edge: leave a gap in the fence there
-  const steel = ctx.bufs.get('steel');
-  const fenceBuf = ctx.bufs.get('fence');
-  const H = 2.4;
+  // gate position on the landside edge: leave a gap in the fence there. The panels and posts themselves are built
+  // by FenceField (fence.js) from these edges, so that they can be knocked down.
   const gate = ctx.gate ?? null;
   let total = 0;
+  const edges = [];
   for (let i = 1; i < loop.length; i++) {
     const p = loop[i - 1]; const q = loop[i];
     const len = Math.hypot(q.x - p.x, q.z - p.z);
     const dx = (q.x - p.x) / len; const dz = (q.z - p.z) / len;
-    // fence panels
-    const segs = [[0, len]];
+    const spans = [[0, len]];
     if (gate && Math.abs((gate.x - p.x) * dz - (gate.z - p.z) * dx) < 2) {
       const t = (gate.x - p.x) * dx + (gate.z - p.z) * dz;
-      if (t > 0 && t < len) { segs[0] = [0, t - 7]; segs.push([t + 7, len]); }
+      if (t > 0 && t < len) { spans[0] = [0, t - 7]; spans.push([t + 7, len]); }
     }
-    for (const [s0, s1] of segs) {
-      if (s1 - s0 < 1) continue;
-      const A = [p.x + dx * s0, 0, p.z + dz * s0]; const B = [p.x + dx * s1, 0, p.z + dz * s1];
-      const nrm = [dz, 0, -dx];
-      fenceBuf.quad(A, B, [B[0], H, B[2]], [A[0], H, A[2]], [0, 0, (s1 - s0) / 4, 0, (s1 - s0) / 4, 1, 0, 1], new Array(12).fill(1), nrm);
-      fenceBuf.quad(B, A, [A[0], H, A[2]], [B[0], H, B[2]], [0, 0, (s1 - s0) / 4, 0, (s1 - s0) / 4, 1, 0, 1], new Array(12).fill(1), [-nrm[0], 0, -nrm[2]]);
-      for (let t = s0; t <= s1 + 0.1; t += 12) steel.box(p.x + dx * t, 0, p.z + dz * t, 0.12, H + 0.5, 0.12, { ao: 0 });
-    }
+    edges.push({ x: p.x, z: p.z, dx, dz, len, spans });
     total += len;
   }
   // perimeter road inside the fence
@@ -186,7 +177,7 @@ export function addFence(ctx) {
   ];
   const rp = P.roundPath(road, 25, 6);
   ctx.surf.get('asphalt').ribbon(rp, 2.6, 0.055, { color: 0.9 });
-  return { box, total };
+  return { box, total, edges, height: 2.4 };
 }
 
 // ---- roads, lots and cars --------------------------------------------------------------------------------------------------------

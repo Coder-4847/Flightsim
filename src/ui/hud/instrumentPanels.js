@@ -53,12 +53,6 @@ export function createApproachPanel(hud) {
   const info = h('div.app-info');
   const score = h('div.app-score');
   panel.body.append(canvas, info, score);
-  let dismissed = false;
-  let wasValid = false;
-  panel.el.querySelector('.hpanel-close').addEventListener('click', () => { dismissed = true; });
-  const origOpen = panel.open;
-  panel.open = () => { dismissed = false; origOpen(); };
-
   function draw(g) {
     const w = 300; const hh = 300;
     ctx.fillStyle = '#05080c'; ctx.fillRect(0, 0, w, hh);
@@ -101,14 +95,9 @@ export function createApproachPanel(hud) {
   }
 
   function update(t) {
-    const guide = hud.guide;
-    const valid = !!guide && guide.distNm < 20 && !t.onGround;
-    // Show itself on the approach unless the player closed it; arcade mode relies on it most.
-    if (valid && !wasValid && !panel.isOpen && !dismissed) panel.open();
-    if (!valid && wasValid && panel.isOpen && !t.onGround) { /* keep open until landing */ }
-    if (!valid && t.onGround) dismissed = false;
-    wasValid = valid;
+    // Only drawn while the player has it open (F8 / toolbar); it never opens by itself.
     if (!panel.isOpen) return;
+    const guide = hud.guide;
     if (!guide) {
       info.textContent = 'No runway ahead. Line up within 20 km of a runway to see guidance.';
       score.textContent = '';

@@ -70,8 +70,8 @@ export function burnerFlame(radius, length) {
 /** Short-range missile along +X (nose forward): body, seeker, four fins and canard fins. Origin at the middle of the body. */
 export function missileParts(parts, { x, y, z, len = 2.9, r = 0.063, detail = HIGH, paint = 'radome' }) {
   const m = T(x, y, z);
-  parts.add(paint, revolve([[len * 0.5, 0.002], [len * 0.47, r * 0.55], [len * 0.4, r * 0.92], [len * 0.35, r], [-len * 0.45, r], [-len * 0.5, r * 0.85]], 14), m);
-  parts.add('dark', revolve([[len * 0.5, 0.002], [len * 0.47, r * 0.55], [len * 0.4, r * 0.92], [len * 0.38, r * 0.96]], 14), m);
+  parts.add(paint, revolve([[-len * 0.5, r * 0.85], [-len * 0.45, r], [len * 0.35, r], [len * 0.4, r * 0.92], [len * 0.47, r * 0.55], [len * 0.5, 0.002]], 14), m);
+  parts.add('dark', revolve([[len * 0.38, r * 0.96], [len * 0.4, r * 0.92], [len * 0.47, r * 0.55], [len * 0.5, 0.002]], 14), m);
   if (detail > LOW) {
     const fin = (px, span, chord, rot) => parts.add('steel', std(new THREE.BoxGeometry(chord, span, 0.006)), T(x + px, y, z, rot, 0, 0).multiply(new THREE.Matrix4().makeTranslation(0, r + span / 2 - 0.005, 0)));
     for (let i = 0; i < 4; i++) { fin(-len * 0.4, 0.17, 0.32, (i * Math.PI) / 2); fin(len * 0.2, 0.09, 0.18, (i * Math.PI) / 2 + Math.PI / 4); }

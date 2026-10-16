@@ -151,7 +151,9 @@ const KEYS = ['w', 'top', 'bottom', 'yc', 'zc', 'nt', 'nb', 'wb'];
 const DEFAULTS = { w: 0.01, top: 0.01, bottom: 0.01, yc: 0, zc: 0, nt: 2, nb: 2, wb: 1 };
 
 function prepStations(stations) {
-  const st = stations.map((s) => {
+  // Stations must run in ascending x: the interpolation and the outward winding both assume it (a descending list such
+  // as the twin-boom tail came out inside-out, so the booms were invisible from outside).
+  const st = [...stations].sort((a, b) => a.x - b.x).map((s) => {
     const o = { x: s.x };
     for (const k of KEYS) o[k] = s[k] ?? ((k === 'nt' || k === 'nb') ? (s.n ?? DEFAULTS[k]) : DEFAULTS[k]);
     return o;
@@ -294,7 +296,7 @@ export function loftBody(stations, {
       cy /= nSeg; cz /= nSeg;
       cp.push(pos[ring * cols * 3], cy, cz); cn.push(nx, 0, 0); cu.push(uv[ring * cols * 2], 0.5);
       for (let s = 0; s < nSeg; s++) { const o = (ring * cols + s) * 3; cp.push(pos[o], pos[o + 1], pos[o + 2]); cn.push(nx, 0, 0); cu.push(uv[(ring * cols + s) * 2], uv[(ring * cols + s) * 2 + 1]); }
-      for (let s = 0; s < nSeg; s++) { const a = 1 + s; const b = 1 + ((s + 1) % nSeg); if (nx < 0) ci.push(0, b, a); else ci.push(0, a, b); }
+      for (let s = 0; s < nSeg; s++) { const a = 1 + s; const b = 1 + ((s + 1) % nSeg); if (nx < 0) ci.push(0, a, b); else ci.push(0, b, a); }
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3));
       g.setAttribute('normal', new THREE.Float32BufferAttribute(cn, 3));
@@ -537,14 +539,31 @@ export function wingSurface(sections, z0, z1, {
   geo.setAttribute('uv1', new THREE.Float32BufferAttribute(uvB, 2));
   geo.setIndex(idx);
   geo.computeVertexNormals();
-  // The upper surface must face +Y.
+  // The upper surface must face +Y: test one skin triangle on the upper side, mid-span, of the first run.
   {
-    const n = geo.attributes.normal;
-    const p = geo.attributes.position;
-    let score = 0;
-    for (let i = 0; i < p.count; i += 3) score += n.getY(i) * Math.sign(p.getY(i) - (sectionAt(sections, p.getZ(i)).y));
-    if (score < 0) flipWinding(geo);
+    const L = runLens[0];
+    const r0 = Math.max(0, Math.min(zs.length - 2, Math.floor((zs.length - 1) / 2)));
+    const i0 = Math.min(L - 2, Math.floor(L * 0.75));
+    const a0 = (bases[0] + r0 * L + i0) * 3; const b0 = a0 + 3; const c0 = (bases[0] + (r0 + 1) * L + i0) * 3;
+    const ny = (pos[b0 + 2] - pos[a0 + 2]) * (pos[c0] - pos[a0]) - (pos[b0] - pos[a0]) * (pos[c0 + 2] - pos[a0 + 2]);
+    // triangle (a, a + 1, b) normal.y = (b-a).z*(c-a).x - (b-a).x*(c-a).z
+    if (ny < 0) flipWinding(geo);
     geo.computeVertexNormals();
+  }
+  // The flat cut face at the hinge line (second run) must face aft (-X); decided separately from the skin above.
+  if (runCount > 1) {
+    const ia = geo.index.array;
+    const skinTris = (rings.length - 1) * (runLens[0] - 1) * 6;
+    let facing = 0;
+    for (let t = skinTris; t < ia.length; t += 3) {
+      const a = ia[t] * 3; const b = ia[t + 1] * 3; const c = ia[t + 2] * 3;
+      facing += (pos[b + 1] - pos[a + 1]) * (pos[c + 2] - pos[a + 2]) - (pos[b + 2] - pos[a + 2]) * (pos[c + 1] - pos[a + 1]);
+    }
+    if (facing > 0) {
+      for (let t = skinTris; t < ia.length; t += 3) { const k = ia[t + 1]; ia[t + 1] = ia[t + 2]; ia[t + 2] = k; }
+      geo.index.needsUpdate = true;
+      geo.computeVertexNormals();
+    }
   }
   const parts = [geo];
   const cap = (ringIndex, dir) => {

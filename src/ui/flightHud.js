@@ -198,6 +198,7 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     dashboard.rebuild();
     activeWarnings.clear();
     audio.stall(false);
+    hud.panels.get('approach').close(); // the approach guide is on demand only (F8 or the Approach button)
     session.atc?.on('violation', (v) => el.showToast(`ATC: ${v.text}`));
     // First time on this device: open a sensible set of panels for the chosen mode.
     if (!localStorage.getItem('hudpanels')) {

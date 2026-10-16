@@ -150,7 +150,7 @@ export class FlightScene {
     this.env.update(dt, cameraPosition);
     this.weather.update(dt, this.camera, velocity ?? ZERO_WIND, wind ?? ZERO_WIND);
     this.terrain?.update(cameraPosition);
-    this.airports?.update(cameraPosition, wind ?? ZERO_WIND);
+    this.airports?.update(cameraPosition, wind ?? ZERO_WIND, dt);
     this.scenery?.update(dt, cameraPosition, wind ?? ZERO_WIND);
     this.airTraffic?.update(dt);
     if (this.terrainMaterial) {

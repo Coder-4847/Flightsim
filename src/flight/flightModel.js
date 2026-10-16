@@ -130,6 +130,22 @@ export class FlightModel {
 
   crashWith(reason) { if (!this.crashed) this.#crash(reason); }
 
+  /**
+   * Instantaneous impulse `J` (N s, world axes) applied `r` metres from the CG (world axes), e.g. a fence panel torn
+   * off by a wing. Changes velocity and body rates; it never damages the aircraft by itself.
+   */
+  applyImpulse(r, J) {
+    if (this.crashed) return;
+    const mass = this.mass;
+    const inertia = this.spec.inertia;
+    const scale = mass / this.spec.mass.ref;
+    this.vel.addScaledVector(J, 1 / mass);
+    _tmp.crossVectors(r, J).applyQuaternion(_qInv.copy(this.q).invert());
+    this.w.x += _tmp.x / (inertia.roll * scale);
+    this.w.y += _tmp.y / (inertia.yaw * scale);
+    this.w.z += _tmp.z / (inertia.pitch * scale);
+  }
+
   /** True when engine `index` still has a tank to draw from. */
   #hasFuelFor(index) {
     if (!this.tanks.length) return this._fuel > 0;

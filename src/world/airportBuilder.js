@@ -4,6 +4,7 @@ import { Rng } from '../util/random.js';
 import { layoutAirport } from './airportLayout.js';
 import { addAirfieldLights } from './airport/airfieldLights.js';
 import { addBuildings } from './airport/buildings.js';
+import { FenceField, aircraftHull } from './airport/fence.js';
 import { LightSet, disposeLightMaterial, lightMaterial } from './airport/lightField.js';
 import { airportStyle, ambientBoost, decalMaterial, lift, paintMaterial, surfaceMaterial } from './airport/materials.js';
 import { BufSet } from './airport/mesh.js';
@@ -115,7 +116,7 @@ export function buildAirport(a, { biome = 'grass' } = {}) {
   addNavaids(ctx, lightInfo);
   addMasts(ctx);
   addRoadsAndLots(ctx);
-  addFence(ctx);
+  const fenceSpec = addFence(ctx);
   addSiteVehicles(ctx);
   const detailGroup = new THREE.Group();
   const treeGroup = addTrees(ctx);
@@ -130,6 +131,12 @@ export function buildAirport(a, { biome = 'grass' } = {}) {
   anim.night = buildingMaterials(style, mk, atlas?.texture ?? null);
   if (atlas) disposables.push({ dispose: () => atlas.texture.dispose() });
   addWindsocks(ctx, detailGroup, anim);
+  if (fenceSpec) {
+    // chain-link bays and posts that an aircraft can knock down (see airport/fence.js)
+    const fenceField = new FenceField(fenceSpec, mats, detailGroup);
+    disposables.push(fenceField);
+    group.userData.fence = fenceField;
+  }
 
   // ---- meshes --------------------------------------------------------------------------------------------------------------------------
   const surfaceGroup = new THREE.Group(); const paintGroup = new THREE.Group(); const mainGroup = new THREE.Group();
@@ -182,7 +189,7 @@ export class AirportManager {
     this.nightLevel = -1;
   }
 
-  update(camPos, wind) {
+  update(camPos, wind, dt = 0) {
     const lm = lightMaterial();
     const night = this.env.night;
     lm.uniforms.uNight.value = night;
@@ -215,6 +222,7 @@ export class AirportManager {
       if (lod.detail.visible !== wantDetail) lod.detail.visible = wantDetail;
       if (lod.paint.visible !== wantPaint) lod.paint.visible = wantPaint;
       if (nightChanged) this.#applyNight(g, night);
+      if (dt > 0 && lod.detail.visible) g.userData.fence?.update(dt); // loose fence pieces keep tumbling while the airport is drawn
       if (wind && speed > 0.2 && lod.detail.visible) {
         const th = Math.atan2(-wind.z, wind.x) - g.userData.frame.rotation.y;
         const droop = -Math.max(0, 1 - speed / 8) * 1.1;
@@ -223,6 +231,24 @@ export class AirportManager {
       void code;
     }
     this.nightLevel = night;
+  }
+
+  /**
+   * Fixed-step collision of the player's aircraft with the perimeter fences. Fences break and the aircraft is slowed a
+   * little by what it hits; it is never destroyed by them.
+   */
+  collide(model, dt) {
+    if (!model || model.crashed) return 0;
+    const hull = (model.fenceHull ??= aircraftHull(model.spec));
+    let total = 0;
+    for (const g of this.built.values()) {
+      const fence = g.userData.fence;
+      if (!fence) continue;
+      if (model.pos.y - g.position.y > 40) continue;
+      if (Math.hypot(model.pos.x - g.position.x, model.pos.z - g.position.z) > 2700) continue;
+      total += fence.collide(model, hull, { x: g.position.x, y: g.position.y, z: g.position.z, yaw: g.userData.frame.rotation.y }, dt);
+    }
+    return total;
   }
 
   #applyNight(g, night) {

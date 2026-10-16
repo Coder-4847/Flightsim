@@ -187,6 +187,7 @@ export class FlightSession {
     if (!this.model) return;
     this.controls.update(dt);
     this.model.step(dt);
+    this.flightScene.airports?.collide(this.model, dt); // fences give way; they never destroy the aircraft
     if ((this.trailTick = (this.trailTick ?? 0) + 1) % 360 === 0) this.#pushTrail();
     // Emergency scenarios schedule their own failures, so the random ones stay off to keep seeds repeatable.
     this.failures?.update(dt, this.systems.failures && !this.options?.scripted);

@@ -107,6 +107,7 @@ export class Autopilot {
     // Disconnect rules.
     if (Math.abs(controls.stick.pitch) > 0.3 || Math.abs(controls.stick.roll) > 0.3) { this.disengage('Autopilot disconnected: stick moved', 'info'); return false; }
     if (input?.pad?.connected && input.pad.active && (Math.abs(input.pad.axes.leftX) > 0.4 || Math.abs(input.pad.axes.leftY) > 0.4)) { this.disengage('Autopilot disconnected: stick moved', 'info'); return false; }
+    if (input?.touch && (input.touch.yoke && (Math.abs(input.touch.pitch) > 0.3 || Math.abs(input.touch.roll) > 0.3))) { this.disengage('Autopilot disconnected: stick moved', 'info'); return false; }
     if (tel.stallWarning || tel.stalled) { this.disengage('Autopilot disconnected: stall warning', 'warn'); return false; }
     if (tel.onGround && tel.groundSpeed > 20) { this.disengage('Autopilot off: on the ground', 'info'); return false; }
     if (!tel.powered && spec.cockpit.panel !== 'steam') { /* fly on: the autopilot is electro-mechanical here */ }

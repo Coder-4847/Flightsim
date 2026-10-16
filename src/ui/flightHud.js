@@ -9,6 +9,7 @@ import { createDashboard } from './hud/dashboard.js';
 import { createEnginePanel } from './hud/enginePanel.js';
 import { createMissionPanel } from './hud/missionPanel.js';
 import { createAutopilotPanel } from './hud/autopilotPanel.js';
+import { createTouchControls } from './touchControls.js';
 import { createApproachPanel, createPfdPanel } from './hud/instrumentPanels.js';
 import { createPadMenu } from './hud/padMenu.js';
 import { PanelManager, button } from './hud/panels.js';
@@ -95,6 +96,8 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
   el.append(padMenu.el);
   const dashboard = createDashboard(hud);
   el.append(dashboard.el);
+  const touch = createTouchControls(hud, input, settings);
+  el.append(touch.el);
 
   const TOOLBAR = [
     ['radio', 'Radio', 'R', 'Radio and ATC (R)'],
@@ -300,7 +303,8 @@ export function createFlightHud({ onRestart, onSelect, onMenu, settings, input }
     const scale = ctl?.time.scale ?? 1;
     timeText.textContent = [ap?.on ? `AP ${ap.status}` : '', `TIME ×${scale}`].filter(Boolean).join('   ');
     timeChip.classList.toggle('fast', scale > 1);
-    const showDash = settings.get('dashboard') !== false && extra.cameraMode !== 'cockpit' && !hud.panels.hidden;
+    const showDash = settings.get('dashboard') !== false && !touch.active && !hud.panels.hidden;
+    touch.update();
     el.classList.toggle('has-dash', showDash);
     if (!model) return;
     t.wpt = hud.controls?.waypoints.to(model) ?? null; // the compass dials mark the active waypoint

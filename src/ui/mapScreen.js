@@ -24,14 +24,22 @@ export function createMapScreen({ getSession, onClose }) {
   const canvas = h('canvas.chart-canvas');
   const readout = h('div.chart-read');
   const list = h('div.chart-wpts');
-  const hint = h('div.chart-hint', 'Drag to pan · scroll to zoom · click to set a waypoint · click a waypoint to remove it · Home centres on you · M or Esc closes');
+  const hint = h('div.chart-hint', 'Drag to pan · scroll or pinch to zoom · tap to set a waypoint · tap a waypoint to remove it · Home centres on you · M or Esc closes');
   const bezel = h('div.chart-bezel',
-    h('header.chart-head', h('span.chart-title', 'Navigation chart'), h('span.chart-sub'), h('button.btn.small', { onclick: () => close() }, 'Close  (M)')),
+    h('header.chart-head', h('span.chart-title', 'Navigation chart'), h('span.chart-sub'),
+      h('button.btn.small.chart-zoom', { onclick: () => zoomBy(1.4) }, '+'),
+      h('button.btn.small.chart-zoom', { onclick: () => zoomBy(1 / 1.4) }, '\u2212'),
+      h('button.btn.small.chart-zoom', { onclick: () => { const m = session()?.model; if (m) { view.cx = m.pos.x; view.cz = m.pos.z; } } }, 'Centre'),
+      h('button.btn.small', { onclick: () => close() }, 'Close  (M)')),
     h('div.chart-body', h('div.chart-view', canvas, readout), h('aside.chart-side', h('div.chart-side-title', 'Route'), list,
       h('div.chart-actions', h('button.btn.small', { onclick: () => { getSession()?.controls.waypoints.clear(); renderList(); } }, 'Clear route')))),
     hint,
   );
   const el = h('section.chart-screen', bezel);
+  // A tap on the MAP touch button opens the chart under the finger; the browser's follow-up click would land on
+  // whatever is now there (the Close button). Swallow clicks for a moment after opening.
+  let openedAt = 0;
+  el.addEventListener('click', (e) => { if (e.timeStamp - openedAt < 600) { e.stopPropagation(); e.preventDefault(); } }, true);
 
   let view = { cx: 0, cz: 0, scale: 0.012 }; // px per metre
   let ctx = null;
@@ -178,17 +186,53 @@ export function createMapScreen({ getSession, onClose }) {
     const r = canvas.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * canvas.width, y: ((e.clientY - r.top) / r.height) * canvas.height };
   }
-  canvas.addEventListener('pointerdown', (e) => { drag = { ...pointer(e), cx: view.cx, cz: view.cz, moved: false, id: e.pointerId }; canvas.setPointerCapture(e.pointerId); });
+  function zoomBy(f, p = { x: canvas.width / 2, y: canvas.height / 2 }) {
+    const [wx, wz] = toWorld(p.x, p.y);
+    view.scale *= f;
+    clampScale();
+    view.cx = wx - (p.x - canvas.width / 2) / view.scale; view.cz = wz - (p.y - canvas.height / 2) / view.scale;
+  }
+  // Two-finger pinch: tracked separately so it never places a waypoint.
+  const touches = new Map();
+  let pinch = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') {
+      touches.set(e.pointerId, pointer(e));
+      if (touches.size === 2) {
+        const [a, b] = [...touches.values()];
+        pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1 };
+        drag = null;
+        canvas.setPointerCapture(e.pointerId);
+        return;
+      }
+    }
+    drag = { ...pointer(e), cx: view.cx, cz: view.cz, moved: false, id: e.pointerId }; canvas.setPointerCapture(e.pointerId);
+  });
   canvas.addEventListener('pointermove', (e) => {
     const p = pointer(e); mouse = p;
+    if (touches.has(e.pointerId)) {
+      touches.set(e.pointerId, p);
+      if (pinch && touches.size >= 2) {
+        const [a, b] = [...touches.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        zoomBy(d / pinch.d, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+        pinch.d = d;
+        return;
+      }
+    }
     if (!drag) return;
     if (Math.hypot(p.x - drag.x, p.y - drag.y) > 4) drag.moved = true;
     if (drag.moved) { view.cx = drag.cx - (p.x - drag.x) / view.scale; view.cz = drag.cz - (p.y - drag.y) / view.scale; }
   });
   canvas.addEventListener('pointerleave', () => { mouse = null; readout.textContent = ''; });
+  const endTouch = (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; };
+  canvas.addEventListener('pointercancel', (e) => { endTouch(e); drag = null; });
   canvas.addEventListener('pointerup', (e) => {
+    if (e.timeStamp - openedAt < 600) { drag = null; return; }
+    const wasPinch = pinch;
+    endTouch(e);
     const was = drag; drag = null;
-    if (!was || was.moved) return;
+    if (wasPinch || !was || was.moved) return;
     const s = session(); const p = pointer(e);
     const wp = s.controls.waypoints;
     // Click on an existing waypoint removes it.
@@ -229,6 +273,7 @@ export function createMapScreen({ getSession, onClose }) {
     const s = session();
     if (!s?.model) return;
     open = true;
+    openedAt = performance.now();
     document.body.classList.add('chart-open');
     ctx ??= canvas.getContext('2d');
     el.querySelector('.chart-sub').textContent = `${s.flightScene.map.cfg.name} · ${s.flightScene.map.airports.length} airports`;

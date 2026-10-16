@@ -113,6 +113,26 @@ export const SETTINGS_SCHEMA = {
     hint: 'Higher values soften small stick movements.',
   },
   padInvertPitch: { section: 'Controller', label: 'Invert pitch', type: 'bool', default: false },
+  touchControls: {
+    section: 'Touch controls', label: 'On-screen controls', type: 'options',
+    options: [['auto', 'Automatic (touch devices)'], ['on', 'Always on'], ['off', 'Off']], default: 'auto',
+    hint: 'A control yoke, rudder slider, throttle and buttons for phones and tablets. Landscape works best.',
+  },
+  touchSize: {
+    section: 'Touch controls', label: 'Control size', type: 'range',
+    min: 0.7, max: 1.4, step: 0.05, default: 1, format: (v) => `${Math.round(v * 100)}%`,
+  },
+  touchOpacity: {
+    section: 'Touch controls', label: 'Control opacity', type: 'range',
+    min: 0.3, max: 1, step: 0.05, default: 0.85, format: (v) => `${Math.round(v * 100)}%`,
+  },
+  touchSwap: { section: 'Touch controls', label: 'Swap sides (yoke on the left)', type: 'bool', default: false },
+  touchInvertPitch: { section: 'Touch controls', label: 'Invert pitch', type: 'bool', default: false, hint: 'Normally dragging the yoke down pulls back (nose up).' },
+  touchCurve: {
+    section: 'Touch controls', label: 'Yoke curve', type: 'range',
+    min: 0, max: 0.9, step: 0.05, default: 0.3, format: (v) => (v < 0.05 ? 'Linear' : `${Math.round(v * 100)}% expo`),
+    hint: 'Higher values soften small movements of the yoke.',
+  },
   padInvertLook: { section: 'Controller', label: 'Invert camera look', type: 'bool', default: false },
   atcTraffic: {
     section: 'Game systems', label: 'ATC traffic', type: 'options',

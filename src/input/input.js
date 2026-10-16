@@ -20,6 +20,8 @@ export class Input extends Emitter {
     this.suspended = false; // true while the UI is capturing a key for rebinding
     this.uiCapture = false; // true while a menu screen or the crash card owns the controller (set by the navigator)
     this.menuCapture = false; // true while the controller menu is open: buttons go to the menu, not the aircraft
+    // On-screen controls (touch): analog axes from the yoke and the rudder slider, read by FlightControls like a gamepad.
+    this.touch = { yoke: false, rudder: false, pitch: 0, roll: 0, yaw: 0 };
     this.#rebuild();
     bindings.on('change', () => this.#rebuild());
 
@@ -30,6 +32,25 @@ export class Input extends Emitter {
 
   isDown(action) {
     return this.#down.has(action);
+  }
+
+  /** An on-screen button held down or released: works exactly like a key bound to `action`. */
+  virtualDown(action, down) {
+    if (!this.enabled || this.suspended) return;
+    if (down) {
+      if (this.#down.has(action)) return;
+      this.#down.add(action);
+      this.emit('press', action);
+    } else if (this.#down.delete(action)) {
+      this.emit('release', action);
+    }
+  }
+
+  /** An on-screen button tapped: a key press and release in one go. */
+  virtualTap(action) {
+    if (!this.enabled || this.suspended) return;
+    this.emit('press', action);
+    this.emit('release', action);
   }
 
   /** -1..1 axis from two opposing actions. */

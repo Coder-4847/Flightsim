@@ -25,6 +25,7 @@ Flight Sim is a browser 3D flight simulator: Three.js 0.186 + Vite 8, plain Java
 - Camera and views: C cycle camera (chase, cinematic, tower), Home reset camera, H hide HUD, F10 collapse the dashboard, F2 display panel, F3 engines, F4 controls, F6 autopilot, F7 systems, F8 approach guide, F9 mission, R radio, K checklist, M the chart (pauses), PrintScreen or F12 screenshot, Esc or P pause.
 - Autopilot and time: Backslash autopilot on/off, Slash autothrottle, Numpad + / Numpad - / Numpad * (or ' ; and `) time faster / slower / real time.
 - Chart: drag pan, wheel zoom, click set or remove a waypoint, Home centre on you, M or Esc close.
+- Touch (phones and tablets, landscape): yoke (right, drag = pitch and roll, spring return, expo curve), rudder slider (bottom left, spring return), throttle slider (far left, sets the master or selected engines, follows keys and dashboard), button bar (BRAKES hold, GEAR, FLAPS -/+, LIGHTS, SPD BRK), trim arrows (hold), top buttons (PAUSE, CAMERA, MAP, MENU). MENU opens a sheet generated from the ACTIONS list, so every keyboard action is reachable (autopilot, time compression, radio, panels, engines, systems). One finger on the world orbits the camera, two fingers pinch-zoom (chart too, plus +/-/Centre buttons). Settings > Controls > Touch controls: show (auto/on/off), size, opacity, left-hand swap, invert pitch, stick curve.
 - Controller: sticks and triggers fly, Back opens the controller menu, Start pauses; menus work with D-pad, A and B.
 
 ## User feedback log (after the release candidate; all done unless noted)
@@ -43,6 +44,13 @@ Flight Sim is a browser 3D flight simulator: Three.js 0.186 + Vite 8, plain Java
 13. memory.md must be fully up to date so the chat can be closed -> this file.
 14. Also built unprompted as "other features": autopilot with approach mode and autothrottle, screenshot key, route waypoints.
 15. Bugs the user found by flying: fighter and trainer exhausts see-through (fixed); Corsair/Warden rear open (fixed); a stale cached build made a fix look missing (build stamp added).
+
+## Touch controls (added after rc.3)
+- Request: "controls for mobile ... control yoke, a rudder slider ... all the buttons we have on pc" so phones and iPads can play.
+- Design: the on-screen controls feed the same action layer as the keyboard. `Input.virtualDown(action, down)` (held actions), `Input.virtualTap(action)` (press + release) and `Input.touch = {yoke, rudder, pitch, roll, yaw}` (analog; applied in `FlightControls.update` like a gamepad stick, with the `touchCurve` expo and optional `touchInvertPitch`). `FlightControls.setThrottle(v)` is used by the throttle slider (switches autothrottle off). The autopilot disconnects when the yoke is pushed past 0.3.
+- Code: `src/ui/touchControls.js` (everything; created in `flightHud.js`), CSS block "Touch controls" at the end of `src/style.css` (sizes in `vmin` via `--u`, safe-area insets, `touch-action: none`), settings in `settings.js` (`touch*` keys, shown in the Controls tab), camera orbit/pinch in `main.js` (own pointer deltas, not movementX), chart pinch and +/-/Centre in `mapScreen.js`.
+- Behaviour: `body.touch-ui` is set when touch is on; it hides the dashboard, toolbar, flight hint and cam info and moves the data strip to the top. Portrait shows a "Rotate your device" overlay. HUD panels are pinned to the middle strip in touch mode (not draggable) so they never cover the controls. MENU sheet closes after one-shot actions and stays open for repeatable ones (time, throttle presets, engine select).
+- Tested with Playwright mobile emulation (844x390 phone and 1180x820 iPad, CDP touch events, software GL): yoke, rudder with simultaneous yoke, throttle, flaps, lights, brakes hold, MENU sheet, autopilot panel, chart open/pinch/tap-waypoint/close, one-finger orbit, pinch zoom, console clean. NOT tested on a real phone or iPad (no device here): real thumb comfort, iOS Safari quirks (address bar, no fullscreen API on iPhone, audio unlock) and sizing on very small screens are unverified. Tip for players: on iOS use Share > Add to Home Screen for a fullscreen, bar-less view.
 
 ## Model redo series (finished)
 - The user judged the aircraft models "pretty bad" and asked for a one-category-at-a-time redo, stopping after each: light props, turboprops, jet trainer, airliners, fighters. Category mapping used: light props = Skyhawk 172; turboprops = Trekker 208, Regal 200, Cirrus 72; jet trainer = Tutor T-39; airliners = Regional 175, Meridian 320, Atlas 300, Titan 400 plus the two business jets (Zenith CJ, Stratos G6); fighters = Falcon F-16, Corsair F/18, Warden S-27.
@@ -193,6 +201,7 @@ Older checks from Phase 6 that still apply:
 - src/modes/: economy (pure pay arithmetic), tracker (takeoff/touchdown/landed/sights), missions (37 career contracts), vip (contracts, comfort meter), emergency (seeded scenarios, scoring), freeflight, contract (career + VIP), runner
 - src/flight/systems.js: electrics, APU, hydraulics, pitot, jam, leak, fire, dump
 - src/game/: session (one flight), startPoints (runway / final / air spawns)
+- src/ui/touchControls.js: on-screen flight controls and the MENU sheet for touch devices (see "Touch controls")
 - src/ui/hud/dashboard.js: the bottom instrument panel (levers, switches, dials, screens, annunciators); src/ui/hud/autopilotPanel.js: autopilot and time panel; src/ui/mapScreen.js: the chart; src/game/waypoints.js, src/game/timeScale.js; src/flight/autopilot.js; src/scene/crashFx.js; src/world/airport/* (airport kit) and src/world/{infrastructure,infraBuilder,placement,props,treeModels,terrainNoise,fields,lakeShape}.js (world detail)
 - src/ui/: menus (mainMenu, intro, menuBackground, aboutScreen), navigation (keyboard and controller focus), errorOverlay, settings (tabbed), mapSelect, flightSetup (hangar, paint, ownership), aircraftPreview, flightHud, hud/ (panels, radio, engines, controls, systems, checklist, instrument panels, pad menu, mission panel), modeSelect, savesScreen, shopScreen, contractScreen, emergencyScreen, debrief, pilotBar
 - src/util/: noise (Perlin), random (seeded)
@@ -236,6 +245,7 @@ Older checks from Phase 6 that still apply:
 - Hole sweep: 14 aircraft x 5 views on magenta (`bg=ff00ff&air=1`); no see-through gaps found apart from the ones fixed. Limits: the sheets were small, so a thin gap could be missed.
 
 ## Session log (newest first)
+- 2026-10-16 Touch controls for phones and tablets (see "Touch controls"). Commit and Pages run: see git log.
 - 2026-10-15 Late: user reported see-through exhausts (F-16) and an open rear (Corsair). Fixes d5a9d98 (nozzles; Pages run #34), c2dff04 (build stamp; run #35), 816b019 (end caps and viewer `bg`; run #36). memory.md rewritten in full.
 - 2026-10-15 Model redo series, one category per user go-ahead: Skyhawk fc15826, turboprops d3206fa, trainer 9f4efa5, airliners 1a44665 (run #32), fighters 0c775c4 (run #33).
 - 2026-10-15 Overhaul round (commits 09ed8b9, a093e98 and the agent merges; Pages run #27 succeeded): handling, lenient negative g, VIP scoring, free map, no cockpit, autopilot, time compression, crash sequence, chart with waypoints, warm UI theme, 60 km maps, models/world/airports merged from five agents (two of the agents' sessions were cut off by the usage limit and resumed; the cockpit agent's work was dropped on purpose).

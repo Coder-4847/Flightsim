@@ -44,7 +44,7 @@ export function createSettingsScreen({ settings, bindings, input, onBack, onPilo
     { id: 'gameplay', label: 'Gameplay', sections: ['Game', 'Game systems'] },
     { id: 'display', label: 'Display', sections: ['Display'] },
     { id: 'audio', label: 'Audio', sections: ['Audio'] },
-    { id: 'controls', label: 'Controls', sections: ['Controller'] },
+    { id: 'controls', label: 'Controls', sections: ['Touch controls', 'Controller'] },
     { id: 'access', label: 'Accessibility', sections: ['Accessibility'] },
     { id: 'data', label: 'Data', sections: [] },
   ];

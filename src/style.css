@@ -871,3 +871,86 @@ body.chart-open .flight-hud { visibility: hidden; }
 .time-btn { appearance: none; width: 22px; height: 22px; line-height: 1; cursor: pointer; color: var(--text); background: linear-gradient(180deg, #2a2825, #1b1a18); border: 1px solid #060605; border-radius: 4px; font-size: 14px; }
 .time-btn:hover { border-color: var(--accent); }
 .time-text { min-width: 80px; text-align: center; }
+
+/* ---- Touch controls (phones and tablets) --------------------------------------------------------------------------------- */
+html, body { -webkit-tap-highlight-color: transparent; }
+body.touch-ui { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+body.touch-ui .flight-hud .hud-toolbar, body.touch-ui .flight-hud .flight-hint, body.touch-ui .flight-hud .cam-info { display: none; }
+.tc {
+  --tc-s: 1; --tc-o: 0.85; --u: calc(min(1vmin, 0.46vw) * var(--tc-s));
+  position: absolute; inset: 0; z-index: 30; pointer-events: none; touch-action: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  opacity: var(--tc-o);
+}
+.tc[hidden] { display: none; }
+.tc > * { position: absolute; pointer-events: auto; touch-action: none; }
+.tc-cap, .tc-name { font-size: calc(var(--u) * 1.9); letter-spacing: 0.14em; color: #b9ae95; text-transform: uppercase; pointer-events: none; position: absolute; }
+.tc-name { bottom: calc(var(--u) * 0.6); left: 0; right: 0; text-align: center; font-weight: 700; }
+/* yoke */
+.tc-yoke { right: calc(env(safe-area-inset-right) + var(--u) * 3); bottom: calc(env(safe-area-inset-bottom) + var(--u) * 3); width: calc(var(--u) * 40); height: calc(var(--u) * 40); border-radius: 50%; background: radial-gradient(circle at 50% 45%, rgba(28, 26, 23, 0.72), rgba(12, 10, 8, 0.82)); box-shadow: inset 0 0 0 2px #3a3631, 0 6px 18px rgba(0, 0, 0, 0.6); }
+.tc-yoke.held { box-shadow: inset 0 0 0 2px var(--accent), 0 6px 18px rgba(0, 0, 0, 0.6); }
+.tc-yoke-ring { position: absolute; inset: 14%; border-radius: 50%; border: 2px dashed rgba(255, 176, 46, 0.28); pointer-events: none; }
+.tc-yoke .tc-cap.up { top: 5%; left: 0; right: 0; text-align: center; }
+.tc-yoke .tc-cap.down { bottom: 5%; left: 0; right: 0; text-align: center; }
+.tc-knob { position: absolute; left: 25%; top: 25%; width: 50%; height: 50%; pointer-events: none; transition: transform 90ms ease-out; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7)); }
+.tc-yoke.held .tc-knob { transition: none; }
+.tc-knob svg { width: 100%; height: 100%; display: block; }
+/* rudder */
+.tc-rudder { left: calc(env(safe-area-inset-left) + var(--u) * 16); bottom: calc(env(safe-area-inset-bottom) + var(--u) * 3); width: calc(var(--u) * 46); height: calc(var(--u) * 11); border-radius: calc(var(--u) * 6); background: rgba(14, 12, 10, 0.78); box-shadow: inset 0 0 0 2px #3a3631, 0 6px 18px rgba(0, 0, 0, 0.55); }
+.tc-rudder .tc-cap.l { left: calc(var(--u) * 2); top: 50%; transform: translateY(-50%); }
+.tc-rudder .tc-cap.r { right: calc(var(--u) * 2); top: 50%; transform: translateY(-50%); }
+.tc-rtick { position: absolute; left: 50%; top: 22%; bottom: 22%; width: 2px; margin-left: -1px; background: rgba(255, 176, 46, 0.35); pointer-events: none; }
+.tc-rknob { position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 9); height: calc(var(--u) * 9); margin: calc(var(--u) * -4.5) 0 0 calc(var(--u) * -4.5); border-radius: 50%; display: grid; place-items: center; color: #1a1100; font-size: calc(var(--u) * 2.6); font-weight: 800; background: linear-gradient(180deg, #ffc866, #e08c00); box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6); pointer-events: none; transition: transform 90ms ease-out; }
+.tc-rudder .tc-name { bottom: auto; top: calc(var(--u) * -3); }
+/* throttle */
+.tc-throttle { left: calc(env(safe-area-inset-left) + var(--u) * 2.5); bottom: calc(env(safe-area-inset-bottom) + var(--u) * 17); width: calc(var(--u) * 11); height: calc(var(--u) * 44); border-radius: calc(var(--u) * 5); background: rgba(14, 12, 10, 0.78); box-shadow: inset 0 0 0 2px #3a3631, 0 6px 18px rgba(0, 0, 0, 0.55); }
+.tc-ttrack { position: absolute; left: 50%; top: 34px; bottom: 34px; width: calc(var(--u) * 3); margin-left: calc(var(--u) * -1.5); border-radius: 999px; background: #0a0908; box-shadow: inset 0 2px 4px #000; overflow: hidden; display: flex; align-items: flex-end; }
+.tc-tfill { width: 100%; background: linear-gradient(0deg, #a86b12, #ffb02e); }
+.tc-tknob { position: absolute; left: 50%; width: calc(var(--u) * 9); height: 34px; margin-left: calc(var(--u) * -4.5); border-radius: 8px; background: linear-gradient(180deg, #5b5750, #2b2926); box-shadow: 0 3px 6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.25); pointer-events: none; }
+.tc-tknob::after { content: ''; position: absolute; left: 12%; right: 12%; top: 50%; height: 3px; margin-top: -1.5px; background: #ffb02e; border-radius: 2px; }
+.tc-throttle .tc-cap.top { top: 8px; left: 0; right: 0; text-align: center; }
+.tc-throttle .tc-cap.bottom { bottom: calc(var(--u) * 3.2); left: 0; right: 0; text-align: center; }
+.tc-tread { position: absolute; top: calc(var(--u) * -4); left: 0; right: 0; text-align: center; font-size: calc(var(--u) * 2.4); font-weight: 700; color: var(--accent); pointer-events: none; }
+.tc-throttle .tc-name { bottom: 2px; }
+/* buttons */
+.tc-btn { appearance: none; font: inherit; color: #ece6d9; cursor: pointer; padding: 0 calc(var(--u) * 1.6); min-width: calc(var(--u) * 10); height: calc(var(--u) * 9); border-radius: calc(var(--u) * 2); font-size: calc(var(--u) * 2.4); font-weight: 700; letter-spacing: 0.06em; background: linear-gradient(180deg, rgba(48, 45, 41, 0.92), rgba(24, 22, 20, 0.92)); border: 1px solid #060605; box-shadow: inset 0 1px 0 rgba(255, 244, 220, 0.14), 0 3px 8px rgba(0, 0, 0, 0.6); touch-action: none; }
+.tc-btn.down { transform: translateY(1px); background: linear-gradient(180deg, #6b4a12, #4a3510); box-shadow: inset 0 0 8px rgba(255, 176, 46, 0.4), 0 0 0 1px var(--accent); }
+.tc-btn.on { box-shadow: inset 0 0 0 2px var(--accent), 0 3px 8px rgba(0, 0, 0, 0.6); color: #ffd36b; }
+.tc-btn.wide { min-width: calc(var(--u) * 14); }
+.tc-btn.round { min-width: 0; width: calc(var(--u) * 9); border-radius: 50%; padding: 0; }
+.tc-btn[hidden] { display: none; }
+.tc-bar { left: calc(env(safe-area-inset-left) + var(--u) * 65); bottom: calc(env(safe-area-inset-bottom) + var(--u) * 3); display: flex; gap: calc(var(--u) * 1.4); }
+.tc-trim { right: calc(env(safe-area-inset-right) + var(--u) * 45); bottom: calc(env(safe-area-inset-bottom) + var(--u) * 8); display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 1.4); }
+.tc-trim .tc-name { position: static; }
+.tc-top { right: calc(env(safe-area-inset-right) + var(--u) * 2); top: calc(env(safe-area-inset-top) + var(--u) * 2); display: flex; gap: calc(var(--u) * 1.4); }
+.tc-btn.top { height: calc(var(--u) * 7.5); font-size: calc(var(--u) * 2.1); }
+/* menu sheet */
+.tc-sheet { inset: 0; background: rgba(6, 5, 4, 0.7); display: grid; place-items: center; }
+.tc-sheet[hidden] { display: none; }
+.tc-sheet-card { width: min(92vw, 880px); max-height: 88vh; overflow: auto; padding: 14px 16px 18px; border-radius: 12px; background: linear-gradient(180deg, #1d1c1a, #11100f); box-shadow: 0 30px 80px -20px #000, inset 0 0 0 1px #2a2825; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.tc-sheet-card header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #d9c9a6; letter-spacing: 0.18em; text-transform: uppercase; font-size: 13px; position: sticky; top: -14px; padding: 10px 0; background: #171614; }
+.tc-sheet-card h3 { margin: 14px 0 6px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); }
+.tc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.tc-btn.sheet { height: 44px; font-size: 13px; min-width: 0; padding: 0 8px; }
+.tc-sheet .tc-btn.top { height: 40px; font-size: 12px; }
+/* swapped sides: yoke on the left, throttle and rudder on the right */
+.tc.tc-swap .tc-yoke { right: auto; left: calc(env(safe-area-inset-left) + var(--u) * 3); }
+.tc.tc-swap .tc-trim { right: auto; left: calc(env(safe-area-inset-left) + var(--u) * 45); }
+.tc.tc-swap .tc-throttle { left: auto; right: calc(env(safe-area-inset-right) + var(--u) * 2.5); }
+.tc.tc-swap .tc-rudder { left: auto; right: calc(env(safe-area-inset-right) + var(--u) * 16); }
+.tc.tc-swap .tc-bar { left: auto; right: calc(env(safe-area-inset-right) + var(--u) * 65); }
+/* portrait: ask for landscape */
+.tc-rotate { display: none; inset: 0; background: rgba(6, 5, 4, 0.92); place-items: center; text-align: center; color: #ece6d9; font-size: 18px; }
+.tc-rotate div { display: grid; gap: 8px; }
+.tc-rotate span { color: var(--muted); font-size: 14px; }
+@media (orientation: portrait) { .tc:not([hidden]) .tc-rotate { display: grid; } }
+/* the data strip is shown instead of the dashboard in touch mode; keep it clear of the buttons */
+body.touch-ui .flight-hud .strip { top: calc(env(safe-area-inset-top) + 6px); bottom: auto; left: 44%; transform: translateX(-50%) scale(calc(var(--hud-scale) * 0.8)); transform-origin: top center; }
+body.touch-ui .flight-hud .cell { padding: 5px 11px 4px; min-width: 62px; }
+body.touch-ui .flight-hud .status { top: calc(env(safe-area-inset-top) + 58px); bottom: auto; left: 44%; transform-origin: top center; font-size: 11px; }
+body.touch-ui .flight-hud .warnings { top: calc(env(safe-area-inset-top) + 84px); left: 44%; }
+/* panels sit in the clear middle strip between the throttle and the yoke instead of being draggable */
+body.touch-ui .hpanel { left: calc(env(safe-area-inset-left) + 70px) !important; top: calc(env(safe-area-inset-top) + 54px) !important; max-width: calc(100vw - 280px); max-height: calc(100vh - 140px); overflow: auto; z-index: 25; }
+body.touch-ui .hpanel-head { cursor: default; }
+/* the chart is a full-screen instrument: nothing from the flight HUD may sit on top of it */
+body.chart-open .tc, body.chart-open .hud-panels { display: none; }

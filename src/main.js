@@ -453,27 +453,38 @@ function boot() {
   });
 
   // ---- pointer + window events --------------------------------------------
-  let dragging = false;
+  // Mouse drag orbits the camera; on touch, one finger orbits and two fingers pinch to zoom.
+  // Deltas are tracked here because touch events carry no movementX/Y.
+  const pointers = new Map();
+  let pinchDist = 0;
   canvas.addEventListener('pointerdown', (e) => {
     if (!state.is(GameState.FLYING)) return;
-    dragging = true;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }
     session.cameras.head.dragging = true;
     canvas.setPointerCapture(e.pointerId);
-    // In the cockpit a click captures the mouse so it can be used as a head-look control.
-    if (session.cameras.mode === 'cockpit' && !document.pointerLockElement) canvas.requestPointerLock?.();
   });
   canvas.addEventListener('pointermove', (e) => {
-    if ((dragging || document.pointerLockElement === canvas) && state.is(GameState.FLYING)) {
-      session.cameras.drag(e.movementX, e.movementY);
+    const prev = pointers.get(e.pointerId);
+    if (!prev || !state.is(GameState.FLYING)) return;
+    const dx = e.clientX - prev.x; const dy = e.clientY - prev.y;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinchDist) session.cameras.zoom((pinchDist - d) * 3);
+      pinchDist = d;
+    } else {
+      session.cameras.drag(dx, dy);
     }
   });
-  const endDrag = () => { dragging = false; session.cameras.head.dragging = false; };
+  const endDrag = (e) => {
+    pointers.delete(e.pointerId);
+    pinchDist = 0;
+    if (!pointers.size) session.cameras.head.dragging = false;
+  };
   canvas.addEventListener('pointerup', endDrag);
   canvas.addEventListener('pointercancel', endDrag);
-  document.addEventListener('pointerlockchange', () => {
-    session.cameras.head.locked = document.pointerLockElement === canvas;
-    if (session.cameras.head.locked) flightHud.showToast('Mouse captured · Esc to release');
-  });
   canvas.addEventListener('wheel', (e) => {
     if (!state.is(GameState.FLYING)) return;
     e.preventDefault();

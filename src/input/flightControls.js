@@ -112,6 +112,12 @@ export class FlightControls {
     this.#toast(ap.at ? `Autothrottle on: ${ap.ias} kt` : 'Autothrottle off');
   }
 
+  /** Throttle from an on-screen slider: all engines, or the selected one in per-engine mode. */
+  setThrottle(value) {
+    if (this.autopilot.at) { this.autopilot.at = false; this.#toast('Autothrottle off: throttle moved'); }
+    this.#setSelected(clamp(value, 0, 1));
+  }
+
   /** Set a flap detent directly (the HUD flap lever uses this). */
   setFlaps(stage) {
     const m = this.model;
@@ -308,6 +314,13 @@ export class FlightControls {
       if (pad.axes.leftX !== 0) roll = pad.axes.leftX;
       if (pad.axes.rightX !== 0) yaw = pad.axes.rightX;
     }
+    const touch = input.touch;
+    if (input.enabled && touch.yoke) { // the on-screen yoke: pull back (finger down) = pull up
+      const invert = this.settings.get('touchInvertPitch') ? -1 : 1;
+      pitch = clamp(touch.pitch * invert, -1, 1);
+      roll = clamp(touch.roll, -1, 1);
+    }
+    if (input.enabled && touch.rudder) yaw = clamp(touch.yaw, -1, 1);
     this.waypoints.update(m);
     if (this.waypoints.active) this.autopilot.nav = this.waypoints.active; // NAV mode follows the route
     // The autopilot flies the stick while it is engaged (the pilot's stick only disconnects it).

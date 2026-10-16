@@ -639,7 +639,14 @@ export function revolve(profile, segs = 24) {
   const pts = profile.map(([x, r]) => new THREE.Vector2(Math.max(r, 0.0004), x));
   const geo = new THREE.LatheGeometry(pts, segs);
   geo.rotateZ(-Math.PI / 2);
-  // After the rotation the lathe seam sits on -Y/+Z; normals face outward for descending-x profiles.
+  // LatheGeometry faces outward for ascending-x profiles (checked on 2026-10-16: descending ones came out inside-out, e.g.
+  // every propeller spinner and the pitot probes). Make both orders outward: flip winding and normals for descending x.
+  if (profile.length > 1 && profile[0][0] > profile[profile.length - 1][0]) {
+    flipWinding(geo);
+    const n = geo.attributes.normal;
+    for (let i = 0; i < n.count; i++) n.setXYZ(i, -n.getX(i), -n.getY(i), -n.getZ(i));
+  }
+  // After the rotation the lathe seam sits on -Y/+Z.
   geo.computeBoundingSphere();
   return std(geo);
 }

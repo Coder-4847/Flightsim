@@ -271,7 +271,8 @@ export class Terrain {
   #trim() {
     if (this.tiles.size < 420) return;
     for (const [key, tile] of this.tiles) {
-      if (this.frame - tile.lastUsed > 900 && !this.visible.has(tile)) {
+      // Coarse tiles (level 2 and up) stay cached: they are the stand-ins that cover a hole while a finer tile is built.
+      if (tile.level < 2 && this.frame - tile.lastUsed > 900 && !this.visible.has(tile)) {
         this.onTileDisposed?.(tile);
         tile.mesh.geometry.dispose();
         this.tiles.delete(key);

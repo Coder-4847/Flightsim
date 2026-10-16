@@ -98,6 +98,7 @@ export class Weather {
     this.clusters = [];
     this.lastCell = { x: 1e9, z: 1e9 };
     this.inCloud = 0;
+    this.inPuff = 0;
     this.baseVisibility = 60000;
 
     // ---- cumulus billboards -----------------------------------------------------------
@@ -407,25 +408,32 @@ export class Weather {
     du.uFogFar.value = this.env.scene.fog.far;
     this.deck.position.set(cam.x, p.deck > 0 ? this.groundRef + p.base : 0, cam.z);
 
-    // Flying through cloud: whiteout. Inside the stratus deck or close to a cumulus puff.
+    // Flying through cloud. A solid layer (stratus deck in overcast, rain, storm and snow) is a real whiteout: the view
+    // closes in to a few hundred metres. A scattered cumulus puff only hazes the view a little (it used to whiteout too,
+    // so at cruise altitude the whole world faded out and came back every time a puff drifted by, which looked like a
+    // rendering glitch).
     let inside = 0;
     if (p.deck > 0.5) {
       const y0 = this.groundRef + p.base;
       const y1 = y0 + p.thickness;
       if (cam.y > y0 && cam.y < y1) inside = Math.min(smoothstep(y0, y0 + 60, cam.y), smoothstep(y1, y1 - 120, cam.y));
     }
+    let puff = 0;
     for (const c of this.clusters) {
       const dx = cam.x - c.x;
       const dz = cam.z - c.z;
       if (dx * dx + dz * dz > c.size * c.size) continue;
       const d = Math.hypot(dx, (cam.y - (c.y + c.size * 0.3)) * 2.2, dz);
-      inside = Math.max(inside, 1 - smoothstep(c.size * 0.2, c.size * 0.55, d));
+      puff = Math.max(puff, 1 - smoothstep(c.size * 0.2, c.size * 0.55, d));
     }
     this.inCloud += (inside - this.inCloud) * (1 - Math.exp(-dt * 1.5));
+    this.inPuff += (puff - this.inPuff) * (1 - Math.exp(-dt * 0.8));
     // Ground fog: visibility collapses close to the surface.
     // (the ground-fog preset uses a thin haze layer: see Environment.setFogHeight)
     let vis = this.baseVisibility;
     vis = vis + (260 - vis) * this.inCloud;
+    // A puff costs at most 40% of the visibility and never takes it below 6 km (unless the weather itself is worse).
+    vis = Math.max(Math.min(vis, 6000), vis * (1 - 0.4 * this.inPuff));
     this.env.setVisibility(Math.max(120, vis));
     this.currentVisibility = vis;
 

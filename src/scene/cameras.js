@@ -29,6 +29,7 @@ export class CameraSystem {
     this.cinematicAngle = 0;
     this.reduceMotion = false;
     this.smoothPos = new THREE.Vector3();
+    this.smoothOffset = new THREE.Vector3();
     this.initialised = false;
     this.pose = { pos: new THREE.Vector3(), quat: new THREE.Quaternion() };
     this.aircraftRadius = 8;
@@ -138,10 +139,13 @@ export class CameraSystem {
       // Camera sits behind (+Z in camera-forward -Z terms) and above the aircraft.
       _offset.set(0, 0, c.distance).applyQuaternion(_quat);
       _target.copy(pos);
-      _pos.copy(_target).add(_offset);
-      _pos.y += c.distance * 0.06;
-      if (this.initialised) this.smoothPos.lerp(_pos, 1 - Math.exp(-dt * 12));
-      else this.smoothPos.copy(_pos);
+      _offset.y += c.distance * 0.06;
+      // Smooth the camera's offset from the aircraft, never its world position: smoothing the world position lags
+      // by speed/rate metres, and that lag changes with every frame-time wobble, which made the aircraft (and so the
+      // whole scene) shake on screen at fighter speeds.
+      if (this.initialised) this.smoothOffset.lerp(_offset, 1 - Math.exp(-dt * 12));
+      else this.smoothOffset.copy(_offset);
+      this.smoothPos.copy(_target).add(this.smoothOffset);
       cam.position.copy(this.smoothPos);
       _m.lookAt(cam.position, _target, _up);
       cam.quaternion.setFromRotationMatrix(_m);

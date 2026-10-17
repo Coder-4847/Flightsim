@@ -125,7 +125,7 @@ export function createZones(map) {
       // Dry lakebeds: very flat ground at the basin floor.
       special = lm.bed * smoothstep(0.02, 0.006, slope);
       a1 = lm.wadi;
-      a2 = lm.dune;
+      a2 = lm.dune * (1 - urban);
       a3 = smoothstep(0.5, 0.7, nF.fbm(x / 260 + 20, z / 260, 3)) * (1 - lm.dune * 0.8) * (1 - special) * smoothstep(0.35, 0.12, slope) * (0.25 + 0.75 * Math.max(lm.wadi * 1.6, smoothstep(0.45, 0.62, nR.fbm(x / 3000 + 5, z / 3000, 3))));
     }
     if (runs) {

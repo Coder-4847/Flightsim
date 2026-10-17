@@ -343,6 +343,7 @@ export function buildMap(id) {
   const hf = createHeightfield(cfg, { rivers, lakes });
 
   const cities = generateCities(cfg, hf, rng);
+  hf.setCities(cities.filter((c) => c.kind !== 'village'));
   if (cfg.biome === 'desert') {
     // Oasis ponds beside the oasis towns.
     cities.filter((c) => c.kind === 'town').slice(0, cfg.lakes.count).forEach((c) => {

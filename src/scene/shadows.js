@@ -51,15 +51,20 @@ export class ShadowRig {
     const agl = Math.max(0, camera.position.y - groundY);
     const lightEl = env.lightDir.y;
     const day = env.sunElevation > 0.07 && env.dayAmt > 0.2;
-    const strength = enabledHint && day ? (1 - 0.9 * env.cloudDim) * Math.min(1, (lightEl - 0.05) * 6) : 0;
-    this.active = strength > 0.02 && agl < 3200;
+    const fade = Math.min(1, Math.max(0, (3200 - agl) / 700)); // shadows fade out with height instead of switching off
+    const strength = enabledHint && day ? (1 - 0.9 * env.cloudDim) * Math.min(1, (lightEl - 0.05) * 6) * fade : 0;
+    this.active = strength > 0.02;
     this.renderer.shadowMap.autoUpdate = this.active;
     if (!this.active && !this.primed) { this.renderer.shadowMap.needsUpdate = true; this.primed = true; } // allocate the map once
     if (this.active) this.primed = true;
     sun.shadow.intensity = this.active ? strength : 0;
     if (!this.active) return;
 
-    const R = Math.min(2600, Math.max(260, agl * 0.9 + 330));
+    // The box size moves in steps (a geometric ladder with hysteresis): a radius that follows the height continuously
+    // rescales the shadow map every frame, so every shadow edge crawls while the aircraft climbs or descends.
+    const want = Math.min(2600, Math.max(260, agl * 0.9 + 330));
+    let R = this.radius;
+    if (!R || want > R * 1.12 || want < R / 1.5) R = Math.min(2600, Math.max(260, 260 * 1.3 ** Math.ceil(Math.log(want / 260) / Math.log(1.3))));
     this.radius = R;
     // Centre ahead of the camera on the ground (the part of the world actually seen).
     camera.getWorldDirection(_fwd);

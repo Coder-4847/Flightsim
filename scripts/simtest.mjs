@@ -99,7 +99,7 @@ function landing(spec, sinkTarget = 150, assist = 'light') {
       if (spec.fcs) {
         // Fly-by-wire: the stick commands load factor, so control the sink rate directly.
         const sinkTgt = agl > 25 ? glideFpm : -(120 + agl * 4);
-        m.controls.pitch = Math.max(-0.15, Math.min(0.25, (sinkTgt - tel.vsFpm) * 0.0003));
+        m.controls.pitch = Math.max(-0.15, Math.min(0.25, (sinkTgt - tel.vsFpm) * 0.00005));
       } else {
         m.controls.pitch = Math.max(-1, Math.min(1, spec.mass.ref > 3500 ? (pitchTarget - tel.pitch) * 0.6 - tel.pitchRate * 0.5 : (pitchTarget - tel.pitch) * 0.2 - tel.pitchRate * 0.6));
       }

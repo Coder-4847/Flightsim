@@ -147,10 +147,21 @@ export function createHeightfield(config, features) {
   const { rivers, lakes } = features;
   let airports = [];
   let pits = [];
+  let pads = []; // flat building plots under the cities, set once the city sites are known
 
   // Terrain including rivers and lakes but not airport pads.
-  const carved = (x, z) => {
+  const makeCarved = (withPads) => (x, z) => {
     let h = base(x, z);
+    // Cities stand on level ground: the terrain eases onto a flat plot under the built-up area (before rivers and lakes
+    // are cut, so those still carve through the blend).
+    for (let i = 0; withPads && i < pads.length; i++) {
+      const c = pads[i];
+      const dx = x - c.x;
+      const dz = z - c.z;
+      if (dx > c.outer || dx < -c.outer || dz > c.outer || dz < -c.outer) continue;
+      const d = Math.sqrt(dx * dx + dz * dz);
+      if (d < c.outer) h = lerp(c.elevation, h, smoothstep(c.flat, c.outer, d));
+    }
     if (rivers) {
       const r = rivers.nearest(x, z);
       if (r.dist < r.w * 9) {
@@ -188,8 +199,12 @@ export function createHeightfield(config, features) {
     return h;
   };
 
+  // `carved` (no city plots) is what the site search and airport elevations use, so the layout of cities and airports
+  // does not depend on the plots; `height` is the real ground.
+  const carved = makeCarved(false);
+  const carvedWithPads = makeCarved(true);
   const height = (x, z) => {
-    let h = carved(x, z);
+    let h = carvedWithPads(x, z);
     for (let i = 0; i < airports.length; i++) {
       const a = airports[i];
       const dx = x - a.x;
@@ -205,6 +220,22 @@ export function createHeightfield(config, features) {
   return {
     base, carved, height, rivers, lakes,
     setAirports(list) { airports = list; },
+    /** Level the ground under cities: [{ x, z, radius }]. The plot height is the mean of the natural terrain across the city. */
+    setCities(list) {
+      pads = [];
+      list.forEach((c) => {
+        let sum = base(c.x, c.z);
+        let n = 1;
+        for (const f of [0.4, 0.8]) {
+          for (let k = 0; k < 8; k++) {
+            const a = k * 0.785 + f;
+            sum += base(c.x + Math.cos(a) * c.radius * f, c.z + Math.sin(a) * c.radius * f);
+            n++;
+          }
+        }
+        pads.push({ x: c.x, z: c.z, elevation: sum / n, flat: c.radius * 1.05, outer: c.radius * (c.kind === 'major' ? 2.2 : 2.0) });
+      });
+    },
     setPits(list) { pits = list; },
   };
 }

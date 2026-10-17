@@ -388,6 +388,7 @@ export class FlightModel {
       p, q, r, alpha: air.alpha, beta: air.beta, bank: bankAngle, pitch: pitchAngle,
       pathAngle: Math.asin(clamp(this.vel.y / Math.max(this.vel.length(), 1), -1, 1)),
       qbar: air.qbar, tas: air.tas, alphaStall: air.alphaStall,
+      nz: air.nz, onGround: this.gear.weightOnWheels,
     }, this.assist, c.trim);
     const ctl = spec.controls;
     const surf = this.surfaces;

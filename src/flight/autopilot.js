@@ -46,6 +46,10 @@ export class Autopilot {
       vsDown: fighter ? 4000 : heavy ? 2500 : 1500,
       pitchMax: fighter ? 18 : heavy ? 12 : 12,
       kRoll: fbw ? 0.06 : heavy ? 0.06 : 0.05,
+      // Fly-by-wire pitch: the stick adds load factor (up to nzMax - 1 g one way, 1 - nzMin the other), and 1 g of extra
+      // load changes the vertical speed by about 9.81 m/s per second, so size the gain for a ~2.5 s vertical-speed time constant.
+      kVsUp: 1 / (2.5 * 9.81 * 196.85 * Math.max((spec.fcs?.nzMax ?? 9) - 1, 1)),
+      kVsDown: 1 / (2.5 * 9.81 * 196.85 * Math.max(1 - (spec.fcs?.nzMin ?? -3), 1)),
       // Upgraded aircraft (progress/tuning.js) respond more strongly to the same stick or throttle: scale the gains back.
       thrustK: 1 / (spec.tuneRatio?.thrust ?? 1),
       controlK: 1 / (spec.tuneRatio?.control ?? 1),
@@ -193,7 +197,8 @@ export class Autopilot {
     if (prof.fbw) this.out.roll = clamp((bankT - tel.bank) * 0.012, -0.5, 0.5); // the stick commands a roll rate: aim to close the error in ~0.5 s
     else this.out.roll = clamp((bankT - tel.bank) * prof.kRoll - tel.rollRate * 0.006, -0.5, 0.5);
     if (prof.fbw) {
-      this.out.pitch = clamp((vsT - tel.vsFpm) * 0.00025, -0.25, 0.3);
+      const vsErr = vsT - tel.vsFpm;
+      this.out.pitch = clamp(vsErr * (vsErr > 0 ? prof.kVsUp : prof.kVsDown), -0.35, 0.4);
     } else {
       // The integral term removes the steady vertical-speed error a proportional pitch loop leaves.
       const vsErr = vsT - tel.vsFpm;

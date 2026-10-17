@@ -72,33 +72,58 @@ export class FlightControlSystem {
     return out;
   }
 
-  /** Fly-by-wire: pitch stick commands load factor, roll stick commands roll rate. */
+  /**
+   * Fly-by-wire: pitch stick commands load factor, roll stick commands roll rate.
+   *
+   * Pitch is a two-loop law. The inner loop tracks a body pitch rate computed from the commanded load
+   * factor (pure kinematics, no singularities at any bank angle). The outer loop integrates the error
+   * between commanded and MEASURED load factor straight into the elevator, so the achieved g matches the
+   * command at every speed and a centred stick really holds the flight path: it does not drift nose-up as
+   * the aircraft accelerates (the old law only controlled pitch rate, so lift grew with speed squared).
+   */
   #fbw(dt, input, s, assist, out) {
     const f = this.spec.fcs;
     const sched = clamp(Q_REF / Math.max(s.qbar, 800), 0.25, 3);
     const protect = assist !== 'off';
+    const airborne = !s.onGround && s.tas > 50;
 
-    // Neutral stick holds the flight path: the load factor that keeps gamma-dot at zero in the
-    // current bank is cos(gamma)/cos(phi). The stick adds to that, up to the g limits.
-    const cosBank = Math.max(Math.cos(s.bank), 0.34);
-    const nzHold = Math.cos(s.pathAngle) / cosBank;
-    const nzCmd = input.pitch >= 0
+    // Load factor that keeps the flight path straight with the stick centred: cos(gamma)/cos(phi). Beyond 60
+    // degrees of bank that would demand ever more g, so it fades out to zero g at the knife edge and carries
+    // on, negative, through inverted flight (level inverted flight is -1 g).
+    const cosB = Math.cos(s.bank);
+    const cosG = Math.cos(s.pathAngle);
+    const hold = Math.abs(cosB) >= 0.5 ? 1 / cosB : 4 * cosB;
+    const nzHold = clamp(cosG * hold, f.nzMin, f.nzMax);
+    let nzCmd = input.pitch >= 0
       ? nzHold + input.pitch * (f.nzMax - nzHold)
       : nzHold + input.pitch * (nzHold - f.nzMin);
-    const v = Math.max(s.tas, 40);
-    // Body pitch rate for the commanded flight-path rate, plus the pitch rate a banked turn needs.
-    let qCmd = (G / v) * ((nzCmd * cosBank - Math.cos(s.pathAngle)) / cosBank + Math.sin(s.bank) * Math.tan(s.bank));
-    if (protect) {
-      // Angle-of-attack limiter: fade out nose-up command as alpha nears the limit.
-      const aLim = f.alphaLimit * DEG;
-      if (s.alpha > aLim * 0.8) {
-        const room = clamp((aLim - s.alpha) / (aLim * 0.2), -1, 1);
-        qCmd = Math.min(qCmd, room * 0.5 - 0.25 * (1 - room));
-      }
+    if (protect && airborne && nzCmd > s.nz && s.nz > 0.3) {
+      // Angle-of-attack limiter: lift grows with (alpha - alpha0), so the g available at the limit angle is the
+      // measured g scaled by the angle ratio. Capping the command there keeps alpha at the limit smoothly,
+      // looking a fifth of a second ahead so a fast pull-up is caught in time.
+      const alpha0 = -2 * DEG;
+      const aPred = s.alpha + 0.2 * Math.max(s.q, 0);
+      const nzAtLimit = s.nz * (f.alphaLimit * DEG - alpha0) / Math.max(aPred - alpha0, 0.05);
+      nzCmd = Math.min(nzCmd, nzAtLimit);
     }
-    const err = qCmd - s.q;
-    this.integrator = clamp(this.integrator + err * dt * 0.25 * sched, -0.3, 0.3);
-    out.elevator = clamp(f.kq * sched * err + this.integrator - 0.05 * s.q, -1, 1);
+    const v = Math.max(s.tas, 40);
+    // Body pitch rate that makes the aircraft's normal acceleration nzCmd: (g/V) (nz - cos(gamma) cos(phi)).
+    const qCmd = (G / v) * (nzCmd - cosG * cosB);
+    const nzErr = airborne ? nzCmd - s.nz : 0;
+    const err = qCmd + (G / v) * (f.knz ?? 1.2) * nzErr - s.q; // proportional load-factor feedback speeds the response up
+    let elevator = f.kq * sched * err - 0.05 * s.q;
+    if (airborne) {
+      // Outer loop: integrate the load-factor error into the elevator (effectiveness follows dynamic pressure).
+      // Anti-windup: stop integrating while the elevator is already at its stop in the direction of the error.
+      const total = elevator + this.integrator;
+      if (!((total >= 1 && nzErr > 0) || (total <= -1 && nzErr < 0))) {
+        this.integrator = clamp(this.integrator + nzErr * dt * (f.ki ?? 0.5) * sched, -0.85, 0.85);
+      }
+    } else {
+      this.integrator *= 1 - Math.min(1, dt * 0.5); // on the ground the elevator is the pilot's alone
+    }
+    elevator += this.integrator;
+    out.elevator = clamp(elevator, -1, 1);
 
     const pMax = f.rollRate * DEG * clamp(1.2 - s.alpha / (20 * DEG), 0.35, 1);
     out.aileron = clamp(f.kp * sched * (input.roll * pMax - s.p), -1, 1);

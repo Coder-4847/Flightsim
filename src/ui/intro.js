@@ -1,4 +1,5 @@
 import { h } from './dom.js';
+import { logoMark } from './icons.js';
 
 // The opening title: the mark and name fade in over the animated sky, then hand over to the main
 // menu. Any key, click or controller button skips it. With "Reduce motion" it never appears.
@@ -6,8 +7,8 @@ import { h } from './dom.js';
 export function createIntro({ settings, onDone }) {
   const el = h('section.intro-screen', { 'aria-label': 'Flight Sim' },
     h('div.intro-card',
-      h('span.intro-mark', '▲'),
-      h('h1', 'FLIGHT SIM'),
+      logoMark(72),
+      h('h1', 'FLIGHT', h('span', ' SIM')),
       h('p.intro-tag', 'Three maps · fourteen aircraft · one sky'),
       h('p.intro-skip', 'Press any key to begin')));
   let finished = false;

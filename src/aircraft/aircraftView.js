@@ -40,7 +40,8 @@ export function hasModel(id) {
 const _axisQuat = new THREE.Quaternion();
 
 export class AircraftView {
-  constructor(spec, createCockpit) {
+  /** `opts.detail` (HIGH, MEDIUM or LOW) builds just that one level instead of all three (the hangar showroom uses this). */
+  constructor(spec, createCockpit, opts = {}) {
     this.spec = spec;
     this.createCockpit = createCockpit;
     this.root = new THREE.Group();
@@ -49,7 +50,7 @@ export class AircraftView {
     this.rigs = [];
     const length = spec.geometry.length;
     // Distances at which each level takes over (metres from the camera).
-    const levels = [[HIGH, 0], [MEDIUM, length * 8], [LOW, length * 28]];
+    const levels = opts.detail !== undefined ? [[opts.detail, 0]] : [[HIGH, 0], [MEDIUM, length * 8], [LOW, length * 28]];
     for (const [detail, distance] of levels) {
       const { group, rig } = BUILDERS[spec.id](spec, this.mats, detail);
       this.lod.addLevel(group, distance);

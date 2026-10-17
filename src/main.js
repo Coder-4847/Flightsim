@@ -1,4 +1,5 @@
 import './style.css';
+import './theme.css';
 import { GameLoop } from './core/loop.js';
 import { GameState, StateMachine } from './core/stateMachine.js';
 import { watchModes } from './game/modes.js';
@@ -24,7 +25,7 @@ import { createAboutScreen } from './ui/aboutScreen.js';
 import { createIntro } from './ui/intro.js';
 import { createMapSelect } from './ui/mapSelect.js';
 import { createMapScreen } from './ui/mapScreen.js';
-import { createMenuBackground } from './ui/menuBackground.js';
+import { createStage } from './ui/stage/stage.js';
 import { createNavigator } from './ui/navigation.js';
 import { createModeSelect } from './ui/modeSelect.js';
 import { createSavesScreen } from './ui/savesScreen.js';
@@ -143,7 +144,17 @@ function boot() {
     onSelect: (mapId) => { setupScreen.setMap(mapId); openScreen('setup'); },
     onBack: () => openScreen('modes'),
   });
-  const setupScreen = createFlightSetup({ settings, saves, onFly: startFlight, onBack: () => { mapScreen.refresh(); screens.show('maps'); }, onShop: () => openScreen('shop') });
+  // The 3D backdrop of every menu (main-menu scene and hangar showroom); one canvas behind the UI.
+  let setupRef = null;
+  let stage = null;
+  try {
+    stage = createStage({ settings, liveryFor: (id) => setupRef?.liveryOf?.(id) ?? 'factory' });
+    document.getElementById('app').insertBefore(stage.canvas, uiRoot);
+  } catch (err) {
+    console.warn('3D menu backdrop unavailable', err); // the menus still work on a plain background
+  }
+  const setupScreen = createFlightSetup({ settings, saves, stage, onFly: startFlight, onBack: () => { mapScreen.refresh(); screens.show('maps'); }, onShop: () => openScreen('shop') });
+  setupRef = setupScreen;
 
   // Pilots and saves can be opened from anywhere; `afterPilot` continues what the player was doing.
   let savesReturn = 'modes';
@@ -161,7 +172,7 @@ function boot() {
   const begin = (plan) => needPilot('modes', () => launch(plan));
 
   screenEls.main = screens.register('main', createMainMenu({
-    saves,
+    saves, stage, onPilots: () => openSaves('main'),
     onStart: () => openScreen('modes'),
     onContinue: () => openScreen('modes'),
     onSettings: () => openSettings('main'),
@@ -210,13 +221,16 @@ function boot() {
     chart.openChart();
   };
   screens.register('settings', settingsScreen);
-  // Animated backdrop behind the menus: moving on the main menu, a still frame behind the others.
-  const menuBg = createMenuBackground({ settings });
-  document.getElementById('app').insertBefore(menuBg.canvas, uiRoot);
-  const BACKDROP = new Set(['main', 'about', 'modes', 'saves', 'shop', 'career', 'vip', 'emergency', 'maps', 'setup']);
+  // The 3D stage behind the menus: the cinematic scene on the main menu (moved right to leave room for it), the same scene at 30 fps
+  // behind the other screens, the hangar showroom behind aircraft selection, nothing while flying.
+  const BACKDROP = new Set(['main', 'about', 'modes', 'saves', 'shop', 'career', 'vip', 'emergency', 'maps', 'settings']);
   screens.onShow = (name) => {
     const menuState = state.is(GameState.MENU);
-    menuBg.show(menuState && BACKDROP.has(name), name === 'main');
+    if (!stage) return;
+    if (!menuState) { stage.show(null); return; }
+    if (name === 'setup') stage.show('hangar');
+    else if (BACKDROP.has(name)) stage.show('menu', { shift: name === 'main' && window.innerWidth / window.innerHeight > 1.15 ? 0.17 : 0, fps: name === 'main' ? 60 : 30 });
+    else stage.show(null);
   };
   const intro = createIntro({ settings, onDone: () => screens.show('main') });
   uiRoot.append(intro);
@@ -500,5 +514,5 @@ function boot() {
   loop.start();
 
   // Handle for debugging and automated playtests.
-  window.__flightsim = { state, settings, bindings, input, scene: flightScene, session, setupScreen, startFlight, hud: flightHud, saves, runner, launch, screens, openScreen, showDebrief, audio, engineSound };
+  window.__flightsim = { stage, state, settings, bindings, input, scene: flightScene, session, setupScreen, startFlight, hud: flightHud, saves, runner, launch, screens, openScreen, showDebrief, audio, engineSound };
 }

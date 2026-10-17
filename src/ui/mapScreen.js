@@ -140,7 +140,7 @@ export function createMapScreen({ getSession, onClose }) {
         }
       }
       const r = a.cls === 'hub' ? 7 : a.cls === 'regional' ? 6 : 5;
-      ctx.fillStyle = '#ffb02e'; ctx.strokeStyle = '#1a1100'; ctx.lineWidth = 1.5;
+      ctx.fillStyle = '#3cc0ff'; ctx.strokeStyle = '#1a1100'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(sx, sz - r); ctx.lineTo(sx + r, sz); ctx.lineTo(sx, sz + r); ctx.lineTo(sx - r, sz); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#fff1d6'; ctx.font = 'bold 12px sans-serif'; ctx.fillText(a.code, sx + r + 4, sz - 2);
       ctx.fillStyle = 'rgba(255,241,214,0.7)'; ctx.font = '10px sans-serif'; if (k > 0.02) ctx.fillText(a.name, sx + r + 4, sz + 10);

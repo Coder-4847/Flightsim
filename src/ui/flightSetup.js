@@ -1,15 +1,13 @@
 import { AIRCRAFT } from '../aircraft/index.js';
-import { hasModel } from '../aircraft/aircraftView.js';
 import { START_MODES } from '../game/startPoints.js';
 import { loadJSON, saveJSON } from '../storage/store.js';
 import { buildMap } from '../world/mapBuilder.js';
 import { MAPS } from '../world/maps.js';
-import { createAircraftPreview } from './aircraftPreview.js';
+import { icon } from './icons.js';
 import { h } from './dom.js';
 import { SETTINGS_SCHEMA } from '../storage/settings.js';
 import { ECONOMY, liveriesFor, specWithLivery } from '../progress/catalog.js';
 import { createPilotBar, credits } from './pilotBar.js';
-import { MAX_UPGRADES, specWithTuning, totalLevels } from '../progress/tuning.js';
 
 // The hangar and flight setup screen: aircraft, airport and runway, start position, time of
 // day and sky. The last choices are remembered between visits.
@@ -33,34 +31,231 @@ export const SKY_OPTIONS = [
 
 const formatHour = (hour) => `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.round((hour % 1) * 60)).padStart(2, '0')}`;
 
-export function createFlightSetup({ settings, saves, onFly, onBack, onShop }) {
+
+const CLASS_TINT = { 'Light prop': '#7ee0a8', Turboprop: '#7ee0a8', 'Jet trainer': '#ffcf6b', 'Business jet': '#8fb6ff', Airliner: '#3cc0ff', Fighter: '#ff7a8a' };
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+
+/** Five comparable ratings (0..1 bars plus a display value) derived from the aircraft data. */
+export function aircraftStats(spec) {
+  const mtow = spec.mass.empty + spec.mass.payload + spec.mass.fuelCapacity;
+  const e = spec.engines.spec;
+  const n = spec.engines.positions.length;
+  const thrust = e.thrust ? e.thrust * n : ((e.power * (e.propEfficiency ?? 0.8)) / 55) * n;
+  const twr = thrust / (mtow * 9.81);
+  const v = spec.speeds.cruise * 0.5144;
+  const a = spec.aero;
+  const roll = spec.fcs?.rollRate ?? (((a.clDa * spec.controls.aileron * (Math.PI / 180)) / -a.clp) * (2 * v)) / spec.wing.span * (180 / Math.PI);
+  return [
+    { label: 'Top speed', v: clamp01((spec.limits.vne / 750) ** 0.8), text: `${spec.limits.vne} kt` },
+    { label: 'Power', v: clamp01(twr / 1.15), text: `${twr.toFixed(2)} T/W` },
+    { label: 'Agility', v: clamp01((roll / 350) ** 0.8), text: `${Math.round(roll)}°/s` },
+    { label: 'Capacity', v: clamp01(Math.log(spec.cockpit.seats + 1) / Math.log(401)), text: `${spec.cockpit.seats} seat${spec.cockpit.seats === 1 ? '' : 's'}` },
+    { label: 'Short field', v: clamp01(1 - (spec.minRunway - 400) / 3200), text: `${fmtInt(spec.minRunway)} m` },
+  ];
+}
+const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
+
+export function createFlightSetup({ settings, saves, stage, onFly, onBack, onShop }) {
   let kind = 'quick'; // 'quick' (sandbox, everything unlocked) or 'free' (owned aircraft, earns money)
+  let step = 'hangar'; // 'hangar' (3D aircraft choice) or 'options' (airport, start, time, sky, mode)
   const saved = loadJSON('flightsetup', {}) ?? {};
   const state = {
     aircraftId: saved.aircraftId ?? 'cessna172', mapId: saved.mapId ?? 'grasslands', airportCode: saved.airportCode ?? null,
     endId: saved.endId ?? null, startMode: saved.startMode ?? 'runway', hour: saved.hour ?? 12, sky: saved.sky ?? 'clear',
     quickLiveries: saved.quickLiveries ?? {},
   };
+  const persist = () => saveJSON('flightsetup', state);
+  const fmt = fmtInt;
+  const indexOf = (id) => Math.max(0, AIRCRAFT.findIndex((a) => a.id === id));
 
-  const aircraftGrid = h('div.aircraft-grid.compact');
+  // ---- shared bits ----
+  const pilot = createPilotBar(saves);
+  const shopBtn = h('button.btn.small', { type: 'button', onclick: () => onShop?.() }, icon('cart', 16), 'Shop');
+  const mapTitle = h('span.setup-map');
+  const title = h('h2');
+
+  // ================= step 1: the hangar =================
+  const owns = (id) => kind !== 'free' || !saves.active || saves.ownsAircraft(id);
+  const currentLivery = () => liveryOf(state.aircraftId);
+  const liveryOf = (id) => (kind === 'free' && saves.active ? saves.equippedLivery(id) : state.quickLiveries[id] ?? 'factory');
+
+  const chip = h('span.hg-chip');
+  const nameEl = h('h3.hg-name');
+  const makerEl = h('p.hg-maker');
+  const blurbEl = h('p.hg-blurb');
+  const statsEl = h('div.hg-stats');
+  const specEl = h('dl.hg-spec');
+  const card = h('div.hg-card', chip, nameEl, makerEl, blurbEl, statsEl, specEl);
+
+  const paintRow = h('div.hg-paints', { role: 'group', 'aria-label': 'Paint scheme' });
+  const paintName = h('p.hg-paint-name');
+  const ownEl = h('div.hg-own');
+  const pickBtn = h('button.btn.primary.hg-cta', { type: 'button', onclick: () => goOptions() }, 'Select aircraft', icon('arrowR', 18));
+  const shopBtn2 = h('button.btn.small', { type: 'button', onclick: () => onShop?.() }, icon('cart', 15), 'Open shop');
+  const side = h('div.hg-side', h('div.hg-label', 'Paint scheme'), paintRow, paintName, ownEl, shopBtn2, pickBtn);
+
+  const prev = h('button.hg-arrow.prev', { type: 'button', 'aria-label': 'Previous aircraft', onclick: () => stepBy(-1) }, icon('chevL', 26));
+  const next = h('button.hg-arrow.next', { type: 'button', 'aria-label': 'Next aircraft', onclick: () => stepBy(1) }, icon('chevR', 26));
+  const loadingEl = h('div.hg-loading', 'Rolling out the aircraft…');
+
+  const rail = h('div.hg-rail', { role: 'listbox', 'aria-label': 'Aircraft' });
+  const tabs = AIRCRAFT.map((spec, i) => {
+    const tint = CLASS_TINT[spec.class] ?? '#52d2ff';
+    const lockIco = h('span.tab-lock', { hidden: true }, icon('lock', 11));
+    const tab = h('button.hg-tab', { type: 'button', role: 'option', dataset: { id: spec.id }, style: `--tint:${tint}`,
+      onclick: () => selectIndex(i), onfocus: () => { if (step === 'hangar' && i !== stage?.hangar.index) selectIndex(i); }, ondblclick: () => goOptions() },
+    h('span.hg-tab-name', spec.name), h('span.hg-tab-class', spec.class, lockIco));
+    tab.lock = lockIco;
+    rail.append(tab);
+    return tab;
+  });
+  const hint = h('p.hg-hint', 'Drag to look around · ', h('kbd', '←'), ' ', h('kbd', '→'), ' or the scroll wheel to browse · ', h('kbd', 'Enter'), ' to select');
+
+  const hangarLayer = h('div.hg-layer.browse',
+    h('header.hg-top',
+      h('button.btn.small', { type: 'button', onclick: () => onBack() }, icon('arrowL', 16), 'Back'),
+      h('div.hg-title', h('span.hg-kicker', 'Hangar'), title, mapTitle),
+      pilot, shopBtn),
+    h('div.hg-mid', card, prev, next, loadingEl, side),
+    h('div.hg-bottom', rail, hint));
+
+  function paintStats(spec) {
+    const tint = CLASS_TINT[spec.class] ?? '#52d2ff';
+    card.style.setProperty('--tint', tint);
+    chip.style.setProperty('--tint', tint);
+    side.style.setProperty('--tint', tint);
+    chip.textContent = spec.class;
+    nameEl.textContent = spec.name;
+    makerEl.textContent = spec.maker;
+    blurbEl.textContent = spec.blurb;
+    statsEl.replaceChildren(...aircraftStats(spec).map((s) => {
+      const fill = h('div.hg-stat-fill');
+      requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = `${Math.round(s.v * 100)}%`; }));
+      return h('div.hg-stat', h('span.hg-stat-label', s.label), h('div.hg-stat-track', fill), h('span.hg-stat-val', s.text));
+    }));
+    const mtow = spec.mass.empty + spec.mass.payload + spec.mass.fuelCapacity;
+    specEl.replaceChildren(...[
+      ['Engines', `${spec.engines.positions.length} × ${spec.engines.spec.type}`],
+      ['Max weight', `${fmt(mtow)} kg`],
+      ['Wingspan', `${spec.wing.span.toFixed(1)} m`],
+      ['Length', `${spec.geometry.length.toFixed(1)} m`],
+      ['Cruise', `${spec.speeds.cruise} kt`],
+      ['Stall (landing)', `${spec.flaps.stages.at(-1).vs} kt`],
+    ].flatMap(([k, v]) => [h('dt', k), h('dd', v)]));
+  }
+
+  function paintLivery() {
+    const list = liveriesFor(state.aircraftId);
+    paintRow.replaceChildren(...list.map((l) => {
+      const have = kind !== 'free' || !saves.active || saves.ownsLivery(state.aircraftId, l.id);
+      const spec = specWithLivery(state.aircraftId, l.id);
+      const b = h('button.hg-paint', {
+        type: 'button', dataset: { id: l.id }, disabled: !have, title: have ? l.name : `${l.name}: ${credits(l.price)} in the shop`, 'aria-label': l.name,
+        style: `--c1:${cssColor(spec.livery.base)};--c2:${cssColor(spec.livery.stripe ?? spec.livery.belly ?? spec.livery.base)}`,
+        onclick: () => {
+          if (kind === 'free' && saves.active) saves.equipLivery(state.aircraftId, l.id); else { state.quickLiveries[state.aircraftId] = l.id; persist(); }
+          paintLivery();
+          stage?.hangar.setLivery(state.aircraftId);
+        },
+      });
+      b.classList.toggle('on', currentLivery() === l.id);
+      return b;
+    }));
+    const cur = list.find((l) => l.id === currentLivery()) ?? list[0];
+    paintName.textContent = cur.id === 'factory' ? 'Factory livery' : cur.name;
+  }
+
+  function paintOwnership() {
+    const free = kind === 'free';
+    pilot.hidden = !free;
+    shopBtn.hidden = !free;
+    tabs.forEach((tab, i) => { tab.lock.hidden = !(free && saves.active && !saves.ownsAircraft(AIRCRAFT[i].id)); });
+    const locked = !owns(state.aircraftId);
+    const price = ECONOMY[state.aircraftId]?.price;
+    pickBtn.disabled = locked || (free && !saves.active);
+    shopBtn2.hidden = !(free && locked);
+    ownEl.className = 'hg-own';
+    ownEl.replaceChildren();
+    if (!free) { ownEl.append(icon('check', 16), 'Quick Flight: every aircraft is unlocked'); ownEl.classList.add('ok'); }
+    else if (!saves.active) { ownEl.append(icon('user', 16), 'Choose a pilot to fly Free Flight'); }
+    else if (locked) { ownEl.append(icon('lock', 16), `Not owned yet · ${price ? credits(price) : 'free'} in the shop`); ownEl.classList.add('lock'); }
+    else { ownEl.append(icon('check', 16), 'In your hangar'); ownEl.classList.add('ok'); }
+  }
+
+  function paintAircraft() {
+    const stock = AIRCRAFT[indexOf(state.aircraftId)];
+    paintStats(stock);
+    paintLivery();
+    paintOwnership();
+    tabs.forEach((t) => {
+      const on = t.dataset.id === state.aircraftId;
+      t.classList.toggle('on', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const i = indexOf(state.aircraftId);
+    prev.disabled = i <= 0;
+    next.disabled = i >= AIRCRAFT.length - 1;
+    tabs[i]?.scrollIntoView?.({ inline: 'center', block: 'nearest' });
+    loadingEl.classList.toggle('on', !!stage && !stage.hangar.ready && step === 'hangar');
+    paintOptionsHeader();
+  }
+
+  function selectIndex(i) {
+    const idx = Math.max(0, Math.min(AIRCRAFT.length - 1, i));
+    state.aircraftId = AIRCRAFT[idx].id;
+    persist();
+    stage?.hangar.select(idx);
+    paintAircraft();
+    paintRunways();
+  }
+  function stepBy(n) { selectIndex(indexOf(state.aircraftId) + n); }
+  stage?.hangar.onLoad(() => { loadingEl.classList.toggle('on', !stage.hangar.ready && step === 'hangar'); });
+
+  // Drag to orbit, wheel to browse.
+  let drag = null;
+  hangarLayer.addEventListener('pointerdown', (e) => {
+    if (step !== 'hangar' || e.target.closest('.hg-card, .hg-side, .hg-arrow, .hg-rail, .hg-top, .hg-hint, button')) return;
+    drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    hangarLayer.setPointerCapture?.(e.pointerId);
+    stage?.hangar.setDragging(true);
+  });
+  hangarLayer.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    stage?.hangar.orbit(e.clientX - drag.x, e.clientY - drag.y);
+    drag.x = e.clientX; drag.y = e.clientY;
+  });
+  const endDrag = (e) => { if (drag && e.pointerId === drag.id) { drag = null; stage?.hangar.setDragging(false); } };
+  hangarLayer.addEventListener('pointerup', endDrag);
+  hangarLayer.addEventListener('pointercancel', endDrag);
+  let wheelAt = 0;
+  hangarLayer.addEventListener('wheel', (e) => {
+    if (step !== 'hangar' || e.target.closest('.hg-card, .hg-side')) return;
+    e.preventDefault();
+    if (e.ctrlKey) { stage?.hangar.zoom(e.deltaY); return; }
+    const now = performance.now();
+    if (now - wheelAt < 320 || Math.abs(e.deltaY) + Math.abs(e.deltaX) < 4) return;
+    wheelAt = now;
+    stepBy((Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) > 0 ? 1 : -1);
+  }, { passive: false });
+
+  // ================= step 2: flight options =================
   const airportList = h('div.airport-list');
-  const runwayRow = h('div.segmented.wrap', { role: 'group' });
+  const runwayRow = h('div.chip-row', { role: 'group' });
   const runwayInfo = h('p.help');
-  const startRow = h('div.segmented', { role: 'group' });
+  const startRow = h('div.chip-row', { role: 'group' });
   const startHint = h('p.help');
-  const timeRow = h('div.segmented', { role: 'group' });
+  const timeRow = h('div.chip-row', { role: 'group' });
   const hourSlider = h('input', { type: 'range', min: 0, max: 23.9, step: 0.1, value: state.hour, 'aria-label': 'Hour of day' });
   const hourLabel = h('span.range-value', formatHour(state.hour));
-  const skyRow = h('div.segmented.wrap', { role: 'group' });
-  const mapTitle = h('span.setup-map');
-  const liveryRow = h('div.segmented.wrap', { role: 'group', 'aria-label': 'Paint scheme' });
-  const ownNote = h('p.help');
-  const pilot = createPilotBar(saves);
-  const shopBtn = h('button.btn.small', { onclick: () => onShop?.() }, 'Shop');
-  const flyBtn = h('button.btn.small.primary', { onclick: () => fly() }, 'Fly');
+  const skyRow = h('div.chip-row', { role: 'group' });
   const modeRow = h('div.segmented', { role: 'group' });
   const modeHint = h('p.help');
   const systemList = h('div.system-list');
+  const optNote = h('p.help');
+  const flyBtn = h('button.btn.primary', { type: 'button', onclick: () => fly() }, icon('play', 16), 'Fly');
+  const optName = h('h3.hg-name');
+  const optMeta = h('p.hg-maker');
+  const optChip = h('span.hg-chip');
   const PRESET_HINTS = {
     arcade: 'Single throttle, automatic flaps and gear, no ATC or checklists, a simple approach guide.',
     simulation: 'Per-engine throttle, manual flaps and gear, full ATC, systems, checklists and failures.',
@@ -89,78 +284,20 @@ export function createFlightSetup({ settings, saves, onFly, onBack, onShop }) {
   }
   settings.on('change', ({ key }) => { if (key === 'preset' || key.startsWith('sys_')) paintMode(); });
 
-  const persist = () => saveJSON('flightsetup', state);
-  const preview = createAircraftPreview();
-  const specSheet = h('dl.spec-sheet');
-  const specName = h('div.preview-name');
-  const specBlurb = h('p.help');
-
-  const fmt = (n) => Math.round(n).toLocaleString('en-US');
-  function paintPreview() {
-    const stock = AIRCRAFT.find((a) => a.id === state.aircraftId) ?? AIRCRAFT[0];
-    const levels = kind === 'free' && saves.active ? saves.tuningFor(stock.id) : {};
-    const spec = specWithTuning(stock, levels);
-    if (hasModel(spec.id)) preview.set(specWithLivery(spec.id, currentLivery()));
-    specName.replaceChildren(h('strong', spec.name), h('span', ` ${spec.maker}`));
-    specBlurb.textContent = spec.blurb;
-    const mtow = spec.mass.empty + spec.mass.payload + spec.mass.fuelCapacity;
-    const rows = [
-      ['Engines', `${spec.engines.positions.length} × ${spec.engines.spec.type}${spec.tanks ? ` · ${spec.tanks.length} fuel tanks` : ''}`],
-      ['Max weight', `${fmt(mtow)} kg`],
-      ['Wingspan', `${spec.wing.span.toFixed(1)} m`],
-      ['Length', `${spec.geometry.length.toFixed(1)} m`],
-      ['Cruise', `${spec.speeds.cruise} kt${spec.limits.mmo ? ` · Mach ${spec.limits.mmo.toFixed(2)} max` : ''}`],
-      ['Stall (landing)', `${spec.flaps.stages.at(-1).vs} kt`],
-      ['Runway', `${fmt(spec.minRunway)} m or more`],
-      ['Seats', `${spec.cockpit.seats}`],
-      ...(kind === 'free' && saves.active ? [['Upgrades', `${totalLevels(levels)} of ${MAX_UPGRADES} fitted (Shop > Upgrades)`]] : []),
-    ];
-    specSheet.replaceChildren(...rows.flatMap(([k, v]) => [h('dt', k), h('dd', v)]));
-  }
-
-  const owns = (id) => kind !== 'free' || !saves.active || saves.ownsAircraft(id);
-  const currentLivery = () => (kind === 'free' && saves.active ? saves.equippedLivery(state.aircraftId) : state.quickLiveries[state.aircraftId] ?? 'factory');
-
-  function paintLivery() {
-    liveryRow.replaceChildren(...liveriesFor(state.aircraftId).map((l) => {
-      const have = kind !== 'free' || !saves.active || saves.ownsLivery(state.aircraftId, l.id);
-      const b = h('button', {
-        type: 'button', dataset: { id: l.id }, disabled: !have && kind === 'free' && !!saves.active,
-        title: have ? l.name : `${l.name}: ${credits(l.price)} in the shop`,
-        onclick: () => {
-          if (kind === 'free' && saves.active) saves.equipLivery(state.aircraftId, l.id); else { state.quickLiveries[state.aircraftId] = l.id; persist(); }
-          paintLivery(); paintPreview();
-        },
-      }, l.id === 'factory' ? 'Factory' : l.name);
-      b.classList.toggle('on', currentLivery() === l.id);
-      return b;
-    }));
-  }
-
-  function paintOwnership() {
-    const free = kind === 'free';
-    pilot.hidden = !free;
-    shopBtn.hidden = !free;
-    aircraftGrid.querySelectorAll('button').forEach((b) => {
-      const id = b.dataset.id;
-      b.classList.toggle('locked', !owns(id));
-      const price = b.querySelector('.ac-price');
-      price.textContent = free && saves.active ? (owns(id) ? 'Owned' : `🔒 ${ECONOMY[id].price ? credits(ECONOMY[id].price) : 'Free'}`) : '';
-    });
+  function paintOptionsHeader() {
+    const spec = AIRCRAFT[indexOf(state.aircraftId)];
+    optName.textContent = spec.name;
+    optMeta.textContent = spec.maker;
+    optChip.textContent = spec.class;
+    optChip.style.setProperty('--tint', CLASS_TINT[spec.class] ?? '#52d2ff');
     const locked = !owns(state.aircraftId);
-    flyBtn.disabled = locked || (free && !saves.active);
-    ownNote.textContent = free
+    flyBtn.disabled = locked || (kind === 'free' && !saves.active);
+    optNote.textContent = kind === 'free'
       ? !saves.active ? 'Choose a pilot to fly Free Flight.' : locked ? `You do not own this aircraft yet: ${credits(ECONOMY[state.aircraftId].price)} in the shop.` : 'Landings at airports pay for distance, passengers or cargo, touchdown quality and sights seen.'
       : 'Quick Flight: every aircraft is available and nothing is earned.';
-    ownNote.classList.toggle('warn', free && locked);
+    optNote.classList.toggle('warn', kind === 'free' && locked);
   }
 
-  function paintAircraft() {
-    aircraftGrid.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === state.aircraftId));
-    paintPreview();
-    paintLivery();
-    paintOwnership();
-  }
   function paintAirports() {
     airportList.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.code === state.airportCode));
   }
@@ -171,8 +308,8 @@ export function createFlightSetup({ settings, saves, onFly, onBack, onShop }) {
     if (!airport) return;
     for (const rw of airport.runways) {
       for (const end of rw.ends) {
-        runwayRow.append(h('button', {
-          type: 'button', className: end.id === state.endId ? 'on' : '', dataset: { id: end.id },
+        runwayRow.append(h('button.opt-chip', {
+          type: 'button', className: `opt-chip${end.id === state.endId ? ' on' : ''}`, dataset: { id: end.id },
           onclick: () => { state.endId = end.id; persist(); paintRunways(); },
         }, `${end.id}${end.ils ? ' · ILS' : ''}`));
       }
@@ -223,30 +360,12 @@ export function createFlightSetup({ settings, saves, onFly, onBack, onShop }) {
     paintRunways();
   }
 
-  // Aircraft grouped by class.
-  const classes = [...new Set(AIRCRAFT.map((a) => a.class))];
-  for (const cls of classes) {
-    aircraftGrid.append(h('h4.class-head', cls));
-    for (const spec of AIRCRAFT.filter((a) => a.class === cls)) {
-      const enabled = hasModel(spec.id);
-      aircraftGrid.append(h('button.aircraft-card', {
-        type: 'button', dataset: { id: spec.id }, disabled: !enabled,
-        onclick: () => { state.aircraftId = spec.id; persist(); paintAircraft(); paintRunways(); },
-        ondblclick: () => enabled && owns(spec.id) && fly(),
-      },
-      h('span.ac-name', spec.name),
-      h('span.ac-price'),
-      h('span.ac-blurb', spec.maker),
-      h('span.ac-stats',
-        h('span', `${spec.engines.positions.length} × ${spec.engines.spec.type}`),
-        h('span', `Vs ${spec.flaps.stages.at(-1).vs} kt · Vne ${spec.limits.vne} kt`))));
-    }
-  }
-
-  for (const m of START_MODES) startRow.append(h('button', { type: 'button', dataset: { id: m.id }, onclick: () => { state.startMode = m.id; persist(); paintStart(); } }, m.label));
-  for (const t of TIME_PRESETS) timeRow.append(h('button', { type: 'button', dataset: { id: t.id }, onclick: () => { state.hour = t.hour; persist(); paintTime(); } }, t.label));
+  const SKY_ICON = { clear: 'sun', scattered: 'cloud', overcast: 'cloud', rain: 'cloud', storm: 'alert', fog: 'cloud', snow: 'cloud' };
+  const TIME_ICON = { dawn: 'sun', day: 'sun', dusk: 'moon', night: 'moon' };
+  for (const m of START_MODES) startRow.append(h('button.opt-chip', { type: 'button', dataset: { id: m.id }, onclick: () => { state.startMode = m.id; persist(); paintStart(); } }, m.label));
+  for (const t of TIME_PRESETS) timeRow.append(h('button.opt-chip', { type: 'button', dataset: { id: t.id }, onclick: () => { state.hour = t.hour; persist(); paintTime(); } }, icon(TIME_ICON[t.id], 15), t.label));
   hourSlider.addEventListener('input', () => { state.hour = Number(hourSlider.value); persist(); paintTime(); });
-  for (const s of SKY_OPTIONS) skyRow.append(h('button', { type: 'button', dataset: { id: s.id }, onclick: () => { state.sky = s.id; persist(); paintSky(); } }, s.label));
+  for (const s of SKY_OPTIONS) skyRow.append(h('button.opt-chip', { type: 'button', dataset: { id: s.id }, onclick: () => { state.sky = s.id; persist(); paintSky(); } }, icon(SKY_ICON[s.id], 15), s.label));
 
   function fly() {
     persist();
@@ -258,48 +377,91 @@ export function createFlightSetup({ settings, saves, onFly, onBack, onShop }) {
     });
   }
 
-  const row = (label, ...controls) => h('div.setup-row', h('span.setup-label', label), h('div.setup-controls', ...controls));
-  const el = h('section.select-screen',
-    h('div.select-card.wide',
-      h('header.settings-head',
-        h('div.setup-title', h('h2', 'Hangar and flight setup'), mapTitle),
-        h('div.head-actions', pilot, shopBtn, h('button.btn.small', { onclick: onBack }, 'Back'), flyBtn),
+  const section = (ico, label, ...body) => h('section.opt-section', h('h3', icon(ico, 15), label), ...body);
+  const optionsLayer = h('div.hg-layer.opt-layer',
+    h('header.hg-top',
+      h('button.btn.small', { type: 'button', onclick: () => goHangar() }, icon('arrowL', 16), 'Change aircraft'),
+      h('div.hg-title', h('span.hg-kicker', 'Flight setup'), h('h2.opt-title'), h('span.setup-map.opt-map'))),
+    h('div.opt-panel',
+      h('div.opt-aircraft', h('div.opt-aircraft-text', optName, optMeta), optChip),
+      h('div.opt-scroll',
+        section('map', 'Airport', airportList, runwayRow, runwayInfo),
+        section('plane', 'Start', startRow, startHint),
+        section('clock', 'Time of day', h('div.opt-time', timeRow, h('div.range', hourSlider, hourLabel))),
+        section('cloud', 'Sky', skyRow),
+        section('settings', 'Game mode', modeRow, modeHint, h('details.system-details', h('summary', 'Customize systems'), systemList)),
       ),
-      h('div.setup-body',
-        h('section.setup-col', h('h3', 'Aircraft'), aircraftGrid),
-        h('section.setup-col',
-          h('div.preview-card', preview.canvas, h('div.preview-info', specName, specBlurb, specSheet)),
-          row('Paint', liveryRow), ownNote,
-          h('h3', 'Airport'), airportList,
-          row('Runway', runwayRow), runwayInfo,
-          row('Start', startRow), startHint,
-          row('Time', timeRow, h('div.range', hourSlider, hourLabel)),
-          row('Sky', skyRow),
-          h('h3', 'Game mode'), row('Mode', modeRow), modeHint,
-          h('details.system-details', h('summary', 'Customize systems'), systemList),
-        ),
-      ),
-    ),
-  );
+      h('div.opt-foot', optNote, h('span.spacer'), flyBtn)));
+  optNote.style.flex = '1';
+
+  const el = h('section.select-screen.hangar-screen', hangarLayer, optionsLayer);
+  const optTitle = optionsLayer.querySelector('.opt-title');
+  const optMap = optionsLayer.querySelector('.opt-map');
+
+  function layers() {
+    hangarLayer.classList.toggle('on', step === 'hangar');
+    optionsLayer.classList.toggle('on', step === 'options');
+    stage?.hangar.setFraming(step === 'options' ? 'setup' : 'browse');
+    hangarLayer.inert = step !== 'hangar';
+    optionsLayer.inert = step !== 'options';
+  }
+  function goOptions() {
+    if (pickBtn.disabled) return;
+    step = 'options';
+    layers();
+    paintOptionsHeader();
+    requestAnimationFrame(() => flyBtn.focus({ preventScroll: true }));
+  }
+  function goHangar() {
+    step = 'hangar';
+    layers();
+    requestAnimationFrame(() => tabs[indexOf(state.aircraftId)]?.focus({ preventScroll: true }));
+  }
+
+  const mapName = () => MAPS[state.mapId].name;
+  function retitle() {
+    const t = kind === 'free' ? 'Free Flight' : 'Quick Flight';
+    title.textContent = t;
+    mapTitle.textContent = `${mapName()} · choose your aircraft`;
+    optTitle.textContent = t;
+    if (optMap) optMap.textContent = mapName();
+  }
 
   el.setMap = (mapId) => {
     state.mapId = mapId;
-    mapTitle.textContent = MAPS[mapId].name;
     persist();
+    retitle();
     buildAirportList();
     paintAircraft(); paintStart(); paintTime(); paintSky();
   };
   el.state = state;
+  el.liveryOf = liveryOf;
   /** 'quick' for the sandbox, 'free' for Free Flight (owned aircraft, earns money). */
   el.setKind = (next) => {
     kind = next;
-    el.querySelector('.setup-title h2').textContent = next === 'free' ? 'Free Flight: hangar and setup' : 'Quick Flight: hangar and setup';
     if (next === 'free' && saves.active && !saves.ownsAircraft(state.aircraftId)) state.aircraftId = saves.active.aircraft[0];
+    retitle();
     paintAircraft();
   };
-  saves.on('change', () => { if (el.classList.contains('active')) paintAircraft(); });
+  /** Called by the screen manager each time the screen is shown: back to the 3D hangar with the saved aircraft up front. */
+  el.onShow = () => {
+    step = 'hangar';
+    layers();
+    stage?.hangar.select(indexOf(state.aircraftId), { instant: true });
+    stage?.hangar.warm();
+    paintAircraft();
+    requestAnimationFrame(() => tabs[indexOf(state.aircraftId)]?.focus({ preventScroll: true }));
+  };
+  saves.on('change', () => { if (el.classList.contains('active')) { paintAircraft(); paintLivery(); } });
   paintMode();
-  preview.start();
+  retitle();
   paintAircraft(); paintStart(); paintTime(); paintSky();
+  layers();
   return el;
+}
+
+/** CSS colour from a livery value (hex string or number). */
+function cssColor(c) {
+  if (typeof c === 'number') return `#${c.toString(16).padStart(6, '0')}`;
+  return c ?? '#888';
 }

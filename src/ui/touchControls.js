@@ -25,9 +25,9 @@ export function isTouchDevice() {
 const YOKE_SVG = `<svg viewBox="0 0 200 200" aria-hidden="true">
   <rect x="92" y="96" width="16" height="104" rx="8" fill="#2a2825" stroke="#0a0908" stroke-width="2"/>
   <path d="M30 64 Q30 120 62 120 L138 120 Q170 120 170 64 L170 50 Q170 36 156 36 L146 36 Q132 36 132 50 L132 76 L68 76 L68 50 Q68 36 54 36 L44 36 Q30 36 30 50 Z" fill="#3a3733" stroke="#0a0908" stroke-width="3"/>
-  <rect x="38" y="30" width="30" height="46" rx="12" fill="#17161a" stroke="#ffb02e" stroke-width="2"/>
-  <rect x="132" y="30" width="30" height="46" rx="12" fill="#17161a" stroke="#ffb02e" stroke-width="2"/>
-  <circle cx="100" cy="98" r="11" fill="#ffb02e" stroke="#1a1100" stroke-width="2"/>
+  <rect x="38" y="30" width="30" height="46" rx="12" fill="#17161a" stroke="#3cc0ff" stroke-width="2"/>
+  <rect x="132" y="30" width="30" height="46" rx="12" fill="#17161a" stroke="#3cc0ff" stroke-width="2"/>
+  <circle cx="100" cy="98" r="11" fill="#3cc0ff" stroke="#1a1100" stroke-width="2"/>
 </svg>`;
 
 export function createTouchControls(hud, input, settings) {

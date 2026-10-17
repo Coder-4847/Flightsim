@@ -19,5 +19,6 @@ export class ScreenManager {
     this.current = name;
     this.onShow?.(name);
     for (const [id, el] of this.#screens) el.classList.toggle('active', id === name);
+    if (name) this.#screens.get(name)?.onShow?.();
   }
 }

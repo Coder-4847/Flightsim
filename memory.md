@@ -106,7 +106,7 @@ User request: "Improve the UI, the main menu, the plane selection screen, everyt
 ### Limits and ideas
 - Not seen on a real GPU or with a real mouse/touch; the cloud sea and hangar lighting were tuned from software-GL screenshots only. Cloud sprites still read a little hazy; a real volumetric or layered cloud shader would be nicer.
 - The hangar has no floor reflections and the unselected aircraft are only lit by the room lights; the first view of each jet builds textures (up to about 1 s on a slow CPU) while the camera glides.
-- Not done: CrazyGames SDK integration (ad breaks, gameplay start/stop events, no external links), sound on menu hover, a settings preview, a shop redesign beyond the new tokens, localisation. Memory budget on phones with several aircraft and the stage open was not measured.
+- Publishing: the user first mentioned CrazyGames but then said (same day) they do not actually want to publish, so no CrazyGames SDK work is planned (it would be ad breaks, gameplay start/stop events, no external links). Not done: sound on menu hover, a settings preview, a shop redesign beyond the new tokens, localisation. Memory budget on phones with several aircraft and the stage open was not measured.
 
 ## Fighter fly-by-wire rewrite and city plots (2026-10-17)
 User's report (paraphrased): only fighters tested so far; they keep pitching up and trying to fly upward with no key pressed; in perfectly sideways "knife" flight the aircraft tweaks out, especially while holding W or S; check all aircraft for such issues; the big desert city is modelled on hilly terrain, should be flat; the world keeps jittering, glitching and phasing in and out; fighters not agile enough; test all aircraft, fix bugs, update this file, push, deploy.

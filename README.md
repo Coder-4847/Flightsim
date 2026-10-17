@@ -14,6 +14,7 @@ npm run dev                     # local dev server
 npm run build                   # static bundle in dist/
 node scripts/simtest.mjs        # headless flight-model checks (all aircraft, or pass an id)
 node scripts/kbtest.mjs         # keyboard-pilot takeoff check
+node scripts/handsoff.mjs       # hands-off drift and knife-edge checks (all aircraft, or pass an id)
 node scripts/modetest.mjs       # economy, saves, aircraft upgrades, missions, VIP, seeded emergencies and full mode flows
 node scripts/tuningtest.mjs     # every aircraft stock vs fully upgraded (take-off, climb, top speed, roll, brakes)
 ```

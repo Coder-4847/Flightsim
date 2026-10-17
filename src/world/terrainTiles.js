@@ -240,8 +240,11 @@ export class Terrain {
     }
     need.sort((p, q) => p.dist - q.dist);
     let built = 0;
+    const started = performance.now();
     for (const item of need) {
-      if (built >= budget) break;
+      // One tile costs 15-30 ms on a slow CPU: never start a second one in a frame that has already spent its share
+      // (the loading screen passes a bigger budget and is not time-boxed).
+      if (built >= budget || (budget <= this.buildsPerFrame && built > 0 && performance.now() - started > 6)) break;
       const key = Terrain.key(item.n.level, item.n.ix, item.n.iz);
       if (this.tiles.has(key)) continue;
       this.build(item.n);
